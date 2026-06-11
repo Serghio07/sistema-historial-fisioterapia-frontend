@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { useSearchParams } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { ClipboardCheck, Download, Eye, FilePenLine, Plus, Printer, Save, TableProperties, Trash2 } from 'lucide-react';
@@ -29,6 +31,7 @@ const initialForm = {
 function PlanillasAtencion() {
   const { isAdmin } = useAuth();
   const printRef = useRef(null);
+  const [searchParams] = useSearchParams();
   const [pacientes, setPacientes] = useState([]);
   const [planillas, setPlanillas] = useState([]);
   const [form, setForm] = useState(initialForm);
@@ -38,6 +41,7 @@ function PlanillasAtencion() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const pacienteInicialId = searchParams.get('paciente_id');
 
   const pacienteSeleccionado = useMemo(
     () => pacientes.find((paciente) => Number(paciente.id) === Number(form.paciente_id)),
@@ -53,6 +57,14 @@ function PlanillasAtencion() {
       const [pacientesData, planillasData] = await Promise.all([getPacientes(), getPlanillasAtencion()]);
       setPacientes(pacientesData);
       setPlanillas(planillasData);
+      if (pacienteInicialId && !form.paciente_id) {
+        const paciente = pacientesData.find((item) => Number(item.id) === Number(pacienteInicialId));
+        setForm((current) => ({
+          ...current,
+          paciente_id: pacienteInicialId,
+          diagnostico: current.diagnostico || paciente?.referencia || ''
+        }));
+      }
     } catch (err) {
       setError(`${err.message}. Si la tabla no existe, ejecuta backend/docs/planillas-atencion-migration.sql.`);
     } finally {
@@ -165,7 +177,6 @@ function PlanillasAtencion() {
     const root = document.createElement('div');
     wrapper.appendChild(root);
 
-    const { createRoot } = await import('react-dom/client');
     const pdfRoot = createRoot(root);
     pdfRoot.render(<PlanillaDocumento planilla={planilla} paciente={planilla?.paciente || pacienteSeleccionado} />);
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -292,7 +303,9 @@ function PlanillasAtencion() {
               <h3 className="mb-4 text-lg font-bold text-ink">Planillas generadas</h3>
               <Table
                 columns={['Paciente', 'Inicio', 'Fin', 'Dx', 'Sesiones', 'Acciones']}
-                rows={planillas.map((planilla) => [
+                rows={planillas
+                  .filter((planilla) => !pacienteInicialId || Number(planilla.paciente_id || planilla.paciente?.id) === Number(pacienteInicialId))
+                  .map((planilla) => [
                   nombrePaciente(planilla.paciente),
                   formatDate(planilla.fecha_inicio),
                   formatDate(planilla.fecha_fin),
