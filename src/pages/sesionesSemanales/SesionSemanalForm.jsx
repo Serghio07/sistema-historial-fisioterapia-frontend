@@ -1,4 +1,4 @@
-import { CalendarDays, Save } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ClipboardList, Pill, Save } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 
@@ -24,7 +24,7 @@ function SesionSemanalForm({ form, setForm, pacientes, editing, onSubmit, onCanc
     <form onSubmit={onSubmit} className="grid gap-5">
       {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
 
-      <div className="rounded-xl border border-brand-100 bg-brand-50 p-4">
+      <div className="rounded-lg border border-brand-100 bg-gradient-to-br from-brand-50 to-white p-4 shadow-sm">
         <div className="mb-4 flex items-center gap-2 text-brand-800">
           <CalendarDays size={19} />
           <h3 className="font-black">Datos de la semana</h3>
@@ -59,13 +59,18 @@ function SesionSemanalForm({ form, setForm, pacientes, editing, onSubmit, onCanc
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <h3 className="mb-3 font-black text-ink">Control por dia</h3>
+      <div className="rounded-lg border border-slate-200 bg-white/90 p-4 shadow-sm">
+        <div className="mb-3 flex items-center gap-2 text-ink">
+          <ClipboardList size={19} className="text-brand-600" />
+          <h3 className="font-black">Control por dia</h3>
+        </div>
         <div className="grid gap-3 md:grid-cols-3">
           {dias.map((dia) => (
             <label
               key={dia}
-              className="flex min-h-12 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 transition hover:border-brand-200 hover:bg-brand-50"
+              className={`flex min-h-12 items-center gap-3 rounded-lg border px-4 text-sm font-bold transition ${
+                form[dia] ? 'border-brand-100 bg-brand-50 text-brand-800 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-brand-100 hover:bg-brand-50'
+              }`}
             >
               <input
                 type="checkbox"
@@ -73,27 +78,31 @@ function SesionSemanalForm({ form, setForm, pacientes, editing, onSubmit, onCanc
                 checked={Boolean(form[dia])}
                 onChange={(e) => update(dia, e.target.checked ? 'Si' : '')}
               />
+              {form[dia] && <CheckCircle2 size={16} className="text-brand-600" />}
               {dia.charAt(0).toUpperCase() + dia.slice(1)}
             </label>
           ))}
         </div>
       </div>
 
-      <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_2fr]">
-        <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700">
+      <div className="grid gap-4 rounded-lg border border-slate-200 bg-white/90 p-4 shadow-sm md:grid-cols-[1fr_2fr]">
+        <label className={`flex min-h-12 items-center gap-3 rounded-lg border px-3 text-sm font-bold transition ${
+          form.aplica_farmacos ? 'border-blue-100 bg-blue-50 text-blue-800' : 'border-slate-200 bg-slate-50 text-slate-700'
+        }`}>
           <input
             type="checkbox"
             className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
             checked={Boolean(form.aplica_farmacos)}
             onChange={(e) => update('aplica_farmacos', e.target.checked)}
           />
+          <Pill size={17} />
           Aplica farmacos
         </label>
         <Input label="Observacion" value={form.observacion} onChange={(e) => update('observacion', e.target.value)} multiline />
       </div>
 
       {selectedPaciente && (
-        <div className="rounded-xl border border-brand-100 bg-white p-4 text-sm text-slate-600">
+        <div className="rounded-lg border border-brand-100 bg-brand-50/60 p-4 text-sm text-slate-600">
           Registro asociado a <strong className="text-ink">{`${selectedPaciente.nombres} ${selectedPaciente.apellidos || ''}`.trim()}</strong>.
         </div>
       )}

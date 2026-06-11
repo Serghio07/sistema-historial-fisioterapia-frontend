@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarRange, Eye, FilePenLine, PlusCircle, TableProperties, Trash2 } from 'lucide-react';
+import { CalendarCheck, CalendarRange, Eye, FilePenLine, Pill, PlusCircle, TableProperties, Trash2, WalletCards } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
@@ -44,6 +44,18 @@ function Detail({ label, value }) {
       <span className="block text-xs font-black uppercase text-slate-500">{label}</span>
       <strong className="mt-1 block text-sm font-semibold text-ink">{value || 'Sin dato'}</strong>
     </div>
+  );
+}
+
+function StatCard({ label, value, icon: Icon, tone }) {
+  return (
+    <article className={`rounded-lg border p-5 shadow-sm ${tone}`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-black uppercase">{label}</span>
+        <Icon size={22} />
+      </div>
+      <strong className="mt-3 block text-3xl text-ink">{value}</strong>
+    </article>
   );
 }
 
@@ -152,41 +164,34 @@ function SesionesSemanales() {
   return (
     <section className="grid gap-5">
       {loading && <Loader />}
-      <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-        <div className="grid gap-4 bg-gradient-to-r from-brand-900 to-brand-600 p-6 text-white md:grid-cols-[1fr_auto]">
+      <div className="overflow-hidden rounded-lg border border-white/60 bg-white shadow-soft">
+        <div className="grid gap-4 bg-gradient-to-r from-[#123f3f] via-brand-700 to-teal-500 p-6 text-white md:grid-cols-[1fr_auto]">
           <div>
             <p className="text-xs font-black uppercase text-brand-50">Planificacion semanal</p>
             <h2 className="mt-2 text-3xl font-black md:text-4xl">Sesiones Semanales</h2>
             <span className="mt-2 block text-sm text-brand-50">Registro por semana, paciente, dias de atencion, farmacos y deuda.</span>
           </div>
-          <CalendarRange size={54} className="self-center text-brand-50" />
+          <div className="grid h-20 w-20 place-items-center rounded-lg border border-white/25 bg-white/15 shadow-sm backdrop-blur">
+            <CalendarRange size={42} className="text-brand-50" />
+          </div>
         </div>
       </div>
 
       {message && <p className="notice">{message}</p>}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <span className="text-xs font-black uppercase text-brand-600">Pacientes</span>
-          <strong className="block text-3xl text-ink">{resumen.pacientesUnicos}</strong>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <span className="text-xs font-black uppercase text-brand-600">Con farmacos</span>
-          <strong className="block text-3xl text-ink">{resumen.conFarmacos}</strong>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <span className="text-xs font-black uppercase text-brand-600">Debe total Bs</span>
-          <strong className="block text-3xl text-ink">{resumen.deudaTotal.toFixed(2)}</strong>
-        </div>
+        <StatCard label="Pacientes" value={resumen.pacientesUnicos} icon={CalendarCheck} tone="border-emerald-100 bg-emerald-50/80 text-emerald-700" />
+        <StatCard label="Con farmacos" value={resumen.conFarmacos} icon={Pill} tone="border-blue-100 bg-blue-50/80 text-blue-700" />
+        <StatCard label="Debe total Bs" value={resumen.deudaTotal.toFixed(2)} icon={WalletCards} tone="border-amber-100 bg-amber-50/80 text-amber-700" />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 p-3">
+      <div className="overflow-hidden rounded-lg border border-white/70 bg-white/90 shadow-soft backdrop-blur">
+        <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50/80 p-3">
           <button
             type="button"
             onClick={() => setActivePanel('nuevo')}
             className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-black transition ${
-              activePanel === 'nuevo' ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-brand-50 hover:text-brand-700'
+              activePanel === 'nuevo' ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 shadow-sm hover:bg-brand-50 hover:text-brand-700'
             }`}
           >
             <PlusCircle size={17} />
@@ -196,7 +201,7 @@ function SesionesSemanales() {
             type="button"
             onClick={() => setActivePanel('registrados')}
             className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-black transition ${
-              activePanel === 'registrados' ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-brand-50 hover:text-brand-700'
+              activePanel === 'registrados' ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 shadow-sm hover:bg-brand-50 hover:text-brand-700'
             }`}
           >
             <TableProperties size={17} />
@@ -207,9 +212,12 @@ function SesionesSemanales() {
         <div className="p-4">
           {activePanel === 'nuevo' ? (
             <div>
-              <div className="mb-4">
-                <h3 className="text-lg font-bold text-ink">{editing ? 'Editar semana' : 'Nueva sesion semanal'}</h3>
-                <p className="text-sm text-slate-500">{pacientes.length} pacientes disponibles para seleccionar.</p>
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-100 bg-brand-50/70 p-4">
+                <div>
+                  <h3 className="text-lg font-bold text-ink">{editing ? 'Editar semana' : 'Nueva sesion semanal'}</h3>
+                  <p className="text-sm text-slate-500">{pacientes.length} pacientes disponibles para seleccionar.</p>
+                </div>
+                <CalendarRange className="text-brand-700" size={26} />
               </div>
               <SesionSemanalForm
                 form={form}
@@ -227,7 +235,7 @@ function SesionesSemanales() {
             </div>
           ) : (
             <div>
-              <div className="mb-4">
+              <div className="mb-4 rounded-lg border border-slate-200 bg-white/80 p-4">
                 <h3 className="text-lg font-bold text-ink">Registros semanales</h3>
                 <p className="text-sm text-slate-500">Control de atencion por paciente y semana.</p>
               </div>

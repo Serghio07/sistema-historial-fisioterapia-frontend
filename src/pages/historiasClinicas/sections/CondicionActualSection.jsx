@@ -37,7 +37,7 @@ function CondicionActualSection({ data, onChange }) {
                 type="button"
                 onClick={() => onChange('tipo_lesion', item.value)}
                 className={`rounded-lg border p-3 text-left transition ${
-                  data.tipo_lesion === item.value ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-brand-200'
+                  data.tipo_lesion === item.value ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-brand-100'
                 }`}
               >
                 <strong className="block text-lg">{item.value}</strong>

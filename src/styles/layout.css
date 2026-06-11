@@ -1,17 +1,17 @@
 .app-shell {
-    @apply min-h-screen bg-slate-100 lg:grid lg:grid-cols-[272px_minmax(0,1fr)];
+    @apply min-h-screen bg-transparent lg:grid lg:grid-cols-[292px_minmax(0,1fr)];
   }
 
   .sidebar {
-    @apply sticky top-0 flex h-screen flex-col gap-6 bg-brand-900 p-5 text-white max-lg:static max-lg:h-auto;
+    @apply sticky top-0 flex h-screen flex-col gap-6 border-r border-white/10 bg-[#103f3f] p-5 text-white shadow-2xl max-lg:static max-lg:h-auto;
   }
 
   .nav-link {
-    @apply flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-bold text-brand-50 transition hover:bg-white/10 hover:text-white;
+    @apply flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 text-sm font-bold text-brand-50 transition hover:bg-white/10 hover:text-white hover:shadow-sm;
   }
 
   .nav-link-active {
-    @apply bg-white/15 text-white;
+    @apply border border-white/35 bg-white/15 text-white shadow-sm;
   }
 
   .workspace {
@@ -19,7 +19,7 @@
   }
 
   .navbar {
-    @apply flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4;
+    @apply flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/70 bg-white/90 p-4 shadow-soft backdrop-blur;
   }
 
   .page-title {
@@ -39,11 +39,11 @@
   }
 
   .panel {
-    @apply rounded-lg border border-slate-200 bg-white p-5 shadow-sm;
+    @apply rounded-lg border border-white/70 bg-white/90 p-5 shadow-soft backdrop-blur;
   }
 
   .list-row {
-    @apply flex min-h-16 flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3;
+    @apply flex min-h-16 flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white/80 p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-md;
   }
 
   .list-row strong {
@@ -55,7 +55,7 @@
   }
 
   .empty-state {
-    @apply rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500;
+    @apply rounded-lg border border-dashed border-slate-300 bg-white/60 p-6 text-center text-sm text-slate-500;
   }
 
   .notice {

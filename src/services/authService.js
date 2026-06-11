@@ -5,6 +5,11 @@ export const loginRequest = async (credentials) => {
   return data;
 };
 
+export const registerRequest = async (payload) => {
+  const { data } = await api.post('/auth/register', payload);
+  return data;
+};
+
 export const saveSession = ({ token, usuario }) => {
   localStorage.setItem('physio_token', token);
   localStorage.setItem('physio_user', JSON.stringify(usuario));

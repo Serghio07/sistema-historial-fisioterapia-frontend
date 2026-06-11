@@ -15,6 +15,11 @@ export const updateUsuario = async (id, payload) => {
   return data;
 };
 
+export const updateUsuarioEstado = async (id, estado) => {
+  const { data } = await api.patch(`/usuarios/${id}/estado`, { estado });
+  return data;
+};
+
 export const deleteUsuario = async (id) => {
   const { data } = await api.delete(`/usuarios/${id}`);
   return data;

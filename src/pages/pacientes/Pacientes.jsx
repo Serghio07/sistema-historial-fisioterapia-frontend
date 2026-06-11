@@ -34,6 +34,10 @@ function Detail({ label, value }) {
   );
 }
 
+function initials(paciente) {
+  return `${paciente?.nombres?.[0] || ''}${paciente?.apellidos?.[0] || ''}`.toUpperCase() || 'P';
+}
+
 function Pacientes() {
   const { isAdmin } = useAuth();
   const [pacientes, setPacientes] = useState([]);
@@ -89,14 +93,14 @@ function Pacientes() {
     <section className="grid gap-5">
       {loading && <Loader />}
 
-      <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-        <div className="grid gap-4 bg-gradient-to-r from-brand-900 to-brand-600 p-6 text-white md:grid-cols-[1fr_auto]">
+      <div className="overflow-hidden rounded-lg border border-white/60 bg-white shadow-soft">
+        <div className="grid gap-4 bg-gradient-to-r from-[#123f3f] via-brand-700 to-brand-500 p-6 text-white md:grid-cols-[1fr_auto]">
           <div>
             <p className="text-xs font-black uppercase text-brand-50">Registro clinico</p>
             <h2 className="mt-2 text-3xl font-black md:text-4xl">Pacientes</h2>
             <span className="mt-2 block text-sm text-brand-50">Datos personales, contacto y referencia clinica.</span>
           </div>
-          <div className="rounded-lg bg-white/15 p-4 text-center">
+          <div className="rounded-lg border border-white/25 bg-white/15 p-4 text-center shadow-sm backdrop-blur">
             <Users className="mx-auto mb-1" size={24} />
             <strong className="block text-2xl">{pacientes.length}</strong>
             <span className="text-xs text-brand-50">Registrados</span>
@@ -108,12 +112,14 @@ function Pacientes() {
 
       <div className="grid gap-5 xl:grid-cols-[520px_1fr]">
         <div className="panel xl:sticky xl:top-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-brand-100 bg-brand-50/70 p-4">
             <div>
               <h3 className="text-lg font-bold text-ink">{editing ? 'Editar paciente' : 'Nuevo paciente'}</h3>
               <p className="text-sm text-slate-500">Completa los datos generales del paciente.</p>
             </div>
-            <UserRound className="text-brand-600" size={24} />
+            <div className="grid h-12 w-12 place-items-center rounded-lg bg-white text-brand-700 shadow-sm">
+              <UserRound size={24} />
+            </div>
           </div>
           <PacienteForm
             form={form}
@@ -132,7 +138,7 @@ function Pacientes() {
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <Search size={18} className="shrink-0 text-slate-500" />
               <input
-                className="w-full rounded-lg border-slate-300 text-sm focus:border-brand-500 focus:ring-brand-500"
+                className="w-full rounded-lg border-slate-200 bg-white/95 px-3 py-2.5 text-sm shadow-sm transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar paciente por nombre, CI o telefono"
@@ -143,21 +149,26 @@ function Pacientes() {
 
           <div className="grid gap-3">
             {filtered.map((paciente) => (
-              <article key={paciente.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:border-brand-300 hover:bg-white">
+              <article key={paciente.id} className="rounded-lg border border-slate-200 bg-white/85 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-100 hover:bg-white hover:shadow-md">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <strong className="block text-base text-ink">{nombrePaciente(paciente)}</strong>
-                    <div className="mt-2 flex flex-wrap gap-2 text-sm text-slate-600">
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2">
+                  <div className="flex min-w-0 gap-3">
+                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-brand-600 to-teal-500 text-sm font-black text-white shadow-sm">
+                      {initials(paciente)}
+                    </div>
+                    <div className="min-w-0">
+                      <strong className="block truncate text-base text-ink">{nombrePaciente(paciente)}</strong>
+                      <div className="mt-2 flex flex-wrap gap-2 text-sm text-slate-600">
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
                         <IdCard size={15} />
                         {paciente.ci || 'Sin CI'}
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2">
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
                         <Phone size={15} />
                         {paciente.telefono || 'Sin telefono'}
-                      </span>
-                      <span className="rounded-lg bg-white px-3 py-2">{paciente.edad ? `${paciente.edad} anios` : 'Sin edad'}</span>
-                      <span className="rounded-lg bg-white px-3 py-2">{paciente.sexo || 'Sin sexo'}</span>
+                        </span>
+                        <span className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">{paciente.edad ? `${paciente.edad} anios` : 'Sin edad'}</span>
+                        <span className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">{paciente.sexo || 'Sin sexo'}</span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-2">

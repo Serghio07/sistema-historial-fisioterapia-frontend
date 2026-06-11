@@ -34,7 +34,7 @@ function MarchaAssessment({ value, onChange }) {
             key={phase}
             onClick={() => toggle(phase)}
             className={`rounded-lg border p-3 text-left transition ${
-              selected.includes(phase) ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-brand-200'
+              selected.includes(phase) ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-brand-100'
             }`}
           >
             <div className="mb-2 flex h-20 items-end justify-center rounded bg-white">

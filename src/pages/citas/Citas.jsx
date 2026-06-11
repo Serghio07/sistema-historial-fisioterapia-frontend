@@ -34,7 +34,15 @@ const pacienteStyles = [
   'border-cyan-200 bg-cyan-50 text-cyan-900',
   'border-rose-200 bg-rose-50 text-rose-900',
   'border-lime-200 bg-lime-50 text-lime-900',
-  'border-indigo-200 bg-indigo-50 text-indigo-900'
+  'border-indigo-200 bg-indigo-50 text-indigo-900',
+  'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-900',
+  'border-sky-200 bg-sky-50 text-sky-900',
+  'border-teal-200 bg-teal-50 text-teal-900',
+  'border-yellow-200 bg-yellow-50 text-yellow-900',
+  'border-pink-200 bg-pink-50 text-pink-900',
+  'border-purple-200 bg-purple-50 text-purple-900',
+  'border-green-200 bg-green-50 text-green-900',
+  'border-red-200 bg-red-50 text-red-900'
 ];
 
 const emptyForm = {
@@ -174,6 +182,8 @@ function Citas() {
     return monthDays(cursor);
   }, [cursor, view]);
 
+  const miniDays = useMemo(() => monthDays(cursor), [cursor]);
+
   const citasPorFecha = useMemo(() => {
     return filteredCitas.reduce((data, cita) => {
       data[cita.fecha] = data[cita.fecha] || [];
@@ -300,67 +310,117 @@ function Citas() {
       )}
 
       {activeTab === 'calendario' && (
-        <div className="panel">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-bold text-ink">Calendario de citas</h3>
-            <p className="text-sm text-slate-500">{filteredCitas.length} citas visibles.</p>
-          </div>
-          <Button onClick={() => setActiveTab('agendar')}>
-            <Plus size={17} />
-            Nueva cita
-          </Button>
-        </div>
-
-        <div className="mb-4 grid gap-3 md:grid-cols-4">
-          <Input label="Buscar por paciente" value={filters.paciente} onChange={(event) => setFilters({ ...filters, paciente: event.target.value })} />
-          <Input label="Filtrar por fecha" type="date" value={filters.fecha} onChange={(event) => setFilters({ ...filters, fecha: event.target.value })} />
-          <Input label="Estado" options={[{ value: '', label: 'Todos' }, ...ESTADOS.map((estado) => ({ value: estado, label: estado }))]} value={filters.estado} onChange={(event) => setFilters({ ...filters, estado: event.target.value })} />
-          <Input label="Tipo de atencion" options={[{ value: '', label: 'Todos' }, ...TIPOS.map((tipo) => ({ value: tipo, label: tipo }))]} value={filters.tipo_atencion} onChange={(event) => setFilters({ ...filters, tipo_atencion: event.target.value })} />
-        </div>
-
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex gap-2">
-            {VISTAS.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setView(item)}
-                className={`min-h-10 rounded-lg px-4 text-sm font-black capitalize transition ${view === item ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-700'}`}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <ActionButton label="Anterior" icon={ChevronLeft} tone="print" onClick={() => moveCalendar(-1)} />
-            <strong className="min-w-48 text-center text-sm capitalize text-ink">{title}</strong>
-            <ActionButton label="Siguiente" icon={ChevronRight} tone="print" onClick={() => moveCalendar(1)} />
-          </div>
-        </div>
-
-        <div className={`grid gap-2 ${view === 'dia' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-7'}`}>
-          {visibleDays.map((day) => {
-            const iso = toISODate(day);
-            const dayCitas = citasPorFecha[iso] || [];
-            const outsideMonth = view === 'mes' && day.getMonth() !== cursor.getMonth();
-            return (
-              <div key={iso} className={`min-h-36 rounded-lg border border-slate-200 bg-white p-3 ${outsideMonth ? 'opacity-45' : ''}`}>
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <strong className="text-sm capitalize text-ink">{day.toLocaleDateString('es-BO', { weekday: 'short', day: '2-digit' })}</strong>
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-500">{dayCitas.length}</span>
-                </div>
-                <div className="grid gap-2">
-                  {dayCitas.slice(0, view === 'mes' ? 3 : 20).map((cita) => (
-                    <EventCard key={cita.id} cita={cita} compact={view === 'mes'} onClick={() => setSelected(cita)} />
-                  ))}
-                  {view === 'mes' && dayCitas.length > 3 && <span className="text-xs font-bold text-slate-500">+{dayCitas.length - 3} mas</span>}
-                </div>
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="panel">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-ink">Calendario de citas</h3>
+                <p className="text-sm text-slate-500">{filteredCitas.length} citas visibles.</p>
               </div>
-            );
-          })}
+              <Button onClick={() => setActiveTab('agendar')}>
+                <Plus size={17} />
+                Nueva cita
+              </Button>
+            </div>
+
+            <div className="mb-4 grid gap-3 md:grid-cols-4">
+              <Input label="Buscar por paciente" value={filters.paciente} onChange={(event) => setFilters({ ...filters, paciente: event.target.value })} />
+              <Input label="Filtrar por fecha" type="date" value={filters.fecha} onChange={(event) => setFilters({ ...filters, fecha: event.target.value })} />
+              <Input label="Estado" options={[{ value: '', label: 'Todos' }, ...ESTADOS.map((estado) => ({ value: estado, label: estado }))]} value={filters.estado} onChange={(event) => setFilters({ ...filters, estado: event.target.value })} />
+              <Input label="Tipo de atencion" options={[{ value: '', label: 'Todos' }, ...TIPOS.map((tipo) => ({ value: tipo, label: tipo }))]} value={filters.tipo_atencion} onChange={(event) => setFilters({ ...filters, tipo_atencion: event.target.value })} />
+            </div>
+
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex gap-2">
+                {VISTAS.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setView(item)}
+                    className={`min-h-10 rounded-lg px-4 text-sm font-black capitalize transition ${view === item ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-700'}`}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <ActionButton label="Anterior" icon={ChevronLeft} tone="print" onClick={() => moveCalendar(-1)} />
+                <strong className="min-w-48 text-center text-sm capitalize text-ink">{title}</strong>
+                <ActionButton label="Siguiente" icon={ChevronRight} tone="print" onClick={() => moveCalendar(1)} />
+              </div>
+            </div>
+
+            <div className={`grid gap-2 ${view === 'dia' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-7'}`}>
+              {visibleDays.map((day) => {
+                const iso = toISODate(day);
+                const dayCitas = citasPorFecha[iso] || [];
+                const outsideMonth = view === 'mes' && day.getMonth() !== cursor.getMonth();
+                return (
+                  <div key={iso} className={`min-h-36 rounded-lg border border-slate-200 bg-white p-3 ${outsideMonth ? 'opacity-45' : ''}`}>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <strong className="text-sm capitalize text-ink">{day.toLocaleDateString('es-BO', { weekday: 'short', day: '2-digit' })}</strong>
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-500">{dayCitas.length}</span>
+                    </div>
+                    <div className="grid gap-2">
+                      {dayCitas.slice(0, view === 'mes' ? 3 : 20).map((cita) => (
+                        <EventCard key={cita.id} cita={cita} compact={view === 'mes'} onClick={() => setSelected(cita)} />
+                      ))}
+                      {view === 'mes' && dayCitas.length > 3 && <span className="text-xs font-bold text-slate-500">+{dayCitas.length - 3} mas</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <aside className="panel">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-black text-ink">Calendario rapido</h3>
+              <strong className="text-xs capitalize text-slate-500">{cursor.toLocaleDateString('es-BO', { month: 'long', year: 'numeric' })}</strong>
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-black text-slate-500">
+              {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map((day) => <span key={day}>{day}</span>)}
+              {miniDays.map((day) => {
+                const iso = toISODate(day);
+                const dayCitas = citasPorFecha[iso] || [];
+                const active = iso === toISODate(cursor);
+                return (
+                  <button
+                    key={iso}
+                    type="button"
+                    onClick={() => {
+                      setCursor(day);
+                      setView('dia');
+                    }}
+                    className={`grid h-9 place-items-center rounded-lg text-xs font-black transition ${
+                      active ? 'bg-brand-600 text-white' : dayCitas.length ? 'bg-brand-50 text-brand-700 hover:bg-brand-100' : 'text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    {day.getDate()}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-6">
+              <div className="mb-3 flex items-center justify-between">
+                <h4 className="text-sm font-black text-ink">Citas del dia</h4>
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-500">{(citasPorFecha[toISODate(cursor)] || []).length}</span>
+              </div>
+              <div className="grid gap-2">
+                {(citasPorFecha[toISODate(cursor)] || []).slice(0, 6).map((cita) => (
+                  <button key={cita.id} type="button" onClick={() => setSelected(cita)} className="grid grid-cols-[52px_1fr] gap-2 rounded-lg border border-slate-200 bg-white p-2 text-left text-xs hover:bg-slate-50">
+                    <strong className="text-ink">{cita.hora_inicio?.slice(0, 5)}</strong>
+                    <span>
+                      <strong className="block text-ink">{nombrePaciente(cita.paciente)}</strong>
+                      <span className="text-slate-500">{cita.tipo_atencion || cita.motivo || 'Sin tipo'}</span>
+                    </span>
+                  </button>
+                ))}
+                {(citasPorFecha[toISODate(cursor)] || []).length === 0 && <p className="empty-state">Sin citas para este dia.</p>}
+              </div>
+            </div>
+          </aside>
         </div>
-      </div>
       )}
 
       {activeTab === 'agendar' && (
