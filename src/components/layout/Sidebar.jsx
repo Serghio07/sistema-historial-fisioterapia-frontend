@@ -1,4 +1,4 @@
-import { Activity, CalendarDays, CalendarRange, ClipboardCheck, ClipboardList, CreditCard, FileBarChart, LogOut, UserCog, Users } from 'lucide-react';
+import { Activity, CalendarClock, CalendarDays, CalendarRange, ClipboardCheck, ClipboardList, CreditCard, FileBarChart, LogOut, UserCog, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import icono from '../../assets/images/icono.png';
@@ -7,6 +7,7 @@ const items = [
   { to: '/', label: 'Panel', icon: Activity },
   { to: '/pacientes', label: 'Pacientes', icon: Users },
   { to: '/historias-clinicas', label: 'Historias', icon: ClipboardList },
+  { to: '/citas', label: 'Citas / Agenda', icon: CalendarClock },
   { to: '/sesiones', label: 'Sesiones', icon: CalendarDays },
   { to: '/sesiones-semanales', label: 'Sesiones Semanales', icon: CalendarRange },
   { to: '/planillas-atencion', label: 'Planillas', icon: ClipboardCheck },

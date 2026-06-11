@@ -8,6 +8,7 @@ import PacienteDetalle from '../pages/pacientes/PacienteDetalle';
 import HistoriasClinicas from '../pages/historiasClinicas/HistoriasClinicas';
 import HistoriaClinicaDetalle from '../pages/historiasClinicas/HistoriaClinicaDetalle';
 import Sesiones from '../pages/sesiones/Sesiones';
+import Citas from '../pages/citas/Citas';
 import SesionesSemanales from '../pages/sesionesSemanales/SesionesSemanales';
 import PlanillasAtencion from '../pages/planillasAtencion/PlanillasAtencion';
 import Pagos from '../pages/pagos/Pagos';
@@ -27,6 +28,7 @@ function AppRoutes() {
             <Route path="historias-clinicas" element={<HistoriasClinicas />} />
             <Route path="historias-clinicas/:id" element={<HistoriaClinicaDetalle />} />
             <Route path="sesiones" element={<Sesiones />} />
+            <Route path="citas" element={<Citas />} />
             <Route path="sesiones-semanales" element={<SesionesSemanales />} />
             <Route path="planillas-atencion" element={<PlanillasAtencion />} />
             <Route path="pagos" element={<Pagos />} />

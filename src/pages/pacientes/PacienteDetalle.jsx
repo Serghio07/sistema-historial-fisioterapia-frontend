@@ -6,6 +6,7 @@ import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import Table from '../../components/common/Table';
 import { getPaciente } from '../../services/pacienteService';
+import { getCitasPaciente, updateCitaEstado } from '../../services/citaService';
 import { getPlanillasAtencionPaciente } from '../../services/planillaAtencionService';
 import { formatDate } from '../../utils/formatDate';
 import { nombrePaciente } from '../../utils/validators';
@@ -14,6 +15,7 @@ function PacienteDetalle() {
   const { id } = useParams();
   const [paciente, setPaciente] = useState(null);
   const [planillas, setPlanillas] = useState([]);
+  const [citas, setCitas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -25,6 +27,14 @@ function PacienteDetalle() {
         const [pacienteData, planillasData] = await Promise.all([getPaciente(id), getPlanillasAtencionPaciente(id)]);
         setPaciente(pacienteData);
         setPlanillas(planillasData);
+
+        try {
+          const citasData = await getCitasPaciente(id);
+          setCitas(citasData);
+        } catch (citasError) {
+          setCitas([]);
+          setError(`${citasError.message}. Si el modulo es nuevo, ejecuta backend/docs/citas-agenda-migration.sql.`);
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -51,6 +61,49 @@ function PacienteDetalle() {
       </div>
 
       {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
+
+      <div className="panel">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-ink">Citas</h3>
+            <p className="text-sm text-slate-500">Agenda vinculada a este paciente.</p>
+          </div>
+          <Link to={`/citas?paciente_id=${id}`}>
+            <Button>
+              <Plus size={17} />
+              Nueva cita
+            </Button>
+          </Link>
+        </div>
+        <Table
+          columns={['Fecha', 'Hora', 'Motivo', 'Tipo', 'Estado', 'Acciones']}
+          rows={citas.map((cita) => [
+            formatDate(cita.fecha),
+            `${cita.hora_inicio?.slice(0, 5) || ''} - ${cita.hora_fin?.slice(0, 5) || ''}`,
+            cita.motivo || 'Sin motivo',
+            cita.tipo_atencion || 'Sin tipo',
+            cita.estado,
+            <div className="flex gap-2">
+              <Link to={`/citas?paciente_id=${id}`}>
+                <ActionButton label="Abrir agenda" icon={Eye} tone="view" />
+              </Link>
+              <ActionButton
+                label="Cancelar cita"
+                icon={ClipboardCheck}
+                tone="delete"
+                onClick={() =>
+                  updateCitaEstado(cita.id, 'Cancelada').then(async () => {
+                    const citasData = await getCitasPaciente(id);
+                    setCitas(citasData);
+                  })
+                }
+                disabled={cita.estado === 'Cancelada'}
+              />
+            </div>
+          ])}
+          empty="Este paciente todavia no tiene citas registradas."
+        />
+      </div>
 
       <div className="panel">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

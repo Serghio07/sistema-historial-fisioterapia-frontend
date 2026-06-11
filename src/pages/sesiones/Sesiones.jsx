@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CalendarDays, Eye, FilePenLine, PlusCircle, TableProperties, Trash2 } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
@@ -79,16 +79,6 @@ function Sesiones() {
     load();
   }, []);
 
-  const resumen = useMemo(() => {
-    const totalDebe = sesiones.reduce((sum, sesion) => sum + Number(sesion.sesiones_debe || 0), 0);
-    const totalHizo = sesiones.reduce((sum, sesion) => sum + Number(sesion.sesiones_hizo || 0), 0);
-    return {
-      totalDebe,
-      totalHizo,
-      totalRestantes: Math.max(totalDebe - totalHizo, 0)
-    };
-  }, [sesiones]);
-
   const validate = () => {
     if (!form.paciente_id) return 'Selecciona un paciente.';
     if (!form.fecha) return 'La fecha es obligatoria.';
@@ -150,22 +140,6 @@ function Sesiones() {
       </div>
 
       {message && <p className="notice">{message}</p>}
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <span className="text-xs font-black uppercase text-brand-600">Total debe</span>
-          <strong className="block text-3xl text-ink">{resumen.totalDebe}</strong>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <span className="text-xs font-black uppercase text-brand-600">Total hizo</span>
-          <strong className="block text-3xl text-ink">{resumen.totalHizo}</strong>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <span className="text-xs font-black uppercase text-brand-600">Restantes</span>
-          <strong className="block text-3xl text-ink">{resumen.totalRestantes}</strong>
-        </div>
-      </div>
-
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 p-3">
           <button
