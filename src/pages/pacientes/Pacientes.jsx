@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye, FilePenLine, IdCard, Phone, Search, Trash2, UserRound, Users } from 'lucide-react';
+import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
@@ -160,16 +161,10 @@ function Pacientes() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="secondary" className="w-10 px-0" onClick={() => setSelectedPaciente(paciente)}>
-                      <Eye size={17} />
-                    </Button>
-                    <Button variant="ghost" className="w-10 px-0" onClick={() => editPaciente(paciente)}>
-                      <FilePenLine size={17} />
-                    </Button>
+                    <ActionButton label="Ver paciente" icon={Eye} tone="view" onClick={() => setSelectedPaciente(paciente)} />
+                    <ActionButton label="Editar paciente" icon={FilePenLine} tone="edit" onClick={() => editPaciente(paciente)} />
                     {isAdmin && (
-                      <Button variant="danger" className="w-10 px-0" onClick={() => deletePaciente(paciente.id).then(load)}>
-                        <Trash2 size={17} />
-                      </Button>
+                      <ActionButton label="Eliminar paciente" icon={Trash2} tone="delete" onClick={() => deletePaciente(paciente.id).then(load)} />
                     )}
                   </div>
                 </div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ClipboardList, ClipboardPlus, Eye, FilePenLine, HeartPulse, Search, Stethoscope, Trash2 } from 'lucide-react';
+import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
@@ -248,9 +249,7 @@ function HistoriasClinicas() {
                         <span className="inline-flex min-h-10 items-center rounded-lg bg-white px-3 text-sm font-bold text-brand-700">
                           {historiasPaciente.length} historias
                         </span>
-                        <Button variant="ghost" className="w-10 px-0" onClick={() => setSelectedPaciente(paciente)}>
-                          <Eye size={17} />
-                        </Button>
+                        <ActionButton label="Ver historias" icon={Eye} tone="view" onClick={() => setSelectedPaciente(paciente)} />
                       </div>
                     </div>
                   </article>
@@ -287,25 +286,20 @@ function HistoriasClinicas() {
                 <span className="rounded-lg bg-white px-3 py-2">Lesion: {historia.condicion_actual?.tipo_lesion || '-'}</span>
               </div>
               <div className="mt-4 flex gap-2">
-                <Button variant="secondary" className="w-10 px-0" onClick={() => setSelectedHistoria(historia)}>
-                  <Eye size={17} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="w-10 px-0"
+                <ActionButton label="Ver historia" icon={Eye} tone="view" onClick={() => setSelectedHistoria(historia)} />
+                <ActionButton
+                  label="Editar historia"
+                  icon={FilePenLine}
+                  tone="edit"
                   onClick={() => {
                     setEditing(historia.id);
                     setForm(mergeHistoria(historia));
                     setActivePanel('datos');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                >
-                  <FilePenLine size={17} />
-                </Button>
+                />
                 {isAdmin && (
-                  <Button variant="danger" className="w-10 px-0" onClick={() => deleteHistoriaClinica(historia.id).then(load)}>
-                    <Trash2 size={17} />
-                  </Button>
+                  <ActionButton label="Eliminar historia" icon={Trash2} tone="delete" onClick={() => deleteHistoriaClinica(historia.id).then(load)} />
                 )}
               </div>
             </article>

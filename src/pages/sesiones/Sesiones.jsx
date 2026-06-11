@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Eye, FilePenLine, PlusCircle, TableProperties, Trash2 } from 'lucide-react';
+import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
@@ -232,16 +233,10 @@ function Sesiones() {
                     sesion.metodo_pago,
                     sesion.observacion || 'Sin observacion',
                     <div className="flex gap-2">
-                      <Button variant="secondary" className="w-10 px-0" onClick={() => setSelectedSesion(sesion)}>
-                        <Eye size={17} />
-                      </Button>
-                      <Button variant="ghost" className="w-10 px-0" onClick={() => editSesion(sesion)}>
-                        <FilePenLine size={17} />
-                      </Button>
+                      <ActionButton label="Ver sesion" icon={Eye} tone="view" onClick={() => setSelectedSesion(sesion)} />
+                      <ActionButton label="Editar sesion" icon={FilePenLine} tone="edit" onClick={() => editSesion(sesion)} />
                       {isAdmin && (
-                        <Button variant="danger" className="w-10 px-0" onClick={() => deleteSesion(sesion.id).then(load)}>
-                          <Trash2 size={17} />
-                        </Button>
+                        <ActionButton label="Eliminar sesion" icon={Trash2} tone="delete" onClick={() => deleteSesion(sesion.id).then(load)} />
                       )}
                     </div>
                   ];

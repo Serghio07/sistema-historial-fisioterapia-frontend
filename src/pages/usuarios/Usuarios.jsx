@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FilePenLine, Trash2 } from 'lucide-react';
-import Button from '../../components/common/Button';
+import ActionButton from '../../components/common/ActionButton';
 import Loader from '../../components/common/Loader';
 import UsuarioForm from './UsuarioForm';
 import { createUsuario, deleteUsuario, getUsuarios, updateUsuario } from '../../services/usuarioService';
@@ -85,19 +85,16 @@ function Usuarios() {
                   <span>{usuario.usuario} · {usuario.rol}</span>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    className="w-10 px-0"
+                  <ActionButton
+                    label="Editar usuario"
+                    icon={FilePenLine}
+                    tone="edit"
                     onClick={() => {
                       setEditing(usuario.id);
                       setForm({ ...initialForm, ...usuario, password: '' });
                     }}
-                  >
-                    <FilePenLine size={17} />
-                  </Button>
-                  <Button variant="danger" className="w-10 px-0" onClick={() => deleteUsuario(usuario.id).then(load)}>
-                    <Trash2 size={17} />
-                  </Button>
+                  />
+                  <ActionButton label="Eliminar usuario" icon={Trash2} tone="delete" onClick={() => deleteUsuario(usuario.id).then(load)} />
                 </div>
               </article>
             ))}
