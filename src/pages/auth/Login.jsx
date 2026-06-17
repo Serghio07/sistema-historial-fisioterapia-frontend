@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { LogIn, Shield, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Shield, UserPlus } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +17,7 @@ function Login() {
   const [activeTab, setActiveTab] = useState('login');
   const [form, setForm] = useState(loginInitial);
   const [registerForm, setRegisterForm] = useState(registerInitial);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -120,7 +121,26 @@ function Login() {
         {activeTab === 'login' ? (
           <form onSubmit={submitLogin} className="mt-6 grid gap-4">
             <Input label="Usuario" value={form.usuario} onChange={(event) => setForm({ ...form, usuario: event.target.value })} />
-            <Input label="Contrasena" type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
+            <label className="grid gap-1.5 text-sm font-bold text-ink">
+              Contrasena
+              <div className="relative">
+                <input
+                  className="min-h-11 w-full rounded-lg border border-slate-200 bg-white/95 px-3 py-2.5 pr-12 text-sm shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+                  type={showLoginPassword ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={(event) => setForm({ ...form, password: event.target.value })}
+                />
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-brand-700"
+                  onClick={() => setShowLoginPassword((value) => !value)}
+                  title={showLoginPassword ? 'Ocultar contrasena' : 'Ver contrasena'}
+                  aria-label={showLoginPassword ? 'Ocultar contrasena' : 'Ver contrasena'}
+                >
+                  {showLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </label>
             <Button type="submit" disabled={loading} className="min-h-12 shadow-lg shadow-brand-900/20">
               <Shield size={18} />
               {loading ? 'Validando...' : 'Ingresar'}

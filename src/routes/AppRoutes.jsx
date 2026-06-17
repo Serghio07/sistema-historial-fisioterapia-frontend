@@ -12,6 +12,7 @@ import Citas from '../pages/citas/Citas';
 import SesionesSemanales from '../pages/sesionesSemanales/SesionesSemanales';
 import PlanillasAtencion from '../pages/planillasAtencion/PlanillasAtencion';
 import Reportes from '../pages/reportes/Reportes';
+import RolesPermisos from '../pages/rolesPermisos/RolesPermisos';
 import PrivateRoute from './PrivateRoute';
 
 function AppRoutes() {
@@ -37,6 +38,7 @@ function AppRoutes() {
         <Route element={<PrivateRoute adminOnly />}>
           <Route element={<Layout />}>
             <Route path="usuarios" element={<Usuarios />} />
+            <Route path="roles-permisos" element={<RolesPermisos />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

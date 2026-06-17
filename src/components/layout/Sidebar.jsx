@@ -1,4 +1,4 @@
-import { Activity, CalendarClock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, LogOut, UserCog, Users } from 'lucide-react';
+import { Activity, CalendarClock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, LogOut, ShieldCheck, UserCog, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import icono from '../../assets/images/icono.png';
@@ -12,7 +12,8 @@ const items = [
   { to: '/sesiones-semanales', label: 'Sesiones Semanales', icon: CalendarRange },
   { to: '/planillas-atencion', label: 'Planillas', icon: ClipboardCheck },
   { to: '/informes-medicos', label: 'Informes Medicos', icon: FileBarChart },
-  { to: '/usuarios', label: 'Usuarios', icon: UserCog, adminOnly: true }
+  { to: '/usuarios', label: 'Usuarios', icon: UserCog, adminOnly: true },
+  { to: '/roles-permisos', label: 'Roles y Permisos', icon: ShieldCheck, adminOnly: true }
 ];
 
 function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }) {

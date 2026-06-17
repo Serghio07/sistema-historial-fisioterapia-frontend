@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, FilePenLine, PlusCircle, Search, ShieldCheck, ShieldOff, Trash2, UserCog, UserRoundCheck, UsersRound } from 'lucide-react';
+import { Eye, FilePenLine, Lock, PlusCircle, Search, ShieldCheck, ShieldOff, Trash2, UserCog, UserRoundCheck, UsersRound } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -81,7 +81,7 @@ function Usuarios() {
       total: usuarios.length,
       admin: usuarios.filter((usuario) => usuario.rol === 'admin').length,
       personal: usuarios.filter((usuario) => usuario.rol === 'personal').length,
-      activos: usuarios.filter((usuario) => usuario.estado === 'activo').length
+      bloqueados: usuarios.filter((usuario) => usuario.estado === 'bloqueado').length
     };
   }, [usuarios]);
 
@@ -158,7 +158,20 @@ function Usuarios() {
     setError('');
     try {
       await updateUsuarioEstado(usuario.id, nextEstado);
-      setMessage(`Usuario ${nextEstado === 'activo' ? 'activado' : 'desactivado'} correctamente.`);
+      setMessage(`Usuario ${nextEstado === 'activo' ? 'activado/desbloqueado' : 'desactivado'} correctamente.`);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const desbloquearUsuario = async (usuario) => {
+    setMessage('');
+    setError('');
+    try {
+      await updateUsuarioEstado(usuario.id, 'activo');
+      setSelectedUsuario(null);
+      setMessage('Usuario desbloqueado correctamente.');
       await load();
     } catch (err) {
       setError(err.message);
@@ -189,7 +202,7 @@ function Usuarios() {
         <StatCard label="Total usuarios" value={resumen.total} icon={UsersRound} tone="border-emerald-100 bg-emerald-50/80 text-emerald-700" />
         <StatCard label="Administradores" value={resumen.admin} icon={ShieldCheck} tone="border-blue-100 bg-blue-50/80 text-blue-700" />
         <StatCard label="Personal" value={resumen.personal} icon={UserRoundCheck} tone="border-cyan-100 bg-cyan-50/80 text-cyan-700" />
-        <StatCard label="Activos" value={resumen.activos} icon={ShieldCheck} tone="border-amber-100 bg-amber-50/80 text-amber-700" />
+        <StatCard label="Bloqueados" value={resumen.bloqueados} icon={Lock} tone="border-red-100 bg-red-50/80 text-red-700" />
       </div>
 
       <div className="grid gap-5">
@@ -235,7 +248,8 @@ function Usuarios() {
               options={[
                 { value: '', label: 'Todos los estados' },
                 { value: 'activo', label: 'Activo' },
-                { value: 'inactivo', label: 'Inactivo' }
+                { value: 'inactivo', label: 'Inactivo' },
+                { value: 'bloqueado', label: 'Bloqueado' }
               ]}
             />
           </div>
@@ -253,7 +267,19 @@ function Usuarios() {
                       <span className="mt-1 block text-sm text-slate-500">@{usuario.usuario} {usuario.email ? `- ${usuario.email}` : ''}</span>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <Badge value={usuario.rol} tone={usuario.rol === 'admin' ? 'bg-blue-50 text-blue-700' : 'bg-cyan-50 text-cyan-700'} />
-                        <Badge value={usuario.estado} tone={usuario.estado === 'activo' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'} />
+                        <Badge
+                          value={usuario.estado}
+                          tone={
+                            usuario.estado === 'activo'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : usuario.estado === 'bloqueado'
+                                ? 'bg-red-50 text-red-700'
+                                : 'bg-amber-50 text-amber-700'
+                          }
+                        />
+                        {usuario.intentos_fallidos > 0 && (
+                          <Badge value={`${usuario.intentos_fallidos}/5 intentos`} tone="bg-slate-100 text-slate-600" />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -261,8 +287,8 @@ function Usuarios() {
                     <ActionButton label="Ver usuario" icon={Eye} tone="view" onClick={() => setSelectedUsuario(usuario)} />
                     <ActionButton label="Editar usuario" icon={FilePenLine} tone="edit" onClick={() => editUsuario(usuario)} />
                     <ActionButton
-                      label={usuario.estado === 'activo' ? 'Desactivar usuario' : 'Activar usuario'}
-                      icon={usuario.estado === 'activo' ? ShieldOff : ShieldCheck}
+                      label={usuario.estado === 'bloqueado' ? 'Desbloquear usuario' : usuario.estado === 'activo' ? 'Desactivar usuario' : 'Activar usuario'}
+                      icon={usuario.estado === 'bloqueado' ? Lock : usuario.estado === 'activo' ? ShieldOff : ShieldCheck}
                       tone={usuario.estado === 'activo' ? 'print' : 'edit'}
                       onClick={() => toggleEstado(usuario)}
                     />
@@ -301,11 +327,21 @@ function Usuarios() {
                 <strong className="mt-1 block text-sm text-ink">{selectedUsuario.estado}</strong>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <span className="block text-xs font-black uppercase text-slate-500">Intentos fallidos</span>
+                <strong className="mt-1 block text-sm text-ink">{selectedUsuario.intentos_fallidos || 0}/5</strong>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <span className="block text-xs font-black uppercase text-slate-500">Ultimo acceso</span>
                 <strong className="mt-1 block text-sm text-ink">{selectedUsuario.ultimo_acceso || 'Sin registro'}</strong>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              {selectedUsuario.estado === 'bloqueado' && (
+                <Button onClick={() => desbloquearUsuario(selectedUsuario)}>
+                  <ShieldCheck size={17} />
+                  Desbloquear usuario
+                </Button>
+              )}
               <Button variant="ghost" onClick={() => editUsuario(selectedUsuario)}>
                 <FilePenLine size={17} />
                 Editar usuario
