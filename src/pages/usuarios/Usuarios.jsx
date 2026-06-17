@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, FilePenLine, Search, ShieldCheck, ShieldOff, Trash2, UserCog, UserRoundCheck, UsersRound } from 'lucide-react';
+import { Eye, FilePenLine, PlusCircle, Search, ShieldCheck, ShieldOff, Trash2, UserCog, UserRoundCheck, UsersRound } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -44,6 +44,7 @@ function Usuarios() {
   const [estadoFilter, setEstadoFilter] = useState('');
   const [form, setForm] = useState(initialForm);
   const [editing, setEditing] = useState(null);
+  const [showFormModal, setShowFormModal] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -90,6 +91,16 @@ function Usuarios() {
     setError('');
   };
 
+  const openNuevoUsuario = () => {
+    resetForm();
+    setShowFormModal(true);
+  };
+
+  const closeFormModal = () => {
+    setShowFormModal(false);
+    resetForm();
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     setMessage('');
@@ -123,6 +134,7 @@ function Usuarios() {
     try {
       editing ? await updateUsuario(editing, payload) : await createUsuario(payload);
       resetForm();
+      setShowFormModal(false);
       setQuery('');
       setRolFilter('');
       setEstadoFilter('');
@@ -137,7 +149,7 @@ function Usuarios() {
     setEditing(usuario.id);
     setForm({ ...initialForm, ...usuario, password: '' });
     setSelectedUsuario(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowFormModal(true);
   };
 
   const toggleEstado = async (usuario) => {
@@ -158,14 +170,14 @@ function Usuarios() {
       {loading && <Loader />}
 
       <div className="overflow-hidden rounded-lg border border-white/60 bg-white shadow-soft">
-        <div className="grid gap-4 bg-gradient-to-r from-[#123f3f] via-brand-700 to-teal-500 p-6 text-white md:grid-cols-[1fr_auto]">
+        <div className="grid gap-3 bg-gradient-to-r from-[#123f3f] via-brand-700 to-teal-500 p-4 text-white md:grid-cols-[1fr_auto]">
           <div>
             <p className="text-xs font-black uppercase text-brand-50">Administracion</p>
-            <h2 className="mt-2 text-3xl font-black md:text-4xl">Usuarios</h2>
+            <h2 className="mt-1 text-2xl font-black md:text-3xl">Usuarios</h2>
             <span className="mt-2 block text-sm text-brand-50">Gestion de accesos, roles y estado del equipo.</span>
           </div>
-          <div className="grid h-20 w-20 place-items-center rounded-lg border border-white/25 bg-white/15 shadow-sm backdrop-blur">
-            <UserCog size={42} className="text-brand-50" />
+          <div className="grid h-14 w-14 place-items-center rounded-lg border border-white/25 bg-white/15 shadow-sm backdrop-blur">
+            <UserCog size={30} className="text-brand-50" />
           </div>
         </div>
       </div>
@@ -180,21 +192,22 @@ function Usuarios() {
         <StatCard label="Activos" value={resumen.activos} icon={ShieldCheck} tone="border-amber-100 bg-amber-50/80 text-amber-700" />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[430px_1fr]">
-        <div className="panel xl:sticky xl:top-5">
-          <div className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-brand-100 bg-brand-50/70 p-4">
+      <div className="grid gap-5">
+        <div className="panel">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
             <div>
-              <h3 className="text-lg font-bold text-ink">{editing ? 'Editar usuario' : 'Nuevo usuario'}</h3>
-              <p className="text-sm text-slate-500">Crea accesos para administradores o personal.</p>
+              <h3 className="text-lg font-bold text-ink">Usuarios registrados</h3>
+              <p className="text-sm text-slate-500">Gestion de accesos, roles y estado.</p>
             </div>
-            <div className="grid h-12 w-12 place-items-center rounded-lg bg-white text-brand-700 shadow-sm">
-              <UserCog size={24} />
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black uppercase text-brand-700">{filtered.length} resultados</span>
+              <Button onClick={openNuevoUsuario}>
+                <PlusCircle size={17} />
+                Nuevo usuario
+              </Button>
             </div>
           </div>
-          <UsuarioForm form={form} setForm={setForm} editing={editing} onSubmit={submit} onCancel={resetForm} />
-        </div>
 
-        <div className="panel">
           <div className="mb-4 grid gap-3 border-b border-slate-200 pb-4 lg:grid-cols-[1fr_160px_160px]">
             <label className="flex items-center gap-2">
               <Search size={18} className="text-slate-500" />
@@ -262,6 +275,10 @@ function Usuarios() {
           </div>
         </div>
       </div>
+
+      <Modal open={showFormModal} title={editing ? 'Editar usuario' : 'Nuevo usuario'} onClose={closeFormModal} size="lg">
+        <UsuarioForm form={form} setForm={setForm} editing={editing} onSubmit={submit} onCancel={closeFormModal} />
+      </Modal>
 
       <Modal open={Boolean(selectedUsuario)} title="Detalle de usuario" onClose={() => setSelectedUsuario(null)} size="lg">
         {selectedUsuario && (

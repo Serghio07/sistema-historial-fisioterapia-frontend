@@ -5,7 +5,7 @@ function Table({ columns, rows, empty = 'No hay datos para mostrar.' }) {
         <thead className="bg-slate-50">
           <tr>
             {columns.map((column) => (
-              <th key={column} className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">
+              <th key={column} className="px-3 py-2.5 text-left text-xs font-bold uppercase text-slate-500">
                 {column}
               </th>
             ))}
@@ -14,7 +14,7 @@ function Table({ columns, rows, empty = 'No hay datos para mostrar.' }) {
         <tbody className="divide-y divide-slate-200">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-4 py-8 text-center text-slate-500">
+              <td colSpan={columns.length} className="px-3 py-6 text-center text-slate-500">
                 {empty}
               </td>
             </tr>
@@ -22,7 +22,7 @@ function Table({ columns, rows, empty = 'No hay datos para mostrar.' }) {
             rows.map((row, index) => (
               <tr key={index} className="hover:bg-slate-50">
                 {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} className="px-4 py-3 text-sm text-slate-700">
+                  <td key={cellIndex} className="px-3 py-2.5 text-sm text-slate-700">
                     {cell}
                   </td>
                 ))}

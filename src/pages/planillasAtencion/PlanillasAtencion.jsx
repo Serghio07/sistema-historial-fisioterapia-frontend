@@ -13,6 +13,7 @@ import Table from '../../components/common/Table';
 import { useAuth } from '../../context/AuthContext';
 import { getPacientes } from '../../services/pacienteService';
 import { createPlanillaAtencion, deletePlanillaAtencion, getPlanillasAtencion, updatePlanillaAtencion } from '../../services/planillaAtencionService';
+import { getSesiones } from '../../services/sesionService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import PlanillaDocumento from './PlanillaDocumento';
@@ -33,11 +34,13 @@ function PlanillasAtencion() {
   const printRef = useRef(null);
   const [searchParams] = useSearchParams();
   const [pacientes, setPacientes] = useState([]);
+  const [sesionesRegistradas, setSesionesRegistradas] = useState([]);
   const [planillas, setPlanillas] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [editing, setEditing] = useState(null);
   const [activePanel, setActivePanel] = useState('crear');
   const [selectedPlanilla, setSelectedPlanilla] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -50,19 +53,30 @@ function PlanillasAtencion() {
 
   const previewPlanilla = useMemo(() => ({ ...form, paciente: pacienteSeleccionado }), [form, pacienteSeleccionado]);
 
+  const sesionesPacienteSeleccionado = useMemo(() => {
+    return sesionesRegistradas
+      .filter((sesion) => Number(sesion.paciente_id || sesion.paciente?.id) === Number(form.paciente_id))
+      .sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')));
+  }, [sesionesRegistradas, form.paciente_id]);
+
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const [pacientesData, planillasData] = await Promise.all([getPacientes(), getPlanillasAtencion()]);
+      const [pacientesData, planillasData, sesionesData] = await Promise.all([getPacientes(), getPlanillasAtencion(), getSesiones()]);
       setPacientes(pacientesData);
       setPlanillas(planillasData);
+      setSesionesRegistradas(sesionesData);
       if (pacienteInicialId && !form.paciente_id) {
         const paciente = pacientesData.find((item) => Number(item.id) === Number(pacienteInicialId));
+        const sesionesPaciente = sesionesDesdePaciente(pacienteInicialId, sesionesData);
         setForm((current) => ({
           ...current,
           paciente_id: pacienteInicialId,
-          diagnostico: current.diagnostico || paciente?.referencia || ''
+          diagnostico: current.diagnostico || paciente?.referencia || '',
+          fecha_inicio: sesionesPaciente[0]?.fecha || current.fecha_inicio,
+          fecha_fin: sesionesPaciente.at(-1)?.fecha || current.fecha_fin,
+          sesiones: sesionesPaciente.length ? sesionesPaciente : current.sesiones
         }));
       }
     } catch (err) {
@@ -78,12 +92,41 @@ function PlanillasAtencion() {
 
   const update = (key, value) => setForm({ ...form, [key]: value });
 
+  const sesionesDesdePaciente = (pacienteId, source = sesionesRegistradas) => {
+    const sesionesPaciente = source
+      .filter((sesion) => Number(sesion.paciente_id || sesion.paciente?.id) === Number(pacienteId))
+      .sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')));
+
+    return sesionesPaciente.map((sesion, index) => ({
+      fecha: sesion.fecha || today,
+      numero_sesion: index + 1,
+      firma_paciente: '',
+      firma_profesional: '',
+      observacion: sesion.observacion || ''
+    }));
+  };
+
   const selectPaciente = (pacienteId) => {
     const paciente = pacientes.find((item) => Number(item.id) === Number(pacienteId));
+    const sesionesPaciente = sesionesDesdePaciente(pacienteId);
     setForm({
       ...form,
       paciente_id: pacienteId,
-      diagnostico: form.diagnostico || paciente?.referencia || ''
+      diagnostico: form.diagnostico || paciente?.referencia || '',
+      fecha_inicio: sesionesPaciente[0]?.fecha || form.fecha_inicio,
+      fecha_fin: sesionesPaciente.at(-1)?.fecha || form.fecha_fin,
+      sesiones: sesionesPaciente.length ? sesionesPaciente : form.sesiones
+    });
+  };
+
+  const cargarSesionesPaciente = () => {
+    const sesionesPaciente = sesionesDesdePaciente(form.paciente_id);
+    if (!sesionesPaciente.length) return;
+    setForm({
+      ...form,
+      fecha_inicio: sesionesPaciente[0].fecha,
+      fecha_fin: sesionesPaciente.at(-1).fecha,
+      sesiones: sesionesPaciente
     });
   };
 
@@ -205,13 +248,13 @@ function PlanillasAtencion() {
     <section className="grid gap-5">
       {loading && <Loader />}
       <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-        <div className="grid gap-4 bg-gradient-to-r from-brand-900 to-brand-600 p-6 text-white md:grid-cols-[1fr_auto]">
+        <div className="grid gap-3 bg-gradient-to-r from-brand-900 to-brand-600 p-4 text-white md:grid-cols-[1fr_auto]">
           <div>
             <p className="text-xs font-black uppercase text-brand-50">Control de firmas</p>
-            <h2 className="mt-2 text-3xl font-black md:text-4xl">Planilla de Atencion y Asistencia</h2>
+            <h2 className="mt-1 text-2xl font-black md:text-3xl">Planilla de Atencion y Asistencia</h2>
             <span className="mt-2 block text-sm text-brand-50">Crea, edita, imprime y descarga la planilla individual del paciente.</span>
           </div>
-          <ClipboardCheck size={54} className="self-center text-brand-50" />
+          <ClipboardCheck size={42} className="self-center text-brand-50" />
         </div>
       </div>
 
@@ -232,7 +275,7 @@ function PlanillasAtencion() {
 
         <div className="p-4">
           {activePanel === 'crear' ? (
-            <div className="grid gap-5 xl:grid-cols-[560px_1fr]">
+            <div className="mx-auto grid max-w-7xl gap-5 xl:grid-cols-[minmax(360px,520px)_minmax(0,1fr)]">
               <form onSubmit={submit} className="panel grid gap-4">
                 <h3 className="text-lg font-bold text-ink">{editing ? 'Editar planilla' : 'Nueva planilla'}</h3>
                 <div className="form-grid">
@@ -249,7 +292,20 @@ function PlanillasAtencion() {
                   <Input label="Observacion" value={form.observacion} onChange={(e) => update('observacion', e.target.value)} multiline className="md:col-span-2" />
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                {form.paciente_id && (
+                  <div className="rounded-lg border border-brand-100 bg-brand-50/70 p-3 text-sm text-slate-600">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span>
+                        Sesiones registradas vinculadas: <strong className="text-ink">{sesionesPacienteSeleccionado.length}</strong>
+                      </span>
+                      <Button variant="ghost" onClick={cargarSesionesPaciente} disabled={sesionesPacienteSeleccionado.length === 0}>
+                        Usar fechas registradas
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h4 className="font-black text-ink">Sesiones</h4>
                     <Button variant="ghost" onClick={addSesion}>
@@ -259,12 +315,12 @@ function PlanillasAtencion() {
                   </div>
                   <div className="grid gap-3">
                     {form.sesiones.map((sesion, index) => (
-                      <div key={index} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-[1fr_110px_1fr_1fr_auto]">
+                      <div key={index} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-2">
                         <Input label="Fecha" type="date" value={sesion.fecha} onChange={(e) => updateSesion(index, 'fecha', e.target.value)} />
                         <Input label="Sesion" type="number" min="1" value={sesion.numero_sesion} onChange={(e) => updateSesion(index, 'numero_sesion', e.target.value)} />
                         <Input label="Firma Paciente" value={sesion.firma_paciente} onChange={(e) => updateSesion(index, 'firma_paciente', e.target.value)} placeholder="__________" />
                         <Input label="Firma Profesional" value={sesion.firma_profesional} onChange={(e) => updateSesion(index, 'firma_profesional', e.target.value)} placeholder="__________" />
-                        <div className="flex items-end">
+                        <div className="flex items-end sm:col-span-2">
                           <ActionButton label="Eliminar fila" icon={Trash2} tone="delete" onClick={() => removeSesion(index)} />
                         </div>
                       </div>
@@ -276,6 +332,10 @@ function PlanillasAtencion() {
                   <Button type="submit">
                     <Save size={17} />
                     Guardar planilla
+                  </Button>
+                  <Button variant="secondary" onClick={() => setShowPreview(true)}>
+                    <Eye size={17} />
+                    Vista previa
                   </Button>
                   <Button variant="ghost" onClick={() => printPlanilla()}>
                     <Printer size={17} />
@@ -293,7 +353,7 @@ function PlanillasAtencion() {
                   <h3 className="text-lg font-bold text-ink">Vista tipo documento</h3>
                   <p className="text-sm text-slate-500">Formato listo para imprimir o descargar.</p>
                 </div>
-                <div ref={printRef} className="bg-slate-100 p-4">
+                <div ref={printRef} className="max-h-[760px] overflow-auto rounded-lg bg-slate-100 p-4">
                   <PlanillaDocumento planilla={previewPlanilla} paciente={pacienteSeleccionado} />
                 </div>
               </div>
@@ -325,6 +385,12 @@ function PlanillasAtencion() {
           )}
         </div>
       </div>
+
+      <Modal open={showPreview} title="Vista previa de planilla" onClose={() => setShowPreview(false)} size="lg">
+        <div ref={printRef} className="max-h-[75vh] overflow-auto bg-slate-100 p-4">
+          <PlanillaDocumento planilla={previewPlanilla} paciente={pacienteSeleccionado} />
+        </div>
+      </Modal>
 
       <Modal open={Boolean(selectedPlanilla)} title="Planilla de atencion" onClose={() => setSelectedPlanilla(null)} size="lg">
         <div className="max-h-[75vh] overflow-auto bg-slate-100 p-4">

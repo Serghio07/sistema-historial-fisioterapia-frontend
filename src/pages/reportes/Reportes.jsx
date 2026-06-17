@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { Download, Eye, FilePenLine, FileText, Printer, Save, TableProperties, Trash2 } from 'lucide-react';
+import { Download, Eye, FilePenLine, FileText, Printer, Save, Search, TableProperties, Trash2 } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -125,8 +125,17 @@ function Reportes() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [activePanel, setActivePanel] = useState('generar');
+  const [query, setQuery] = useState('');
 
   const previewInforme = useMemo(() => ({ ...form, paciente: pacientes.find((item) => Number(item.id) === Number(form.paciente_id)) }), [form, pacientes]);
+
+  const filteredInformes = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return informes;
+    return informes.filter((informe) =>
+      `${nombrePaciente(informe.paciente)} ${informe.fecha || ''} ${informe.diagnostico || ''} ${informe.doctor || ''}`.toLowerCase().includes(term)
+    );
+  }, [informes, query]);
 
   const load = async () => {
     setLoading(true);
@@ -417,10 +426,28 @@ function Reportes() {
             </div>
           ) : (
             <div className="panel">
-              <h3 className="mb-4 text-lg font-bold text-ink">Informes generados</h3>
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-ink">Informes generados</h3>
+                  <p className="text-sm text-slate-500">Busca por paciente, diagnostico, doctor o fecha.</p>
+                </div>
+                <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black uppercase text-brand-700">{filteredInformes.length} resultados</span>
+              </div>
+              <label className="mb-4 grid gap-1 text-sm font-bold text-slate-700">
+                <span>Buscar</span>
+                <span className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
+                  <Search size={17} className="shrink-0 text-slate-500" />
+                  <input
+                    className="w-full border-0 bg-transparent p-0 text-sm text-ink shadow-none placeholder:text-slate-400 focus:ring-0"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Paciente, diagnostico, doctor o fecha"
+                  />
+                </span>
+              </label>
               <Table
                 columns={['Paciente', 'Fecha', 'Diagnostico', 'Doctor', 'Acciones']}
-                rows={informes.map((informe) => [
+                rows={filteredInformes.map((informe) => [
                   nombrePaciente(informe.paciente),
                   formatDate(informe.fecha),
                   informe.diagnostico,

@@ -21,15 +21,15 @@ function SesionSemanalForm({ form, setForm, pacientes, editing, onSubmit, onCanc
   };
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-5">
-      {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
+    <form onSubmit={onSubmit} className="mx-auto grid w-full max-w-5xl gap-3">
+      {error && <p className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-sm font-semibold text-red-700">{error}</p>}
 
-      <div className="rounded-lg border border-brand-100 bg-gradient-to-br from-brand-50 to-white p-4 shadow-sm">
-        <div className="mb-4 flex items-center gap-2 text-brand-800">
-          <CalendarDays size={19} />
+      <div className="rounded-lg border border-brand-100 bg-gradient-to-br from-brand-50 to-white p-3 shadow-sm">
+        <div className="mb-3 flex items-center gap-2 text-brand-800">
+          <CalendarDays size={17} />
           <h3 className="font-black">Datos de la semana</h3>
         </div>
-        <div className="form-grid">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <Input
             label="Paciente"
             value={form.paciente_id}
@@ -54,21 +54,21 @@ function SesionSemanalForm({ form, setForm, pacientes, editing, onSubmit, onCanc
               { value: 'Otro', label: 'Otro' }
             ]}
           />
-          <Input label="Diagnostico" value={form.diagnostico} onChange={(e) => update('diagnostico', e.target.value)} multiline className="md:col-span-2" />
+          <Input label="Diagnostico" value={form.diagnostico} onChange={(e) => update('diagnostico', e.target.value)} multiline rows={2} className="lg:col-span-2" />
           <Input label="Debe Bs" type="number" min="0" step="0.01" value={form.debe_bs} onChange={(e) => update('debe_bs', e.target.value)} />
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white/90 p-4 shadow-sm">
-        <div className="mb-3 flex items-center gap-2 text-ink">
-          <ClipboardList size={19} className="text-brand-600" />
+      <div className="rounded-lg border border-slate-200 bg-white/90 p-3 shadow-sm">
+        <div className="mb-2 flex items-center gap-2 text-ink">
+          <ClipboardList size={17} className="text-brand-600" />
           <h3 className="font-black">Control por dia</h3>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {dias.map((dia) => (
             <label
               key={dia}
-              className={`flex min-h-12 items-center gap-3 rounded-lg border px-4 text-sm font-bold transition ${
+              className={`flex min-h-9 items-center gap-2 rounded-lg border px-3 text-sm font-bold transition ${
                 form[dia] ? 'border-brand-100 bg-brand-50 text-brand-800 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-brand-100 hover:bg-brand-50'
               }`}
             >
@@ -85,8 +85,8 @@ function SesionSemanalForm({ form, setForm, pacientes, editing, onSubmit, onCanc
         </div>
       </div>
 
-      <div className="grid gap-4 rounded-lg border border-slate-200 bg-white/90 p-4 shadow-sm md:grid-cols-[1fr_2fr]">
-        <label className={`flex min-h-12 items-center gap-3 rounded-lg border px-3 text-sm font-bold transition ${
+      <div className="grid gap-3 rounded-lg border border-slate-200 bg-white/90 p-3 shadow-sm lg:grid-cols-[220px_1fr]">
+        <label className={`flex min-h-10 items-center gap-3 self-end rounded-lg border px-3 text-sm font-bold transition ${
           form.aplica_farmacos ? 'border-blue-100 bg-blue-50 text-blue-800' : 'border-slate-200 bg-slate-50 text-slate-700'
         }`}>
           <input
@@ -98,11 +98,11 @@ function SesionSemanalForm({ form, setForm, pacientes, editing, onSubmit, onCanc
           <Pill size={17} />
           Aplica farmacos
         </label>
-        <Input label="Observacion" value={form.observacion} onChange={(e) => update('observacion', e.target.value)} multiline />
+        <Input label="Observacion" value={form.observacion} onChange={(e) => update('observacion', e.target.value)} multiline rows={2} />
       </div>
 
       {selectedPaciente && (
-        <div className="rounded-lg border border-brand-100 bg-brand-50/60 p-4 text-sm text-slate-600">
+        <div className="rounded-lg border border-brand-100 bg-brand-50/60 p-3 text-sm text-slate-600">
           Registro asociado a <strong className="text-ink">{`${selectedPaciente.nombres} ${selectedPaciente.apellidos || ''}`.trim()}</strong>.
         </div>
       )}
@@ -112,7 +112,7 @@ function SesionSemanalForm({ form, setForm, pacientes, editing, onSubmit, onCanc
           <Save size={17} />
           {editing ? 'Actualizar semana' : 'Guardar semana'}
         </Button>
-        {editing && (
+        {onCancel && (
           <Button variant="ghost" onClick={onCancel}>
             Cancelar
           </Button>

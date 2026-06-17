@@ -56,7 +56,7 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
           <Save size={17} />
           Guardar
         </Button>
-        {editing && (
+        {onCancel && (
           <Button variant="ghost" onClick={onCancel}>
             Cancelar
           </Button>

@@ -76,7 +76,7 @@ function SesionForm({ form, setForm, pacientes, editing, onSubmit, onCancel, err
           <Save size={17} />
           {editing ? 'Actualizar sesion' : 'Guardar sesion'}
         </Button>
-        {editing && (
+        {onCancel && (
           <Button variant="ghost" onClick={onCancel}>
             Cancelar
           </Button>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CalendarClock, ChevronLeft, ChevronRight, Eye, FilePenLine, Plus, Trash2, XCircle } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, Eye, FilePenLine, Plus, TableProperties, Trash2, XCircle } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -139,7 +139,8 @@ function Citas() {
   const [filters, setFilters] = useState({ paciente: '', fecha: '', estado: '', tipo_atencion: '' });
   const [view, setView] = useState('semana');
   const [cursor, setCursor] = useState(new Date());
-  const [activeTab, setActiveTab] = useState('agendar');
+  const [activeTab, setActiveTab] = useState('listado');
+  const [showFormModal, setShowFormModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -206,6 +207,16 @@ function Citas() {
     setError('');
   };
 
+  const openNuevaCita = () => {
+    resetForm();
+    setShowFormModal(true);
+  };
+
+  const closeFormModal = () => {
+    setShowFormModal(false);
+    resetForm();
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     setMessage('');
@@ -218,6 +229,7 @@ function Citas() {
       editing ? await updateCita(editing, payload) : await createCita(payload);
       setMessage('Cita guardada correctamente.');
       resetForm();
+      setShowFormModal(false);
       await load();
     } catch (err) {
       setError(err.message);
@@ -237,8 +249,7 @@ function Citas() {
       observacion: cita.observacion || ''
     });
     setSelected(null);
-    setActiveTab('agendar');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowFormModal(true);
   };
 
   const moveCalendar = (direction) => {
@@ -254,13 +265,13 @@ function Citas() {
     <section className="grid gap-5">
       {loading && <Loader />}
       <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-        <div className="grid gap-4 bg-gradient-to-r from-brand-900 to-brand-600 p-6 text-white md:grid-cols-[1fr_auto]">
+        <div className="grid gap-3 bg-gradient-to-r from-brand-900 to-brand-600 p-4 text-white md:grid-cols-[1fr_auto]">
           <div>
             <p className="text-xs font-black uppercase text-brand-50">Agenda clinica</p>
-            <h2 className="mt-2 text-3xl font-black md:text-4xl">Citas / Agenda</h2>
+            <h2 className="mt-1 text-2xl font-black md:text-3xl">Citas / Agenda</h2>
             <span className="mt-2 block text-sm text-brand-50">Gestiona las citas programadas de los pacientes.</span>
           </div>
-          <CalendarClock size={54} className="self-center text-brand-50" />
+          <CalendarClock size={42} className="self-center text-brand-50" />
         </div>
       </div>
 
@@ -271,13 +282,13 @@ function Citas() {
         <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-4">
           <button
             type="button"
-            onClick={() => setActiveTab('agendar')}
+            onClick={() => setActiveTab('listado')}
             className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-black transition ${
-              activeTab === 'agendar' ? 'bg-brand-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-700'
+              activeTab === 'listado' ? 'bg-brand-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-700'
             }`}
           >
-            <Plus size={17} />
-            Agendar citas
+            <TableProperties size={17} />
+            Lista de citas
           </button>
           <button
             type="button"
@@ -292,23 +303,6 @@ function Citas() {
         </div>
       </div>
 
-      {activeTab === 'agendar' && (
-        <div className="panel">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-bold text-ink">{editing ? 'Editar cita' : 'Agendar cita'}</h3>
-              <p className="text-sm text-slate-500">Registra una nueva cita seleccionando un paciente.</p>
-            </div>
-            {editing && (
-              <Button variant="ghost" onClick={resetForm}>
-                Nueva cita
-              </Button>
-            )}
-          </div>
-          <CitaForm form={form} setForm={setForm} pacientes={pacientes} onSubmit={submit} onCancel={resetForm} editing={editing} error="" />
-        </div>
-      )}
-
       {activeTab === 'calendario' && (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="panel">
@@ -317,7 +311,7 @@ function Citas() {
                 <h3 className="text-lg font-bold text-ink">Calendario de citas</h3>
                 <p className="text-sm text-slate-500">{filteredCitas.length} citas visibles.</p>
               </div>
-              <Button onClick={() => setActiveTab('agendar')}>
+              <Button onClick={openNuevaCita}>
                 <Plus size={17} />
                 Nueva cita
               </Button>
@@ -423,11 +417,23 @@ function Citas() {
         </div>
       )}
 
-      {activeTab === 'agendar' && (
+      {activeTab === 'listado' && (
         <div className="panel">
-        <div className="mb-4">
-          <h3 className="text-lg font-bold text-ink">Listado de citas</h3>
-          <p className="text-sm text-slate-500">Consulta, edicion y control de estado.</p>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-ink">Listado de citas</h3>
+            <p className="text-sm text-slate-500">Consulta, edicion y control de estado.</p>
+          </div>
+          <Button onClick={openNuevaCita}>
+            <Plus size={17} />
+            Nueva cita
+          </Button>
+        </div>
+        <div className="mb-4 grid gap-3 md:grid-cols-4">
+          <Input label="Buscar por paciente" value={filters.paciente} onChange={(event) => setFilters({ ...filters, paciente: event.target.value })} />
+          <Input label="Filtrar por fecha" type="date" value={filters.fecha} onChange={(event) => setFilters({ ...filters, fecha: event.target.value })} />
+          <Input label="Estado" options={[{ value: '', label: 'Todos' }, ...ESTADOS.map((estado) => ({ value: estado, label: estado }))]} value={filters.estado} onChange={(event) => setFilters({ ...filters, estado: event.target.value })} />
+          <Input label="Tipo de atencion" options={[{ value: '', label: 'Todos' }, ...TIPOS.map((tipo) => ({ value: tipo, label: tipo }))]} value={filters.tipo_atencion} onChange={(event) => setFilters({ ...filters, tipo_atencion: event.target.value })} />
         </div>
         <Table
           columns={['Paciente', 'Fecha', 'Hora', 'Motivo', 'Tipo de atencion', 'Estado', 'Observacion', 'Acciones']}
@@ -450,6 +456,10 @@ function Citas() {
         />
       </div>
       )}
+
+      <Modal open={showFormModal} title={editing ? 'Editar cita' : 'Nueva cita'} onClose={closeFormModal} size="lg">
+        <CitaForm form={form} setForm={setForm} pacientes={pacientes} onSubmit={submit} onCancel={closeFormModal} editing={editing} error={error} />
+      </Modal>
 
       <Modal open={Boolean(selected)} title="Detalle de cita" onClose={() => setSelected(null)} size="lg">
         {selected && (

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Loader from '../common/Loader';
 import Navbar from './Navbar';
@@ -6,13 +7,25 @@ import { useAuth } from '../../context/AuthContext';
 
 function Layout() {
   const { loading } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarCollapsed ? 'app-shell-collapsed' : ''}`}>
       {loading && <Loader />}
-      <Sidebar />
+      {mobileMenuOpen && <button type="button" className="mobile-sidebar-backdrop" aria-label="Cerrar menu" onClick={() => setMobileMenuOpen(false)} />}
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        mobileOpen={mobileMenuOpen}
+        onNavigate={() => setMobileMenuOpen(false)}
+        onToggle={() => setSidebarCollapsed((current) => !current)}
+      />
       <main className="workspace">
-        <Navbar />
+        <Navbar onMenuClick={() => setMobileMenuOpen(true)} />
         <Outlet />
       </main>
     </div>

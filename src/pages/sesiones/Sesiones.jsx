@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { CalendarDays, Eye, FilePenLine, PlusCircle, TableProperties, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { CalendarDays, Eye, FilePenLine, PlusCircle, Search, Trash2 } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
+import Input from '../../components/common/Input';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
 import Table from '../../components/common/Table';
@@ -51,8 +52,9 @@ function Sesiones() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [activePanel, setActivePanel] = useState('nueva');
+  const [showFormModal, setShowFormModal] = useState(false);
   const [selectedSesion, setSelectedSesion] = useState(null);
+  const [registeredFilters, setRegisteredFilters] = useState({ query: '', orderBy: 'fecha_desc' });
 
   const load = async () => {
     setLoading(true);
@@ -79,6 +81,21 @@ function Sesiones() {
     load();
   }, []);
 
+  const filteredSesiones = useMemo(() => {
+    const query = registeredFilters.query.trim().toLowerCase();
+    const filtered = sesiones.filter((sesion) => {
+      const text = `${nombrePaciente(sesion.paciente)} ${sesion.observacion || ''} ${sesion.metodo_pago || ''}`.toLowerCase();
+      return !query || text.includes(query);
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (registeredFilters.orderBy === 'nombre_asc') return nombrePaciente(a.paciente).localeCompare(nombrePaciente(b.paciente), 'es');
+      if (registeredFilters.orderBy === 'nombre_desc') return nombrePaciente(b.paciente).localeCompare(nombrePaciente(a.paciente), 'es');
+      if (registeredFilters.orderBy === 'fecha_asc') return String(a.fecha || '').localeCompare(String(b.fecha || ''));
+      return String(b.fecha || '').localeCompare(String(a.fecha || ''));
+    });
+  }, [sesiones, registeredFilters]);
+
   const validate = () => {
     if (!form.paciente_id) return 'Selecciona un paciente.';
     if (!form.fecha) return 'La fecha es obligatoria.';
@@ -103,6 +120,7 @@ function Sesiones() {
       editing ? await updateSesion(editing, payload) : await createSesion(payload);
       setForm(initialForm);
       setEditing(null);
+      setShowFormModal(false);
       setMessage('Sesion guardada correctamente.');
       await load();
     } catch (err) {
@@ -121,106 +139,104 @@ function Sesiones() {
       metodo_pago: sesion.metodo_pago || 'Pendiente',
       observacion: sesion.observacion || ''
     });
-    setActivePanel('nueva');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowFormModal(true);
+  };
+
+  const openNuevaSesion = () => {
+    setEditing(null);
+    setForm(initialForm);
+    setError('');
+    setShowFormModal(true);
+  };
+
+  const closeFormModal = () => {
+    setShowFormModal(false);
+    setEditing(null);
+    setForm(initialForm);
+    setError('');
   };
 
   return (
     <section className="grid gap-5">
       {loading && <Loader />}
       <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-        <div className="grid gap-4 bg-gradient-to-r from-brand-900 to-brand-600 p-6 text-white md:grid-cols-[1fr_auto]">
+        <div className="grid gap-3 bg-gradient-to-r from-brand-900 to-brand-600 p-4 text-white md:grid-cols-[1fr_auto]">
           <div>
             <p className="text-xs font-black uppercase text-brand-50">Atencion diaria</p>
-            <h2 className="mt-2 text-3xl font-black md:text-4xl">Sesiones</h2>
+            <h2 className="mt-1 text-2xl font-black md:text-3xl">Sesiones</h2>
             <span className="mt-2 block text-sm text-brand-50">Control de sesiones contratadas, realizadas y restantes por paciente.</span>
           </div>
-          <CalendarDays size={54} className="self-center text-brand-50" />
+          <CalendarDays size={42} className="self-center text-brand-50" />
         </div>
       </div>
 
       {message && <p className="notice">{message}</p>}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 p-3">
-          <button
-            type="button"
-            onClick={() => setActivePanel('nueva')}
-            className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-black transition ${
-              activePanel === 'nueva' ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-brand-50 hover:text-brand-700'
-            }`}
-          >
-            <PlusCircle size={17} />
-            Nueva sesion
-          </button>
-          <button
-            type="button"
-            onClick={() => setActivePanel('registradas')}
-            className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-black transition ${
-              activePanel === 'registradas' ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-brand-50 hover:text-brand-700'
-            }`}
-          >
-            <TableProperties size={17} />
-            Sesiones registradas
-          </button>
+      <div className="panel">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-3">
+          <div>
+            <h3 className="text-lg font-bold text-ink">Sesiones registradas</h3>
+            <p className="text-sm text-slate-500">Control diario por paciente.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black uppercase text-brand-700">{filteredSesiones.length} resultados</span>
+            <Button onClick={openNuevaSesion}>
+              <PlusCircle size={17} />
+              Nueva sesion
+            </Button>
+          </div>
         </div>
-
-        <div className="p-4">
-          {activePanel === 'nueva' ? (
-            <div>
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-bold text-ink">{editing ? 'Editar sesion' : 'Nueva sesion'}</h3>
-                  <p className="text-sm text-slate-500">{pacientes.length} pacientes disponibles para seleccionar.</p>
-                </div>
-              </div>
-              <SesionForm
-                form={form}
-                setForm={setForm}
-                pacientes={pacientes}
-                editing={editing}
-                onSubmit={submit}
-                onCancel={() => {
-                  setEditing(null);
-                  setForm(initialForm);
-                  setError('');
-                }}
-                error={error}
+        <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
+          <label className="grid gap-1 text-sm font-bold text-slate-700">
+            <span>Buscar</span>
+            <span className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
+              <Search size={17} className="shrink-0 text-slate-500" />
+              <input
+                className="w-full border-0 bg-transparent p-0 text-sm text-ink shadow-none placeholder:text-slate-400 focus:ring-0"
+                value={registeredFilters.query}
+                onChange={(event) => setRegisteredFilters({ ...registeredFilters, query: event.target.value })}
+                placeholder="Paciente, pago u observacion"
               />
-            </div>
-          ) : (
-            <div>
-              <div className="mb-4">
-                <h3 className="text-lg font-bold text-ink">Sesiones registradas</h3>
-                <p className="text-sm text-slate-500">Control diario por paciente.</p>
-              </div>
-              <Table
-                columns={['Paciente', 'Fecha', 'Debe', 'Hizo', 'Restantes', 'Asistencia', 'Metodo pago', 'Observacion', 'Acciones']}
-                rows={sesiones.map((sesion) => {
-                  const restantes = Math.max(Number(sesion.sesiones_debe || 0) - Number(sesion.sesiones_hizo || 0), 0);
-                  return [
-                    nombrePaciente(sesion.paciente),
-                    formatDate(sesion.fecha),
-                    sesion.sesiones_debe,
-                    sesion.sesiones_hizo,
-                    <span className={restantes === 0 && Number(sesion.sesiones_debe || 0) > 0 ? 'font-bold text-amber-700' : 'font-bold text-brand-700'}>{restantes}</span>,
-                    labelAsistencia(sesion.asistencia),
-                    sesion.metodo_pago,
-                    sesion.observacion || 'Sin observacion',
-                    <div className="flex gap-2">
-                      <ActionButton label="Ver sesion" icon={Eye} tone="view" onClick={() => setSelectedSesion(sesion)} />
-                      <ActionButton label="Editar sesion" icon={FilePenLine} tone="edit" onClick={() => editSesion(sesion)} />
-                      {isAdmin && (
-                        <ActionButton label="Eliminar sesion" icon={Trash2} tone="delete" onClick={() => deleteSesion(sesion.id).then(load)} />
-                      )}
-                    </div>
-                  ];
-                })}
-                empty="No hay sesiones registradas."
-              />
-            </div>
-          )}
+            </span>
+          </label>
+          <Input
+            label="Ordenar"
+            value={registeredFilters.orderBy}
+            onChange={(event) => setRegisteredFilters({ ...registeredFilters, orderBy: event.target.value })}
+            options={[
+              { value: 'fecha_desc', label: 'Fecha reciente primero' },
+              { value: 'fecha_asc', label: 'Fecha antigua primero' },
+              { value: 'nombre_asc', label: 'Paciente A-Z' },
+              { value: 'nombre_desc', label: 'Paciente Z-A' }
+            ]}
+          />
         </div>
+        <Table
+          columns={['Paciente', 'Fecha', 'Debe', 'Hizo', 'Restantes', 'Asistencia', 'Metodo pago', 'Observacion', 'Acciones']}
+          rows={filteredSesiones.map((sesion) => {
+            const restantes = Math.max(Number(sesion.sesiones_debe || 0) - Number(sesion.sesiones_hizo || 0), 0);
+            return [
+              nombrePaciente(sesion.paciente),
+              formatDate(sesion.fecha),
+              sesion.sesiones_debe,
+              sesion.sesiones_hizo,
+              <span className={restantes === 0 && Number(sesion.sesiones_debe || 0) > 0 ? 'font-bold text-amber-700' : 'font-bold text-brand-700'}>{restantes}</span>,
+              labelAsistencia(sesion.asistencia),
+              sesion.metodo_pago,
+              sesion.observacion || 'Sin observacion',
+              <div className="flex gap-2">
+                <ActionButton label="Ver sesion" icon={Eye} tone="view" onClick={() => setSelectedSesion(sesion)} />
+                <ActionButton label="Editar sesion" icon={FilePenLine} tone="edit" onClick={() => editSesion(sesion)} />
+                {isAdmin && <ActionButton label="Eliminar sesion" icon={Trash2} tone="delete" onClick={() => deleteSesion(sesion.id).then(load)} />}
+              </div>
+            ];
+          })}
+          empty="No hay sesiones registradas."
+        />
       </div>
+
+      <Modal open={showFormModal} title={editing ? 'Editar sesion' : 'Nueva sesion'} onClose={closeFormModal} size="lg">
+        <SesionForm form={form} setForm={setForm} pacientes={pacientes} editing={editing} onSubmit={submit} onCancel={closeFormModal} error={error} />
+      </Modal>
 
       <Modal open={Boolean(selectedSesion)} title="Detalle de sesion" onClose={() => setSelectedSesion(null)} size="lg">
         {selectedSesion && (

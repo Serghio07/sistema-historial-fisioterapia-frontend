@@ -1,13 +1,16 @@
-import { ShieldCheck } from 'lucide-react';
+import { Menu, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import logo from '../../assets/logos/logo.png';
 
-function Navbar() {
+function Navbar({ onMenuClick }) {
   const { user } = useAuth();
 
   return (
     <header className="navbar">
       <div className="flex items-center gap-3">
+        <button type="button" className="mobile-menu-button" onClick={onMenuClick} aria-label="Abrir menu">
+          <Menu size={20} />
+        </button>
         <img src={logo} alt="Physio Active" className="hidden h-14 w-40 rounded-lg bg-white object-contain p-1.5 shadow-sm sm:block" />
         <div>
           <p className="text-xs font-bold uppercase text-brand-600">Centro de Fisioterapia</p>

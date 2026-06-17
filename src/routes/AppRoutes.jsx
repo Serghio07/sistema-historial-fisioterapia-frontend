@@ -11,7 +11,6 @@ import Sesiones from '../pages/sesiones/Sesiones';
 import Citas from '../pages/citas/Citas';
 import SesionesSemanales from '../pages/sesionesSemanales/SesionesSemanales';
 import PlanillasAtencion from '../pages/planillasAtencion/PlanillasAtencion';
-import Pagos from '../pages/pagos/Pagos';
 import Reportes from '../pages/reportes/Reportes';
 import PrivateRoute from './PrivateRoute';
 
@@ -31,7 +30,6 @@ function AppRoutes() {
             <Route path="citas" element={<Citas />} />
             <Route path="sesiones-semanales" element={<SesionesSemanales />} />
             <Route path="planillas-atencion" element={<PlanillasAtencion />} />
-            <Route path="pagos" element={<Pagos />} />
             <Route path="informes-medicos" element={<Reportes />} />
             <Route path="reportes" element={<Reportes />} />
           </Route>

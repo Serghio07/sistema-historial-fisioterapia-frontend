@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, FilePenLine, IdCard, Phone, Search, Trash2, UserRound, Users } from 'lucide-react';
+import { Eye, FilePenLine, IdCard, Phone, Plus, Search, Trash2, Users } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
@@ -38,12 +38,29 @@ function initials(paciente) {
   return `${paciente?.nombres?.[0] || ''}${paciente?.apellidos?.[0] || ''}`.toUpperCase() || 'P';
 }
 
+function formatCivilStatus(value) {
+  if (!value) return 'Sin dato';
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+}
+
+function PatientInfo({ label, value }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5">
+      <span className="block text-[11px] font-black uppercase text-slate-400">{label}</span>
+      <strong className="mt-1 block truncate text-sm font-semibold text-slate-700" title={value || 'Sin dato'}>
+        {value || 'Sin dato'}
+      </strong>
+    </div>
+  );
+}
+
 function Pacientes() {
   const { isAdmin } = useAuth();
   const [pacientes, setPacientes] = useState([]);
   const [query, setQuery] = useState('');
   const [form, setForm] = useState(initialForm);
   const [editing, setEditing] = useState(null);
+  const [showFormModal, setShowFormModal] = useState(false);
   const [selectedPaciente, setSelectedPaciente] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -76,6 +93,7 @@ function Pacientes() {
       editing ? await updatePaciente(editing, payload) : await createPaciente(payload);
       setForm(initialForm);
       setEditing(null);
+      setShowFormModal(false);
       setMessage('Paciente guardado correctamente.');
       await load();
     } catch (err) {
@@ -86,7 +104,19 @@ function Pacientes() {
   const editPaciente = (paciente) => {
     setEditing(paciente.id);
     setForm({ ...initialForm, ...paciente, fecha_nacimiento: paciente.fecha_nacimiento || '' });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowFormModal(true);
+  };
+
+  const openNewPaciente = () => {
+    setEditing(null);
+    setForm(initialForm);
+    setShowFormModal(true);
+  };
+
+  const closeFormModal = () => {
+    setShowFormModal(false);
+    setEditing(null);
+    setForm(initialForm);
   };
 
   return (
@@ -94,10 +124,10 @@ function Pacientes() {
       {loading && <Loader />}
 
       <div className="overflow-hidden rounded-lg border border-white/60 bg-white shadow-soft">
-        <div className="grid gap-4 bg-gradient-to-r from-[#123f3f] via-brand-700 to-brand-500 p-6 text-white md:grid-cols-[1fr_auto]">
+        <div className="grid gap-3 bg-gradient-to-r from-[#123f3f] via-brand-700 to-brand-500 p-4 text-white md:grid-cols-[1fr_auto]">
           <div>
             <p className="text-xs font-black uppercase text-brand-50">Registro clinico</p>
-            <h2 className="mt-2 text-3xl font-black md:text-4xl">Pacientes</h2>
+            <h2 className="mt-1 text-2xl font-black md:text-3xl">Pacientes</h2>
             <span className="mt-2 block text-sm text-brand-50">Datos personales, contacto y referencia clinica.</span>
           </div>
           <div className="rounded-lg border border-white/25 bg-white/15 p-4 text-center shadow-sm backdrop-blur">
@@ -110,29 +140,7 @@ function Pacientes() {
 
       {message && <p className="notice">{message}</p>}
 
-      <div className="grid gap-5 xl:grid-cols-[520px_1fr]">
-        <div className="panel xl:sticky xl:top-5">
-          <div className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-brand-100 bg-brand-50/70 p-4">
-            <div>
-              <h3 className="text-lg font-bold text-ink">{editing ? 'Editar paciente' : 'Nuevo paciente'}</h3>
-              <p className="text-sm text-slate-500">Completa los datos generales del paciente.</p>
-            </div>
-            <div className="grid h-12 w-12 place-items-center rounded-lg bg-white text-brand-700 shadow-sm">
-              <UserRound size={24} />
-            </div>
-          </div>
-          <PacienteForm
-            form={form}
-            setForm={setForm}
-            editing={editing}
-            onSubmit={submit}
-            onCancel={() => {
-              setEditing(null);
-              setForm(initialForm);
-            }}
-          />
-        </div>
-
+      <div className="grid gap-5">
         <div className="panel">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
             <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -144,38 +152,57 @@ function Pacientes() {
                 placeholder="Buscar paciente por nombre, CI o telefono"
               />
             </div>
-            <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black uppercase text-brand-700">{filtered.length} resultados</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black uppercase text-brand-700">{filtered.length} resultados</span>
+              <Button onClick={openNewPaciente}>
+                <Plus size={17} />
+                Nuevo paciente
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-3">
             {filtered.map((paciente) => (
-              <article key={paciente.id} className="rounded-lg border border-slate-200 bg-white/85 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-100 hover:bg-white hover:shadow-md">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex min-w-0 gap-3">
-                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-brand-600 to-teal-500 text-sm font-black text-white shadow-sm">
+              <article key={paciente.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-md">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+                  <div className="grid min-w-0 gap-3 sm:grid-cols-[56px_minmax(0,1fr)]">
+                    <div className="grid h-14 w-14 place-items-center rounded-lg bg-gradient-to-br from-brand-700 to-brand-500 text-sm font-black text-white shadow-sm">
                       {initials(paciente)}
                     </div>
+
                     <div className="min-w-0">
-                      <strong className="block truncate text-base text-ink">{nombrePaciente(paciente)}</strong>
-                      <div className="mt-2 flex flex-wrap gap-2 text-sm text-slate-600">
-                        <span className="inline-flex items-center gap-1 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                        <IdCard size={15} />
-                        {paciente.ci || 'Sin CI'}
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <strong className="min-w-0 max-w-full truncate text-lg font-black text-ink">{nombrePaciente(paciente)}</strong>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${paciente.estado ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                          {paciente.estado ? 'Activo' : 'Inactivo'}
                         </span>
-                        <span className="inline-flex items-center gap-1 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                        <Phone size={15} />
-                        {paciente.telefono || 'Sin telefono'}
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+                        <span className="inline-flex items-center gap-1.5">
+                          <IdCard size={14} className="text-brand-600" />
+                          CI {paciente.ci || 'sin dato'}
                         </span>
-                        <span className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">{paciente.edad ? `${paciente.edad} anios` : 'Sin edad'}</span>
-                        <span className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">{paciente.sexo || 'Sin sexo'}</span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <Phone size={14} className="text-brand-600" />
+                          {paciente.telefono || 'Sin telefono'}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                        <PatientInfo label="Edad" value={paciente.edad ? `${paciente.edad} anios` : ''} />
+                        <PatientInfo label="Sexo" value={paciente.sexo} />
+                        <PatientInfo label="Estado civil" value={formatCivilStatus(paciente.estado_civil)} />
+                        <PatientInfo label="Ocupacion" value={paciente.ocupacion} />
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <ActionButton label="Ver paciente" icon={Eye} tone="view" onClick={() => setSelectedPaciente(paciente)} />
-                    <ActionButton label="Editar paciente" icon={FilePenLine} tone="edit" onClick={() => editPaciente(paciente)} />
+
+                  <div className="flex items-start gap-2 lg:justify-end">
+                    <ActionButton className="h-10 w-10" label="Ver paciente" icon={Eye} tone="view" onClick={() => setSelectedPaciente(paciente)} />
+                    <ActionButton className="h-10 w-10" label="Editar paciente" icon={FilePenLine} tone="edit" onClick={() => editPaciente(paciente)} />
                     {isAdmin && (
-                      <ActionButton label="Eliminar paciente" icon={Trash2} tone="delete" onClick={() => deletePaciente(paciente.id).then(load)} />
+                      <ActionButton className="h-10 w-10" label="Eliminar paciente" icon={Trash2} tone="delete" onClick={() => deletePaciente(paciente.id).then(load)} />
                     )}
                   </div>
                 </div>
@@ -185,6 +212,10 @@ function Pacientes() {
           </div>
         </div>
       </div>
+
+      <Modal open={showFormModal} title={editing ? 'Editar paciente' : 'Nuevo paciente'} onClose={closeFormModal} size="lg">
+        <PacienteForm form={form} setForm={setForm} editing={editing} onSubmit={submit} onCancel={closeFormModal} />
+      </Modal>
 
       <Modal open={Boolean(selectedPaciente)} title={selectedPaciente ? nombrePaciente(selectedPaciente) : 'Detalle del paciente'} onClose={() => setSelectedPaciente(null)} size="lg">
         {selectedPaciente && (
