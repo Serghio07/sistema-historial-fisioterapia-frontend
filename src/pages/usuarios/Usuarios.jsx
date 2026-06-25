@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Stethoscope,
   UserCog,
+  UserRoundX,
   UserRoundCheck,
   UsersRound,
   X
@@ -41,6 +42,7 @@ const initialForm = {
 const tabs = [
   { id: 'activos', label: 'Usuarios activos', icon: UserRoundCheck },
   { id: 'pendientes', label: 'Solicitudes pendientes', icon: Clock3 },
+  { id: 'inactivos', label: 'Inactivos', icon: UserRoundX },
   { id: 'bloqueados', label: 'Bloqueados', icon: LockKeyhole }
 ];
 
@@ -186,13 +188,16 @@ function Usuarios() {
     total: usuarios.length,
     admin: usuarios.filter((item) => item.rol === 'admin').length,
     personal: usuarios.filter((item) => item.rol === 'personal').length,
-    pendientes: usuarios.filter((item) => item.estado === 'pendiente').length
+    pendientes: usuarios.filter((item) => item.estado === 'pendiente').length,
+    inactivos: usuarios.filter((item) => item.estado === 'inactivo').length,
+    bloqueados: usuarios.filter((item) => item.estado === 'bloqueado').length
   }), [usuarios]);
 
   const visibleUsers = useMemo(() => {
     const tabUsers = usuarios.filter((item) => {
       if (activeTab === 'pendientes') return item.estado === 'pendiente';
-      if (activeTab === 'bloqueados') return ['bloqueado', 'inactivo'].includes(item.estado);
+      if (activeTab === 'inactivos') return item.estado === 'inactivo';
+      if (activeTab === 'bloqueados') return item.estado === 'bloqueado';
       return !['pendiente', 'bloqueado', 'inactivo', 'rechazado'].includes(item.estado);
     });
     const term = query.trim().toLowerCase();
@@ -248,6 +253,10 @@ function Usuarios() {
     try {
       if (editing) await updateUsuario(editing, payload);
       else await createUsuario(payload);
+      if (payload.estado === 'inactivo') setActiveTab('inactivos');
+      if (payload.estado === 'bloqueado') setActiveTab('bloqueados');
+      if (payload.estado === 'activo') setActiveTab('activos');
+      setEstadoFilter('');
       setShowFormModal(false);
       setForm(initialForm);
       setEditing(null);
@@ -312,7 +321,7 @@ function Usuarios() {
           <ActionButton label="Aprobar solicitud" icon={Check} tone="edit" className="h-9 w-9" onClick={() => review(usuario, 'aprobar')} />
           <ActionButton label="Rechazar solicitud" icon={X} tone="delete" className="h-9 w-9" onClick={() => askReject(usuario)} />
         </>
-      ) : activeTab === 'bloqueados' ? (
+      ) : ['bloqueados', 'inactivos'].includes(activeTab) ? (
         <ActionButton label="Reactivar cuenta" icon={ShieldCheck} tone="edit" className="h-9 w-9" onClick={() => changeStatus(usuario, 'activo')} />
       ) : (
         <>
@@ -371,6 +380,12 @@ function Usuarios() {
                 {tab.id === 'pendientes' && counts.pendientes > 0 && (
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">{counts.pendientes}</span>
                 )}
+                {tab.id === 'inactivos' && counts.inactivos > 0 && (
+                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">{counts.inactivos}</span>
+                )}
+                {tab.id === 'bloqueados' && counts.bloqueados > 0 && (
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">{counts.bloqueados}</span>
+                )}
                 {selected && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-brand-600" />}
               </button>
             );
@@ -401,7 +416,14 @@ function Usuarios() {
             <Input
               label=""
               value={estadoFilter}
-              onChange={(event) => setEstadoFilter(event.target.value)}
+              onChange={(event) => {
+                const estado = event.target.value;
+                setEstadoFilter(estado);
+                if (estado === 'activo') setActiveTab('activos');
+                if (estado === 'pendiente') setActiveTab('pendientes');
+                if (estado === 'inactivo') setActiveTab('inactivos');
+                if (estado === 'bloqueado') setActiveTab('bloqueados');
+              }}
               options={[
                 { value: '', label: 'Todos los estados' },
                 { value: 'activo', label: 'Activo' },
@@ -432,7 +454,7 @@ function Usuarios() {
                   <th className="px-4 py-3">Correo</th>
                   <th className="px-4 py-3">{activeTab === 'pendientes' ? 'Fecha de solicitud' : 'Rol'}</th>
                   <th className="px-4 py-3">Estado</th>
-                  <th className="px-4 py-3">{activeTab === 'bloqueados' ? 'Fecha de bloqueo' : activeTab === 'pendientes' ? 'Usuario' : 'Último acceso'}</th>
+                  <th className="px-4 py-3">{['bloqueados', 'inactivos'].includes(activeTab) ? 'Fecha de cambio' : activeTab === 'pendientes' ? 'Usuario' : 'Último acceso'}</th>
                   <th className="px-4 py-3 text-right">Acciones</th>
                 </tr>
               </thead>
@@ -448,7 +470,7 @@ function Usuarios() {
                     </td>
                     <td className="px-4 py-3"><Badge tone={statusTone[usuario.estado]}>{statusLabel[usuario.estado] || usuario.estado}</Badge></td>
                     <td className="px-4 py-3 text-sm text-slate-600">
-                      {activeTab === 'pendientes' ? `@${usuario.usuario}` : activeTab === 'bloqueados' ? formatRequestDate(usuario.updated_at) : formatAccess(usuario.ultimo_acceso)}
+                      {activeTab === 'pendientes' ? `@${usuario.usuario}` : ['bloqueados', 'inactivos'].includes(activeTab) ? formatRequestDate(usuario.updated_at) : formatAccess(usuario.ultimo_acceso)}
                     </td>
                     <td className="px-4 py-3">{renderActions(usuario)}</td>
                   </tr>
