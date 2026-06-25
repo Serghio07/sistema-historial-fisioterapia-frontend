@@ -30,6 +30,19 @@ import { createUsuario, getUsuarios, reviewAccessRequest, updateUsuario, updateU
 
 const initialForm = {
   nombre: '',
+  nombres: '',
+  apellido_paterno: '',
+  apellido_materno: '',
+  ci: '',
+  cargo: '',
+  dias_trabajo: ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'],
+  hora_entrada: '08:00',
+  hora_salida: '17:00',
+  sueldo_base: '',
+  tipo_pago: 'mensual',
+  direccion: '',
+  fecha_ingreso: new Date().toISOString().slice(0, 10),
+  observaciones: '',
   usuario: '',
   email: '',
   telefono: '',
@@ -224,7 +237,7 @@ function Usuarios() {
   const openEdit = (usuario) => {
     clearFeedback();
     setEditing(usuario.id);
-    setForm({ ...initialForm, ...usuario, password: '' });
+    setForm({ ...initialForm, ...usuario, ...(usuario.ficha_personal || {}), password: '' });
     setSelectedUsuario(null);
     setShowFormModal(true);
   };
@@ -233,7 +246,20 @@ function Usuarios() {
     event.preventDefault();
     clearFeedback();
     const payload = {
-      nombre: form.nombre.trim(),
+      nombre: [form.nombres, form.apellido_paterno, form.apellido_materno].filter(Boolean).join(' '),
+      nombres: form.nombres?.trim(),
+      apellido_paterno: form.apellido_paterno?.trim(),
+      apellido_materno: form.apellido_materno?.trim() || null,
+      ci: form.ci?.trim(),
+      cargo: form.cargo?.trim(),
+      dias_trabajo: form.dias_trabajo,
+      hora_entrada: form.hora_entrada,
+      hora_salida: form.hora_salida,
+      sueldo_base: form.tipo_pago === 'por_servicio' ? null : form.sueldo_base,
+      tipo_pago: form.tipo_pago,
+      direccion: form.direccion?.trim() || null,
+      fecha_ingreso: form.fecha_ingreso,
+      observaciones: form.observaciones?.trim() || null,
       usuario: form.usuario.trim(),
       email: form.email?.trim() || null,
       telefono: form.telefono?.trim() || null,
@@ -241,8 +267,12 @@ function Usuarios() {
       rol: editing ? form.rol : 'personal',
       estado: form.estado
     };
-    if (!payload.nombre || !payload.usuario || !payload.email) {
+    if (!payload.nombres || !payload.apellido_paterno || !payload.ci || !payload.cargo || !payload.fecha_ingreso || !payload.usuario || !payload.email) {
       setError('Nombre, usuario y correo electrónico son obligatorios.');
+      return;
+    }
+    if (!payload.dias_trabajo.length || !payload.hora_entrada || !payload.hora_salida) {
+      setError('Selecciona los dias y el horario de trabajo.');
       return;
     }
     if (form.password?.trim()) payload.password = form.password.trim();
@@ -595,10 +625,12 @@ function Usuarios() {
 
             <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-slate-100 bg-white/95 pt-4 backdrop-blur">
               <Button variant="ghost" onClick={() => setSelectedUsuario(null)}>Cerrar</Button>
-              <Button variant="secondary" onClick={() => openEdit(selectedUsuario)}>
-                <FilePenLine size={17} />
-                Editar usuario
-              </Button>
+              {selectedUsuario.rol !== 'admin' && (
+                <Button variant="secondary" onClick={() => openEdit(selectedUsuario)}>
+                  <FilePenLine size={17} />
+                  Editar usuario
+                </Button>
+              )}
               {selectedUsuario.estado === 'pendiente' && (
                 <>
                   <Button onClick={() => review(selectedUsuario, 'aprobar')}><Check size={17} />Aprobar</Button>

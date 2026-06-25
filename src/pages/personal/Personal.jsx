@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BriefcaseBusiness, Eye, FilePenLine, Plus, Power, Search, UserRoundCheck } from 'lucide-react';
+import { BriefcaseBusiness, Eye, FilePenLine, Power, Search, UserRoundCheck } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -7,7 +7,7 @@ import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
 import Table from '../../components/common/Table';
 import { getUsuarios } from '../../services/usuarioService';
-import { createPersonal, getPersonal, updatePersonal, updatePersonalEstado } from '../../services/personalService';
+import { getPersonal, updatePersonal, updatePersonalEstado } from '../../services/personalService';
 import PersonalForm from './PersonalForm';
 
 const initialForm = {
@@ -73,12 +73,6 @@ function Personal() {
     });
   }, [personal, query, estado, cargo]);
 
-  const openNew = () => {
-    setEditing(null);
-    setForm(initialForm);
-    setShowForm(true);
-  };
-
   const openEdit = (item) => {
     setEditing(item.id);
     setForm({
@@ -98,8 +92,8 @@ function Personal() {
     setMessage('');
     try {
       const payload = { ...form, usuario_id: form.usuario_id || null, sueldo_base: form.tipo_pago === 'por_servicio' ? null : form.sueldo_base };
-      editing ? await updatePersonal(editing, payload) : await createPersonal(payload);
-      setMessage(editing ? 'Datos laborales actualizados.' : 'Personal registrado correctamente.');
+      await updatePersonal(editing, payload);
+      setMessage('Datos laborales actualizados.');
       setShowForm(false);
       await load();
     } catch (error) {
@@ -117,8 +111,7 @@ function Personal() {
       {loading && <Loader />}
       <header className="overflow-hidden rounded-xl bg-gradient-to-r from-brand-900 to-brand-600 p-5 text-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div><p className="text-xs font-black uppercase text-brand-100">Gestion laboral</p><h2 className="mt-1 text-3xl font-black">Personal</h2><p className="mt-2 text-sm text-brand-50">Registro laboral, horarios, cargos y remuneracion del equipo.</p></div>
-          <Button onClick={openNew}><Plus size={17} />Nuevo personal</Button>
+          <div><p className="text-xs font-black uppercase text-brand-100">Gestion laboral</p><h2 className="mt-1 text-3xl font-black">Personal</h2><p className="mt-2 text-sm text-brand-50">Consulta y actualiza las fichas creadas desde el modulo Usuarios.</p></div>
         </div>
       </header>
 
@@ -160,7 +153,7 @@ function Personal() {
         />
       </div>
 
-      <Modal open={showForm} title={editing ? 'Editar personal' : 'Nuevo personal'} onClose={() => setShowForm(false)} size="lg">
+      <Modal open={showForm} title="Editar personal" onClose={() => setShowForm(false)} size="lg">
         <PersonalForm form={form} setForm={setForm} usuarios={usuarios} editing={editing} onSubmit={submit} onCancel={() => setShowForm(false)} />
       </Modal>
 

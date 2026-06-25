@@ -1,8 +1,13 @@
-import { Eye, EyeOff, KeyRound, Save, ShieldCheck, UserRound } from 'lucide-react';
+import { BriefcaseBusiness, Clock3, Eye, EyeOff, KeyRound, Save, ShieldCheck, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import ProfilePhotoInput from '../../components/common/ProfilePhoto';
+
+const DIAS = [
+  ['lunes', 'Lun'], ['martes', 'Mar'], ['miercoles', 'Mie'], ['jueves', 'Jue'],
+  ['viernes', 'Vie'], ['sabado', 'Sab'], ['domingo', 'Dom']
+];
 
 function PasswordField({ label = 'Contraseña', value, onChange, required, placeholder }) {
   const [visible, setVisible] = useState(false);
@@ -36,6 +41,13 @@ function PasswordField({ label = 'Contraseña', value, onChange, required, place
 function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
   const [confirmarPassword, setConfirmarPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const update = (key, value) => setForm({ ...form, [key]: value });
+  const toggleDia = (dia) => update(
+    'dias_trabajo',
+    form.dias_trabajo.includes(dia)
+      ? form.dias_trabajo.filter((item) => item !== dia)
+      : [...form.dias_trabajo, dia]
+  );
 
   const submit = (event) => {
     event.preventDefault();
@@ -59,7 +71,7 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
 
       <ProfilePhotoInput
         value={form.foto}
-        name={form.nombre || form.usuario}
+        name={`${form.nombres || ''} ${form.apellido_paterno || ''}`.trim() || form.nombre || form.usuario}
         label="Foto del usuario o personal"
         onChange={(foto) => setForm({ ...form, foto })}
       />
@@ -70,12 +82,10 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
           <h3 className="font-black">Datos personales</h3>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Nombre completo"
-            value={form.nombre}
-            onChange={(event) => setForm({ ...form, nombre: event.target.value })}
-            required
-          />
+          <Input label="Nombres" value={form.nombres} onChange={(event) => update('nombres', event.target.value)} required />
+          <Input label="Apellido paterno" value={form.apellido_paterno} onChange={(event) => update('apellido_paterno', event.target.value)} required />
+          <Input label="Apellido materno" value={form.apellido_materno} onChange={(event) => update('apellido_materno', event.target.value)} />
+          <Input label="Cedula de identidad" value={form.ci} onChange={(event) => update('ci', event.target.value)} required />
           <Input
             label="Correo electrónico"
             type="email"
@@ -89,6 +99,42 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
             value={form.telefono || ''}
             onChange={(event) => setForm({ ...form, telefono: event.target.value })}
           />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-emerald-100 bg-emerald-50/55 p-4">
+        <div className="mb-4 flex items-center gap-2 text-emerald-800">
+          <BriefcaseBusiness size={19} />
+          <h3 className="font-black">Datos laborales</h3>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input label="Cargo" value={form.cargo} onChange={(event) => update('cargo', event.target.value)} required />
+          <Input label="Fecha de ingreso" type="date" value={form.fecha_ingreso} onChange={(event) => update('fecha_ingreso', event.target.value)} required />
+          <Input label="Tipo de pago" value={form.tipo_pago} onChange={(event) => update('tipo_pago', event.target.value)} options={[
+            { value: 'mensual', label: 'Mensual' },
+            { value: 'por_servicio', label: 'Por servicio' }
+          ]} />
+          <Input label="Sueldo base (Bs.)" type="number" min="0" step="0.01" value={form.sueldo_base} onChange={(event) => update('sueldo_base', event.target.value)} disabled={form.tipo_pago === 'por_servicio'} />
+          <Input label="Direccion" value={form.direccion} onChange={(event) => update('direccion', event.target.value)} multiline className="sm:col-span-2" />
+          <Input label="Observaciones" value={form.observaciones} onChange={(event) => update('observaciones', event.target.value)} multiline className="sm:col-span-2" />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-cyan-100 bg-cyan-50/55 p-4">
+        <div className="mb-4 flex items-center gap-2 text-cyan-800">
+          <Clock3 size={19} />
+          <h3 className="font-black">Horario de trabajo</h3>
+        </div>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {DIAS.map(([value, label]) => (
+            <button key={value} type="button" onClick={() => toggleDia(value)} className={`rounded-lg border px-3 py-2 text-xs font-black ${
+              form.dias_trabajo.includes(value) ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 bg-white text-slate-600'
+            }`}>{label}</button>
+          ))}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input label="Hora de entrada" type="time" value={form.hora_entrada} onChange={(event) => update('hora_entrada', event.target.value)} required />
+          <Input label="Hora de salida" type="time" value={form.hora_salida} onChange={(event) => update('hora_salida', event.target.value)} required />
         </div>
       </section>
 
