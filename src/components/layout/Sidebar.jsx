@@ -40,7 +40,7 @@ function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }
         </div>
       </div>
 
-      <nav className="grid gap-2">
+      <nav className="grid shrink-0 gap-2 pb-2">
         {items
           .filter((item) => !item.adminOnly || isAdmin)
           .map((item) => {
@@ -71,7 +71,7 @@ function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }
       </nav>
 
       <button
-        className="nav-link mt-auto"
+        className="nav-link mt-auto shrink-0"
         onClick={() => {
           onNavigate?.();
           logout();

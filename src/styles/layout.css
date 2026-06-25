@@ -7,7 +7,7 @@
   }
 
   .sidebar {
-    @apply fixed inset-y-0 left-0 z-40 flex h-screen w-[292px] -translate-x-full flex-col gap-6 border-r border-white/10 bg-[#103f3f] p-5 text-white shadow-2xl transition-all lg:sticky lg:top-0 lg:translate-x-0;
+    @apply fixed inset-y-0 left-0 z-40 flex h-screen w-[292px] -translate-x-full flex-col gap-6 overflow-y-auto overscroll-contain border-r border-white/10 bg-[#103f3f] p-5 text-white shadow-2xl transition-all lg:sticky lg:top-0 lg:translate-x-0;
   }
 
   .sidebar-collapsed {
