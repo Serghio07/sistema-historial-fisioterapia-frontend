@@ -1,4 +1,4 @@
-import { Activity, Banknote, BriefcaseBusiness, CalendarClock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, ListChecks, LogOut, ShieldCheck, UserCog, Users } from 'lucide-react';
+import { Activity, Banknote, CalendarClock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, ListChecks, LogOut, ShieldCheck, UserCog, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import icono from '../../assets/images/icono.png';
@@ -17,7 +17,6 @@ const items = [
 ];
 
 const personalItems = [
-  { to: '/personal', label: 'Listado de Personal', icon: BriefcaseBusiness },
   { to: '/personal/actividades', label: 'Actividades Diarias', icon: ListChecks },
   { to: '/personal/planilla', label: 'Planilla del Personal', icon: Banknote }
 ];

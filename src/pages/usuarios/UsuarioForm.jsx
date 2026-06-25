@@ -1,5 +1,5 @@
-import { BriefcaseBusiness, Clock3, Eye, EyeOff, KeyRound, Save, ShieldCheck, UserRound } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, ArrowRight, BriefcaseBusiness, Clock3, Eye, EyeOff, KeyRound, Save, ShieldCheck, UserRound } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import ProfilePhotoInput from '../../components/common/ProfilePhoto';
@@ -9,28 +9,22 @@ const DIAS = [
   ['viernes', 'Vie'], ['sabado', 'Sab'], ['domingo', 'Dom']
 ];
 
+const STEPS = [
+  { title: 'Datos personales', description: 'Identidad, contacto y fotografía.', icon: UserRound },
+  { title: 'Datos laborales', description: 'Cargo, ingreso y forma de pago.', icon: BriefcaseBusiness },
+  { title: 'Horario', description: 'Días y horas de trabajo.', icon: Clock3 },
+  { title: 'Acceso', description: 'Usuario, contraseña y estado.', icon: ShieldCheck }
+];
+
 function PasswordField({ label = 'Contraseña', value, onChange, required, placeholder }) {
   const [visible, setVisible] = useState(false);
-
   return (
     <label className="grid gap-1.5 text-sm font-bold text-slate-700">
       <span>{label}</span>
-      <span className="flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-3 shadow-sm transition focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
-        <KeyRound size={17} className="mr-2 shrink-0 text-brand-600" />
-        <input
-          className="w-full border-0 bg-transparent p-0 text-sm shadow-none focus:ring-0"
-          type={visible ? 'text' : 'password'}
-          value={value}
-          placeholder={placeholder}
-          onChange={onChange}
-          required={required}
-        />
-        <button
-          type="button"
-          className="ml-2 text-slate-400 transition hover:text-brand-700"
-          onClick={() => setVisible((current) => !current)}
-          aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-        >
+      <span className="flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-3 shadow-sm focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
+        <KeyRound size={17} className="mr-2 text-brand-600" />
+        <input className="w-full border-0 bg-transparent p-0 text-sm focus:ring-0" type={visible ? 'text' : 'password'} value={value} placeholder={placeholder} onChange={onChange} required={required} />
+        <button type="button" className="ml-2 text-slate-400 hover:text-brand-700" onClick={() => setVisible(!visible)} aria-label="Mostrar u ocultar contraseña">
           {visible ? <EyeOff size={18} /> : <Eye size={18} />}
         </button>
       </span>
@@ -39,182 +33,132 @@ function PasswordField({ label = 'Contraseña', value, onChange, required, place
 }
 
 function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
+  const [step, setStep] = useState(0);
   const [confirmarPassword, setConfirmarPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
+  const [error, setError] = useState('');
   const update = (key, value) => setForm({ ...form, [key]: value });
-  const toggleDia = (dia) => update(
-    'dias_trabajo',
-    form.dias_trabajo.includes(dia)
-      ? form.dias_trabajo.filter((item) => item !== dia)
-      : [...form.dias_trabajo, dia]
-  );
+
+  useEffect(() => {
+    setStep(0);
+    setError('');
+    setConfirmarPassword('');
+  }, [editing]);
+
+  const toggleDia = (dia) => update('dias_trabajo', form.dias_trabajo.includes(dia)
+    ? form.dias_trabajo.filter((item) => item !== dia)
+    : [...form.dias_trabajo, dia]);
+
+  const validateStep = () => {
+    if (step === 0 && (!form.nombres?.trim() || !form.apellido_paterno?.trim() || !form.ci?.trim() || !form.email?.trim())) {
+      return 'Completa nombres, apellido paterno, cédula y correo.';
+    }
+    if (step === 1 && (!form.cargo?.trim() || !form.fecha_ingreso || (form.tipo_pago === 'mensual' && form.sueldo_base === ''))) {
+      return 'Completa cargo, fecha de ingreso y sueldo.';
+    }
+    if (step === 2 && (!form.dias_trabajo.length || !form.hora_entrada || !form.hora_salida)) {
+      return 'Selecciona los días y el horario de trabajo.';
+    }
+    if (step === 2 && form.hora_salida <= form.hora_entrada) return 'La hora de salida debe ser posterior a la entrada.';
+    if (step === 3 && !form.usuario?.trim()) return 'Ingresa el nombre de usuario.';
+    if (step === 3 && !editing && (!form.password || form.password !== confirmarPassword)) return 'Las contraseñas son obligatorias y deben coincidir.';
+    return '';
+  };
+
+  const next = () => {
+    const validation = validateStep();
+    setError(validation);
+    if (!validation) setStep((value) => Math.min(value + 1, STEPS.length - 1));
+  };
 
   const submit = (event) => {
     event.preventDefault();
-    setPasswordError('');
-    if (!editing && form.password !== confirmarPassword) {
-      setPasswordError('Las contraseñas no coinciden.');
-      return;
-    }
-    onSubmit(event);
+    const validation = validateStep();
+    setError(validation);
+    if (!validation) onSubmit(event);
   };
 
+  const CurrentIcon = STEPS[step].icon;
   return (
-    <form onSubmit={submit} className="grid max-h-[72vh] gap-4 overflow-y-auto pr-1">
-      <div>
-        <p className="text-sm text-slate-500">
-          {editing
-            ? 'Actualiza los datos y el estado de esta cuenta.'
-            : 'Registra una cuenta para el personal autorizado de Physio Active.'}
-        </p>
+    <form onSubmit={submit} className="grid gap-4">
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-600 text-white"><CurrentIcon size={19} /></span>
+            <div><h3 className="font-black text-slate-900">{STEPS[step].title}</h3><p className="text-xs text-slate-500">{STEPS[step].description}</p></div>
+          </div>
+          <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black text-brand-700">Paso {step + 1} de {STEPS.length}</span>
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-2">
+          {STEPS.map((item, index) => <button key={item.title} type="button" onClick={() => index < step && setStep(index)} className={`h-2 rounded-full ${index <= step ? 'bg-brand-600' : 'bg-slate-200'}`} aria-label={item.title} />)}
+        </div>
       </div>
 
-      <ProfilePhotoInput
-        value={form.foto}
-        name={`${form.nombres || ''} ${form.apellido_paterno || ''}`.trim() || form.nombre || form.usuario}
-        label="Foto del usuario o personal"
-        onChange={(foto) => setForm({ ...form, foto })}
-      />
+      <div className="max-h-[52vh] overflow-y-auto pr-1">
+        {step === 0 && <div className="grid gap-4">
+          <ProfilePhotoInput value={form.foto} name={`${form.nombres || ''} ${form.apellido_paterno || ''}`} label="Foto del personal" onChange={(foto) => update('foto', foto)} />
+          <section className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input label="Nombres" value={form.nombres} onChange={(e) => update('nombres', e.target.value)} required />
+              <Input label="Apellido paterno" value={form.apellido_paterno} onChange={(e) => update('apellido_paterno', e.target.value)} required />
+              <Input label="Apellido materno" value={form.apellido_materno} onChange={(e) => update('apellido_materno', e.target.value)} />
+              <Input label="Cédula de identidad" value={form.ci} onChange={(e) => update('ci', e.target.value)} required />
+              <Input label="Correo electrónico" type="email" value={form.email || ''} onChange={(e) => update('email', e.target.value)} required />
+              <Input label="Teléfono" value={form.telefono || ''} onChange={(e) => update('telefono', e.target.value)} />
+            </div>
+          </section>
+        </div>}
 
-      <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-        <div className="mb-4 flex items-center gap-2 text-slate-800">
-          <UserRound size={19} className="text-brand-600" />
-          <h3 className="font-black">Datos personales</h3>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Nombres" value={form.nombres} onChange={(event) => update('nombres', event.target.value)} required />
-          <Input label="Apellido paterno" value={form.apellido_paterno} onChange={(event) => update('apellido_paterno', event.target.value)} required />
-          <Input label="Apellido materno" value={form.apellido_materno} onChange={(event) => update('apellido_materno', event.target.value)} />
-          <Input label="Cedula de identidad" value={form.ci} onChange={(event) => update('ci', event.target.value)} required />
-          <Input
-            label="Correo electrónico"
-            type="email"
-            value={form.email || ''}
-            onChange={(event) => setForm({ ...form, email: event.target.value })}
-            required
-          />
-          <Input
-            label="Teléfono (opcional)"
-            type="tel"
-            value={form.telefono || ''}
-            onChange={(event) => setForm({ ...form, telefono: event.target.value })}
-          />
-        </div>
-      </section>
+        {step === 1 && <section className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input label="Cargo" value={form.cargo} onChange={(e) => update('cargo', e.target.value)} required />
+            <Input label="Fecha de ingreso" type="date" value={form.fecha_ingreso} onChange={(e) => update('fecha_ingreso', e.target.value)} required />
+            <Input label="Tipo de pago" value={form.tipo_pago} onChange={(e) => update('tipo_pago', e.target.value)} options={[{ value: 'mensual', label: 'Mensual' }, { value: 'por_servicio', label: 'Por servicio' }]} />
+            <Input label="Sueldo base (Bs.)" type="number" min="0" step="0.01" value={form.sueldo_base} onChange={(e) => update('sueldo_base', e.target.value)} disabled={form.tipo_pago === 'por_servicio'} />
+            <Input label="Dirección" value={form.direccion} onChange={(e) => update('direccion', e.target.value)} multiline className="sm:col-span-2" />
+            <Input label="Observaciones" value={form.observaciones} onChange={(e) => update('observaciones', e.target.value)} multiline className="sm:col-span-2" />
+          </div>
+        </section>}
 
-      <section className="rounded-xl border border-emerald-100 bg-emerald-50/55 p-4">
-        <div className="mb-4 flex items-center gap-2 text-emerald-800">
-          <BriefcaseBusiness size={19} />
-          <h3 className="font-black">Datos laborales</h3>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Cargo" value={form.cargo} onChange={(event) => update('cargo', event.target.value)} required />
-          <Input label="Fecha de ingreso" type="date" value={form.fecha_ingreso} onChange={(event) => update('fecha_ingreso', event.target.value)} required />
-          <Input label="Tipo de pago" value={form.tipo_pago} onChange={(event) => update('tipo_pago', event.target.value)} options={[
-            { value: 'mensual', label: 'Mensual' },
-            { value: 'por_servicio', label: 'Por servicio' }
-          ]} />
-          <Input label="Sueldo base (Bs.)" type="number" min="0" step="0.01" value={form.sueldo_base} onChange={(event) => update('sueldo_base', event.target.value)} disabled={form.tipo_pago === 'por_servicio'} />
-          <Input label="Direccion" value={form.direccion} onChange={(event) => update('direccion', event.target.value)} multiline className="sm:col-span-2" />
-          <Input label="Observaciones" value={form.observaciones} onChange={(event) => update('observaciones', event.target.value)} multiline className="sm:col-span-2" />
-        </div>
-      </section>
+        {step === 2 && <section className="rounded-xl border border-cyan-100 bg-cyan-50/40 p-4">
+          <p className="mb-3 text-sm font-bold text-slate-700">Días de trabajo</p>
+          <div className="mb-5 grid grid-cols-4 gap-2 sm:grid-cols-7">
+            {DIAS.map(([value, label]) => <button key={value} type="button" onClick={() => toggleDia(value)} className={`rounded-xl border px-2 py-3 text-xs font-black transition ${form.dias_trabajo.includes(value) ? 'border-brand-600 bg-brand-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300'}`}>{label}</button>)}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input label="Hora de entrada" type="time" value={form.hora_entrada} onChange={(e) => update('hora_entrada', e.target.value)} required />
+            <Input label="Hora de salida" type="time" value={form.hora_salida} onChange={(e) => update('hora_salida', e.target.value)} required />
+          </div>
+        </section>}
 
-      <section className="rounded-xl border border-cyan-100 bg-cyan-50/55 p-4">
-        <div className="mb-4 flex items-center gap-2 text-cyan-800">
-          <Clock3 size={19} />
-          <h3 className="font-black">Horario de trabajo</h3>
-        </div>
-        <div className="mb-4 flex flex-wrap gap-2">
-          {DIAS.map(([value, label]) => (
-            <button key={value} type="button" onClick={() => toggleDia(value)} className={`rounded-lg border px-3 py-2 text-xs font-black ${
-              form.dias_trabajo.includes(value) ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 bg-white text-slate-600'
-            }`}>{label}</button>
-          ))}
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Hora de entrada" type="time" value={form.hora_entrada} onChange={(event) => update('hora_entrada', event.target.value)} required />
-          <Input label="Hora de salida" type="time" value={form.hora_salida} onChange={(event) => update('hora_salida', event.target.value)} required />
-        </div>
-      </section>
+        {step === 3 && <div className="grid gap-4">
+          <section className="rounded-xl border border-brand-100 bg-brand-50/40 p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input label="Usuario" value={form.usuario} onChange={(e) => update('usuario', e.target.value)} required />
+              {editing
+                ? <PasswordField value={form.password} onChange={(e) => update('password', e.target.value)} placeholder="Nueva contraseña (opcional)" />
+                : <>
+                  <PasswordField value={form.password} onChange={(e) => update('password', e.target.value)} required placeholder="Contraseña" />
+                  <PasswordField label="Confirmar contraseña" value={confirmarPassword} onChange={(e) => setConfirmarPassword(e.target.value)} required placeholder="Repite la contraseña" />
+                </>}
+            </div>
+          </section>
+          <section className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input label="Tipo de usuario" value="Personal" disabled />
+              <Input label="Estado de cuenta" value={form.estado} onChange={(e) => update('estado', e.target.value)} options={[{ value: 'activo', label: 'Activo' }, { value: 'inactivo', label: 'Inactivo' }, { value: 'bloqueado', label: 'Bloqueado' }]} />
+            </div>
+          </section>
+        </div>}
+      </div>
 
-      <section className="rounded-xl border border-brand-100 bg-brand-50/55 p-4">
-        <div className="mb-4 flex items-center gap-2 text-brand-800">
-          <KeyRound size={19} />
-          <h3 className="font-black">Datos de acceso</h3>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Usuario"
-            value={form.usuario}
-            onChange={(event) => setForm({ ...form, usuario: event.target.value })}
-            required
-          />
-          {editing ? (
-            <PasswordField
-              value={form.password}
-              onChange={(event) => setForm({ ...form, password: event.target.value })}
-              placeholder="Nueva contraseña (opcional)"
-            />
-          ) : (
-            <>
-              <PasswordField
-                value={form.password}
-                onChange={(event) => setForm({ ...form, password: event.target.value })}
-                required
-                placeholder="Contraseña"
-              />
-              <PasswordField
-                label="Confirmar contraseña"
-                value={confirmarPassword}
-                onChange={(event) => setConfirmarPassword(event.target.value)}
-                required
-                placeholder="Repite la contraseña"
-              />
-            </>
-          )}
-        </div>
-        {editing && (
-          <p className="mt-3 text-xs font-semibold text-slate-500">
-            Restablecer contraseña es opcional. Déjala vacía para conservar la actual.
-          </p>
-        )}
-        {passwordError && <p className="mt-3 text-sm font-semibold text-red-600">{passwordError}</p>}
-      </section>
-
-      <section className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
-        <div className="mb-4 flex items-center gap-2 text-blue-800">
-          <ShieldCheck size={19} />
-          <h3 className="font-black">Acceso al sistema</h3>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Tipo de usuario"
-            value={editing && form.rol === 'admin' ? 'Doctor / Administrador' : 'Personal'}
-            disabled
-          />
-          <Input
-            label="Estado de cuenta"
-            value={form.estado}
-            onChange={(event) => setForm({ ...form, estado: event.target.value })}
-            options={[
-              { value: 'activo', label: 'Activo' },
-              { value: 'inactivo', label: 'Inactivo' },
-              { value: 'bloqueado', label: 'Bloqueado' }
-            ]}
-          />
-        </div>
-        <p className="mt-3 text-xs font-semibold text-blue-700">
-          El personal tendrá acceso únicamente a los módulos permitidos por el administrador.
-        </p>
-      </section>
-
-      <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white/95 pt-4">
-        <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit">
-          <Save size={17} />
-          {editing ? 'Guardar cambios' : 'Crear usuario'}
+      {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
+      <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+        <Button variant="ghost" onClick={step === 0 ? onCancel : () => { setError(''); setStep(step - 1); }}>
+          {step > 0 && <ArrowLeft size={17} />}{step === 0 ? 'Cancelar' : 'Anterior'}
         </Button>
+        {step < STEPS.length - 1
+          ? <Button onClick={next}>Siguiente<ArrowRight size={17} /></Button>
+          : <Button type="submit"><Save size={17} />{editing ? 'Guardar cambios' : 'Crear personal'}</Button>}
       </div>
     </form>
   );
