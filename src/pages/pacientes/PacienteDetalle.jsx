@@ -78,10 +78,11 @@ function PacienteDetalle() {
           </Link>
         </div>
         <Table
-          columns={['Fecha', 'Hora', 'Motivo', 'Tipo', 'Estado', 'Acciones']}
+          columns={['Fecha', 'Hora', 'Registrado por', 'Motivo', 'Tipo', 'Estado', 'Acciones']}
           rows={citas.map((cita) => [
             formatDate(cita.fecha),
             `${cita.hora_inicio?.slice(0, 5) || ''} - ${cita.hora_fin?.slice(0, 5) || ''}`,
+            cita.registrado_por?.nombre || 'Registro anterior',
             cita.motivo || 'Sin motivo',
             cita.tipo_atencion || 'Sin tipo',
             cita.estado,

@@ -113,7 +113,7 @@ function Sesiones() {
   const filteredSesiones = useMemo(() => {
     const query = registeredFilters.query.trim().toLowerCase();
     const filtered = sesiones.filter((sesion) => {
-      const text = `${nombrePaciente(sesion.paciente)} ${sesion.observacion || ''} ${sesion.observacion_farmacos || ''} ${sesion.metodo_pago || ''}`.toLowerCase();
+      const text = `${nombrePaciente(sesion.paciente)} ${sesion.registrado_por?.nombre || ''} ${sesion.observacion || ''} ${sesion.observacion_farmacos || ''} ${sesion.metodo_pago || ''}`.toLowerCase();
       return !query || text.includes(query);
     });
 
@@ -246,12 +246,13 @@ function Sesiones() {
         </div>
         <div className="hidden md:block">
           <Table
-          columns={['Paciente', 'Fecha', 'Contratadas', 'Realizadas', 'Restantes', 'Asistencia', 'Pago', 'Fármacos', 'Observación clínica', 'Acciones']}
+          columns={['Paciente', 'Fecha', 'Registrado por', 'Contratadas', 'Realizadas', 'Restantes', 'Asistencia', 'Pago', 'Fármacos', 'Observación clínica', 'Acciones']}
           rows={filteredSesiones.map((sesion) => {
             const restantes = Math.max(Number(sesion.sesiones_debe || 0) - Number(sesion.sesiones_hizo || 0), 0);
             return [
               nombrePaciente(sesion.paciente),
               formatDate(sesion.fecha),
+              sesion.registrado_por?.nombre || 'Registro anterior',
               sesion.sesiones_debe,
               sesion.sesiones_hizo,
               <span className={restantes === 0 && Number(sesion.sesiones_debe || 0) > 0 ? 'font-bold text-amber-700' : 'font-bold text-brand-700'}>{restantes}</span>,
@@ -283,6 +284,7 @@ function Sesiones() {
                   <div>
                     <strong className="text-sm text-slate-900">{nombrePaciente(sesion.paciente)}</strong>
                     <span className="mt-1 block text-xs text-slate-500">{formatDate(sesion.fecha)} · Sesión #{sesion.numero_sesion || 1}</span>
+                    <span className="mt-1 block text-xs font-semibold text-brand-700">Registrado por: {sesion.registrado_por?.nombre || 'Registro anterior'}</span>
                   </div>
                   <Badge tone={asistenciaTone[sesion.asistencia] || asistenciaTone.pendiente}>{labelAsistencia(sesion.asistencia)}</Badge>
                 </div>
@@ -331,6 +333,7 @@ function Sesiones() {
             <div className="grid gap-3 md:grid-cols-4">
               <Detail label="Paciente" value={nombrePaciente(selectedSesion.paciente)} />
               <Detail label="Fecha" value={formatDate(selectedSesion.fecha)} />
+              <Detail label="Registrado por" value={selectedSesion.registrado_por?.nombre || 'Registro anterior'} />
               <Detail label="Contratadas" value={selectedSesion.sesiones_debe} />
               <Detail label="Realizadas" value={selectedSesion.sesiones_hizo} />
               <Detail label="Restantes" value={Math.max(Number(selectedSesion.sesiones_debe || 0) - Number(selectedSesion.sesiones_hizo || 0), 0)} />

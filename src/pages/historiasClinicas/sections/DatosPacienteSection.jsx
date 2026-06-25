@@ -1,6 +1,6 @@
 import Input from '../../../components/common/Input';
 
-function DatosPacienteSection({ form, setForm, pacientes, profesionales }) {
+function DatosPacienteSection({ form, setForm, pacientes, profesionales, user, isAdmin }) {
   const update = (key, value) => setForm({ ...form, [key]: value });
   const formatBirthData = (paciente) => {
     const fecha = paciente?.fecha_nacimiento
@@ -30,14 +30,17 @@ function DatosPacienteSection({ form, setForm, pacientes, profesionales }) {
     next.imc = peso > 0 && talla > 0 ? (peso / (talla * talla)).toFixed(2) : '';
     setForm(next);
   };
-  const profesionalRegistrado = profesionales.some((profesional) => profesional.nombre === form.profesional_cargo);
-  const updateProfesional = (value) => {
+  const profesionalRegistrado = profesionales.some((profesional) => String(profesional.id) === String(form.usuario_id));
+  const updateProfesional = (usuarioId) => {
+    const profesional = profesionales.find((item) => String(item.id) === String(usuarioId)) || user;
+    const nombre = profesional?.nombre || '';
     setForm({
       ...form,
-      profesional_cargo: value,
+      usuario_id: profesional?.id || '',
+      profesional_cargo: nombre,
       evaluacion_final: {
         ...form.evaluacion_final,
-        profesional_cargo: value
+        profesional_cargo: nombre
       }
     });
   };
@@ -59,15 +62,16 @@ function DatosPacienteSection({ form, setForm, pacientes, profesionales }) {
         <Input label="Lugar y nacimiento" value={form.lugar_fecha_nacimiento} onChange={(e) => update('lugar_fecha_nacimiento', e.target.value)} />
         <Input
           label="Profesional a cargo"
-          value={form.profesional_cargo}
+          value={form.usuario_id || user?.id || ''}
           onChange={(e) => updateProfesional(e.target.value)}
+          disabled={!isAdmin}
           options={[
             { value: '', label: 'Seleccionar profesional' },
-            ...(!profesionalRegistrado && form.profesional_cargo
+            ...(!profesionalRegistrado && form.usuario_id && form.profesional_cargo
               ? [{ value: form.profesional_cargo, label: `${form.profesional_cargo} — Profesional registrado` }]
               : []),
             ...profesionales.map((profesional) => ({
-              value: profesional.nombre,
+              value: profesional.id,
               label: `${profesional.nombre} — ${profesional.rol === 'admin' ? 'Doctor / Administrador' : 'Personal'}`
             }))
           ]}

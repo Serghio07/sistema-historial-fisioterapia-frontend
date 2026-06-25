@@ -436,11 +436,12 @@ function Citas() {
           <Input label="Tipo de atencion" options={[{ value: '', label: 'Todos' }, ...TIPOS.map((tipo) => ({ value: tipo, label: tipo }))]} value={filters.tipo_atencion} onChange={(event) => setFilters({ ...filters, tipo_atencion: event.target.value })} />
         </div>
         <Table
-          columns={['Paciente', 'Fecha', 'Hora', 'Motivo', 'Tipo de atencion', 'Estado', 'Observacion', 'Acciones']}
+          columns={['Paciente', 'Fecha', 'Hora', 'Registrado por', 'Motivo', 'Tipo de atencion', 'Estado', 'Observacion', 'Acciones']}
           rows={filteredCitas.map((cita) => [
             nombrePaciente(cita.paciente),
             formatDate(cita.fecha),
             `${cita.hora_inicio?.slice(0, 5) || ''} - ${cita.hora_fin?.slice(0, 5) || ''}`,
+            cita.registrado_por?.nombre || 'Registro anterior',
             cita.motivo || 'Sin motivo',
             cita.tipo_atencion || 'Sin tipo',
             <Badge estado={cita.estado} />,
@@ -469,6 +470,7 @@ function Citas() {
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Fecha</span><strong className="mt-1 block text-sm text-ink">{formatDate(selected.fecha)}</strong></div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Hora</span><strong className="mt-1 block text-sm text-ink">{selected.hora_inicio?.slice(0, 5)} - {selected.hora_fin?.slice(0, 5) || ''}</strong></div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Estado</span><div className="mt-1"><Badge estado={selected.estado} /></div></div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Registrado por</span><strong className="mt-1 block text-sm text-ink">{selected.registrado_por?.nombre || 'Registro anterior'}</strong></div>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Motivo</span><strong className="mt-1 block text-sm text-ink">{selected.motivo || 'Sin motivo'}</strong></div>

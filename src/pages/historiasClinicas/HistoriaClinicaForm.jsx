@@ -12,6 +12,7 @@ import IntervencionClinicaSection from './sections/IntervencionClinicaSection';
 
 export const initialHistoria = {
   paciente_id: '',
+  usuario_id: '',
   fecha_evaluacion: new Date().toISOString().slice(0, 10),
   lugar_fecha_nacimiento: '',
   peso: '',
@@ -82,7 +83,7 @@ export const initialHistoria = {
   }
 };
 
-function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, editing, onSubmit, onCancel }) {
+function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, user, isAdmin, editing, onSubmit, onCancel }) {
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
@@ -104,7 +105,7 @@ function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, editing,
       {
         title: 'Datos del paciente',
         description: 'Identificacion, fecha, profesional y datos antropometricos.',
-        content: <DatosPacienteSection form={form} setForm={setForm} pacientes={pacientes} profesionales={profesionales} />
+        content: <DatosPacienteSection form={form} setForm={setForm} pacientes={pacientes} profesionales={profesionales} user={user} isAdmin={isAdmin} />
       },
       {
         title: 'Anamnesis',
@@ -142,7 +143,7 @@ function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, editing,
         content: <EvaluacionFinalSection data={form.evaluacion_final} onChange={(key, value) => setNested('evaluacion_final', key, value)} />
       }
     ],
-    [form, pacientes, profesionales, setForm]
+    [form, pacientes, profesionales, user, isAdmin, setForm]
   );
 
   const currentStep = steps[stepIndex];

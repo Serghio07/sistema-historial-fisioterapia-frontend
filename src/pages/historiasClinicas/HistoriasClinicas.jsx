@@ -20,6 +20,7 @@ function mergeHistoria(historia) {
     ...initialHistoria,
     ...historia,
     paciente_id: historia.paciente_id || historia.paciente?.id || '',
+    usuario_id: historia.usuario_id || historia.usuario?.id || '',
     antecedente_personal: { ...initialHistoria.antecedente_personal, ...historia.antecedente_personal },
     antecedente_familiar: { ...initialHistoria.antecedente_familiar, ...historia.antecedente_familiar },
     examen_kinesico: { ...initialHistoria.examen_kinesico, ...historia.examen_kinesico },
@@ -384,6 +385,7 @@ function HistoriasClinicas() {
     setEditing(null);
     setForm({
       ...initialHistoria,
+      usuario_id: user?.id || '',
       profesional_cargo: user?.nombre || '',
       evaluacion_final: {
         ...initialHistoria.evaluacion_final,
@@ -395,7 +397,16 @@ function HistoriasClinicas() {
 
   const editHistoria = (historia) => {
     setEditing(historia.id);
-    setForm(mergeHistoria(historia));
+    const merged = mergeHistoria(historia);
+    setForm(isAdmin ? merged : {
+      ...merged,
+      usuario_id: user?.id || '',
+      profesional_cargo: user?.nombre || '',
+      evaluacion_final: {
+        ...merged.evaluacion_final,
+        profesional_cargo: user?.nombre || ''
+      }
+    });
     setSelectedHistoria(null);
     setShowFormModal(true);
   };
@@ -494,6 +505,8 @@ function HistoriasClinicas() {
           setForm={setForm}
           pacientes={pacientes}
           profesionales={profesionales}
+          user={user}
+          isAdmin={isAdmin}
           editing={editing}
           onSubmit={submit}
           onCancel={closeFormModal}
