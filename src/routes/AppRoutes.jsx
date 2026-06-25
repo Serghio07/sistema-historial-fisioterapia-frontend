@@ -14,6 +14,9 @@ import PlanillasAtencion from '../pages/planillasAtencion/PlanillasAtencion';
 import Reportes from '../pages/reportes/Reportes';
 import RolesPermisos from '../pages/rolesPermisos/RolesPermisos';
 import PrivateRoute from './PrivateRoute';
+import Personal from '../pages/personal/Personal';
+import ActividadesDiarias from '../pages/personal/ActividadesDiarias';
+import PlanillaPersonal from '../pages/personal/PlanillaPersonal';
 
 function AppRoutes() {
   return (
@@ -39,6 +42,9 @@ function AppRoutes() {
           <Route element={<Layout />}>
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="roles-permisos" element={<RolesPermisos />} />
+            <Route path="personal" element={<Personal />} />
+            <Route path="personal/actividades" element={<ActividadesDiarias />} />
+            <Route path="personal/planilla" element={<PlanillaPersonal />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

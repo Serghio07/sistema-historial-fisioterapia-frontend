@@ -1,4 +1,4 @@
-import { Activity, CalendarClock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, LogOut, ShieldCheck, UserCog, Users } from 'lucide-react';
+import { Activity, Banknote, BriefcaseBusiness, CalendarClock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, ListChecks, LogOut, ShieldCheck, UserCog, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import icono from '../../assets/images/icono.png';
@@ -14,6 +14,12 @@ const items = [
   { to: '/informes-medicos', label: 'Informes Medicos', icon: FileBarChart },
   { to: '/usuarios', label: 'Usuarios', icon: UserCog, adminOnly: true },
   { to: '/roles-permisos', label: 'Roles y Permisos', icon: ShieldCheck, adminOnly: true }
+];
+
+const personalItems = [
+  { to: '/personal', label: 'Listado de Personal', icon: BriefcaseBusiness },
+  { to: '/personal/actividades', label: 'Actividades Diarias', icon: ListChecks },
+  { to: '/personal/planilla', label: 'Planilla del Personal', icon: Banknote }
 ];
 
 function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }) {
@@ -47,6 +53,22 @@ function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }
               </NavLink>
             );
           })}
+        {isAdmin && (
+          <>
+            <div className="sidebar-text mt-3 border-t border-white/15 px-3 pt-4 text-xs font-black uppercase tracking-wider text-brand-100">
+              Personal
+            </div>
+            {personalItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink key={item.to} to={item.to} onClick={onNavigate} className={({ isActive }) => `nav-link pl-5 ${isActive ? 'nav-link-active' : ''}`}>
+                  <Icon size={18} />
+                  <span className="sidebar-text">{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       <button
