@@ -1,6 +1,7 @@
 import { BriefcaseBusiness, Home, Save, UserRound } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
+import ProfilePhotoInput from '../../components/common/ProfilePhoto';
 
 const civilStatusOptions = [
   { value: '', label: 'Seleccionar' },
@@ -13,6 +14,13 @@ function PacienteForm({ form, setForm, editing, onSubmit, onCancel }) {
 
   return (
     <form onSubmit={onSubmit} className="grid max-h-[72vh] gap-2.5 overflow-y-auto pr-1">
+      <ProfilePhotoInput
+        value={form.foto}
+        name={`${form.nombres || ''} ${form.apellidos || ''}`}
+        label="Foto del paciente"
+        onChange={(foto) => update('foto', foto)}
+      />
+
       <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
         <div className="mb-2.5 flex items-center gap-2 border-b border-slate-100 pb-2">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-700">

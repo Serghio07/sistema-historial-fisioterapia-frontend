@@ -15,6 +15,7 @@ import {
   UserRoundPlus
 } from 'lucide-react';
 import Button from '../../components/common/Button';
+import ProfilePhotoInput from '../../components/common/ProfilePhoto';
 import { useAuth } from '../../context/AuthContext';
 import { accessRequest } from '../../services/authService';
 import logo from '../../assets/logos/logo.png';
@@ -25,6 +26,7 @@ const requestInitial = {
   usuario: '',
   email: '',
   telefono: '',
+  foto: null,
   password: '',
   confirmarPassword: ''
 };
@@ -137,6 +139,7 @@ function Login() {
         usuario: requestForm.usuario.trim(),
         email: requestForm.email.trim(),
         telefono: requestForm.telefono.trim() || null,
+        foto: requestForm.foto,
         password: requestForm.password
       });
       setMessage(response.message);
@@ -269,6 +272,14 @@ function Login() {
                   {error && <p className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
 
                   <form onSubmit={submitRequest} className="mt-6 grid gap-4 sm:grid-cols-2" noValidate>
+                    <div className="sm:col-span-2">
+                      <ProfilePhotoInput
+                        value={requestForm.foto}
+                        name={requestForm.nombre || requestForm.usuario}
+                        label="Foto del personal"
+                        onChange={(foto) => setRequestForm({ ...requestForm, foto })}
+                      />
+                    </div>
                     <Field
                       label="Nombre completo"
                       icon={User}

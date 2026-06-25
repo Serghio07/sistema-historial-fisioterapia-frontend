@@ -23,6 +23,7 @@ import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
+import { Avatar } from '../../components/common/ProfilePhoto';
 import UsuarioForm from './UsuarioForm';
 import { createUsuario, getUsuarios, reviewAccessRequest, updateUsuario, updateUsuarioEstado } from '../../services/usuarioService';
 
@@ -31,6 +32,7 @@ const initialForm = {
   usuario: '',
   email: '',
   telefono: '',
+  foto: null,
   password: '',
   rol: 'personal',
   estado: 'activo'
@@ -77,15 +79,6 @@ function SummaryCard({ label, value, description, icon: Icon, tone }) {
       </div>
     </article>
   );
-}
-
-function initials(usuario) {
-  return String(usuario.nombre || usuario.usuario || 'U')
-    .split(' ')
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
 }
 
 function formatAccess(value) {
@@ -147,9 +140,12 @@ function formatRequestDate(value) {
 function UsuarioIdentity({ usuario, compact = false }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <div className={`${compact ? 'h-9 w-9 text-xs' : 'h-11 w-11 text-sm'} grid shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-600 to-cyan-500 font-black text-white shadow-sm`}>
-        {initials(usuario)}
-      </div>
+      <Avatar
+        src={usuario.foto}
+        name={usuario.nombre || usuario.usuario}
+        size={compact ? 'sm' : 'md'}
+        className={compact ? '' : '!h-11 !w-11'}
+      />
       <div className="min-w-0">
         <strong className="block truncate text-sm text-slate-900">{usuario.nombre}</strong>
         <span className="block truncate text-xs text-slate-500">@{usuario.usuario}</span>
@@ -236,6 +232,7 @@ function Usuarios() {
       usuario: form.usuario.trim(),
       email: form.email?.trim() || null,
       telefono: form.telefono?.trim() || null,
+      foto: form.foto || null,
       rol: editing ? form.rol : 'personal',
       estado: form.estado
     };
@@ -502,9 +499,7 @@ function Usuarios() {
             <section className="relative overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-cyan-50 p-5">
               <div className="absolute -right-12 -top-12 h-36 w-36 rounded-full bg-cyan-100/60 blur-2xl" />
               <div className="relative flex flex-wrap items-center gap-4">
-                <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-600 to-cyan-500 text-xl font-black text-white shadow-md">
-                  {initials(selectedUsuario)}
-                </div>
+                <Avatar src={selectedUsuario.foto} name={selectedUsuario.nombre || selectedUsuario.usuario} size="lg" />
                 <div className="min-w-0 flex-1">
                   <strong className="block truncate text-xl text-slate-900">{selectedUsuario.nombre}</strong>
                   <span className="mt-1 block text-sm font-semibold text-slate-500">@{selectedUsuario.usuario}</span>

@@ -2,6 +2,7 @@ import { Eye, EyeOff, KeyRound, Save, ShieldCheck, UserRound } from 'lucide-reac
 import { useState } from 'react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
+import ProfilePhotoInput from '../../components/common/ProfilePhoto';
 
 function PasswordField({ label = 'Contraseña', value, onChange, required, placeholder }) {
   const [visible, setVisible] = useState(false);
@@ -55,6 +56,13 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
             : 'Registra una cuenta para el personal autorizado de Physio Active.'}
         </p>
       </div>
+
+      <ProfilePhotoInput
+        value={form.foto}
+        name={form.nombre || form.usuario}
+        label="Foto del usuario o personal"
+        onChange={(foto) => setForm({ ...form, foto })}
+      />
 
       <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
         <div className="mb-4 flex items-center gap-2 text-slate-800">

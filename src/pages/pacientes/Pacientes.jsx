@@ -4,6 +4,7 @@ import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
+import { Avatar } from '../../components/common/ProfilePhoto';
 import PacienteForm from './PacienteForm';
 import { useAuth } from '../../context/AuthContext';
 import { createPaciente, deletePaciente, getPacientes, updatePaciente } from '../../services/pacienteService';
@@ -18,6 +19,7 @@ const initialForm = {
   edad: '',
   sexo: 'F',
   telefono: '',
+  foto: null,
   domicilio: '',
   estado_civil: '',
   ocupacion: '',
@@ -32,10 +34,6 @@ function Detail({ label, value }) {
       <strong className="mt-1 block text-sm font-semibold text-ink">{value || 'Sin dato'}</strong>
     </div>
   );
-}
-
-function initials(paciente) {
-  return `${paciente?.nombres?.[0] || ''}${paciente?.apellidos?.[0] || ''}`.toUpperCase() || 'P';
 }
 
 function formatCivilStatus(value) {
@@ -166,9 +164,7 @@ function Pacientes() {
               <article key={paciente.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-md">
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
                   <div className="grid min-w-0 gap-3 sm:grid-cols-[56px_minmax(0,1fr)]">
-                    <div className="grid h-14 w-14 place-items-center rounded-lg bg-gradient-to-br from-brand-700 to-brand-500 text-sm font-black text-white shadow-sm">
-                      {initials(paciente)}
-                    </div>
+                    <Avatar src={paciente.foto} name={nombrePaciente(paciente)} size="md" />
 
                     <div className="min-w-0">
                       <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -220,6 +216,13 @@ function Pacientes() {
       <Modal open={Boolean(selectedPaciente)} title={selectedPaciente ? nombrePaciente(selectedPaciente) : 'Detalle del paciente'} onClose={() => setSelectedPaciente(null)} size="lg">
         {selectedPaciente && (
           <div className="grid gap-4">
+            <div className="flex items-center gap-4 rounded-xl border border-brand-100 bg-brand-50/60 p-4">
+              <Avatar src={selectedPaciente.foto} name={nombrePaciente(selectedPaciente)} size="lg" />
+              <div className="min-w-0">
+                <strong className="block truncate text-xl font-black text-ink">{nombrePaciente(selectedPaciente)}</strong>
+                <span className="mt-1 block text-sm text-slate-500">{selectedPaciente.ci ? `CI ${selectedPaciente.ci}` : 'Sin CI registrado'}</span>
+              </div>
+            </div>
             <div className="grid gap-3 md:grid-cols-4">
               <Detail label="CI" value={selectedPaciente.ci} />
               <Detail label="Telefono" value={selectedPaciente.telefono} />

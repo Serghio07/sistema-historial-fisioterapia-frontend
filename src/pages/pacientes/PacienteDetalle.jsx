@@ -5,6 +5,7 @@ import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import Table from '../../components/common/Table';
+import { Avatar } from '../../components/common/ProfilePhoto';
 import { getPaciente } from '../../services/pacienteService';
 import { getCitasPaciente, updateCitaEstado } from '../../services/citaService';
 import { getPlanillasAtencionPaciente } from '../../services/planillaAtencionService';
@@ -48,8 +49,9 @@ function PacienteDetalle() {
     <section className="grid gap-5">
       {loading && <Loader />}
       <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-        <div className="grid gap-4 bg-gradient-to-r from-brand-900 to-brand-600 p-6 text-white md:grid-cols-[1fr_auto]">
-          <div>
+        <div className="grid gap-4 bg-gradient-to-r from-brand-900 to-brand-600 p-6 text-white md:grid-cols-[auto_1fr_auto]">
+          <Avatar src={paciente?.foto} name={paciente ? nombrePaciente(paciente) : 'Paciente'} size="lg" className="self-center ring-4 ring-white/20" />
+          <div className="min-w-0">
             <p className="text-xs font-black uppercase text-brand-50">Paciente</p>
             <h2 className="mt-2 text-3xl font-black">{paciente ? nombrePaciente(paciente) : `Detalle #${id}`}</h2>
             <span className="mt-2 block text-sm text-brand-50">
