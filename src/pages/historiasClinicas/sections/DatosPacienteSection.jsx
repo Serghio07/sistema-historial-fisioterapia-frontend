@@ -2,6 +2,34 @@ import Input from '../../../components/common/Input';
 
 function DatosPacienteSection({ form, setForm, pacientes, profesionales }) {
   const update = (key, value) => setForm({ ...form, [key]: value });
+  const formatBirthData = (paciente) => {
+    const fecha = paciente?.fecha_nacimiento
+      ? new Intl.DateTimeFormat('es-BO', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' })
+        .format(new Date(`${paciente.fecha_nacimiento}T00:00:00Z`))
+      : '';
+    return [paciente?.lugar_nacimiento, fecha].filter(Boolean).join(', ');
+  };
+  const selectPaciente = (pacienteId) => {
+    const paciente = pacientes.find((item) => String(item.id) === String(pacienteId));
+    const historiaReciente = paciente?.historias_clinicas?.[0];
+    setForm({
+      ...form,
+      paciente_id: pacienteId,
+      lugar_fecha_nacimiento: paciente
+        ? formatBirthData(paciente) || historiaReciente?.lugar_fecha_nacimiento || ''
+        : '',
+      peso: paciente?.peso ?? historiaReciente?.peso ?? '',
+      talla: paciente?.talla ?? historiaReciente?.talla ?? '',
+      imc: paciente?.imc ?? historiaReciente?.imc ?? ''
+    });
+  };
+  const updateMeasurement = (key, value) => {
+    const next = { ...form, [key]: value };
+    const peso = Number(next.peso);
+    const talla = Number(next.talla);
+    next.imc = peso > 0 && talla > 0 ? (peso / (talla * talla)).toFixed(2) : '';
+    setForm(next);
+  };
   const profesionalRegistrado = profesionales.some((profesional) => profesional.nombre === form.profesional_cargo);
   const updateProfesional = (value) => {
     setForm({
@@ -21,7 +49,7 @@ function DatosPacienteSection({ form, setForm, pacientes, profesionales }) {
         <Input
           label="Paciente"
           value={form.paciente_id}
-          onChange={(e) => update('paciente_id', e.target.value)}
+          onChange={(e) => selectPaciente(e.target.value)}
           options={[
             { value: '', label: 'Seleccionar' },
             ...pacientes.map((paciente) => ({ value: paciente.id, label: `${paciente.nombres} ${paciente.apellidos || ''}`.trim() }))
@@ -44,9 +72,9 @@ function DatosPacienteSection({ form, setForm, pacientes, profesionales }) {
             }))
           ]}
         />
-        <Input label="Peso" type="number" value={form.peso} onChange={(e) => update('peso', e.target.value)} />
-        <Input label="Talla" type="number" value={form.talla} onChange={(e) => update('talla', e.target.value)} />
-        <Input label="IMC" type="number" value={form.imc} onChange={(e) => update('imc', e.target.value)} />
+        <Input label="Peso (kg)" type="number" step="0.01" value={form.peso} onChange={(e) => updateMeasurement('peso', e.target.value)} />
+        <Input label="Talla (m)" type="number" step="0.01" value={form.talla} onChange={(e) => updateMeasurement('talla', e.target.value)} />
+        <Input label="IMC" type="number" value={form.imc} disabled />
         <Input
           label="Estado"
           value={form.estado}

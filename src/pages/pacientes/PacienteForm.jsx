@@ -11,6 +11,13 @@ const civilStatusOptions = [
 
 function PacienteForm({ form, setForm, editing, onSubmit, onCancel }) {
   const update = (key, value) => setForm({ ...form, [key]: value });
+  const updateMeasurement = (key, value) => {
+    const next = { ...form, [key]: value };
+    const peso = Number(next.peso);
+    const talla = Number(next.talla);
+    next.imc = peso > 0 && talla > 0 ? (peso / (talla * talla)).toFixed(2) : '';
+    setForm(next);
+  };
 
   return (
     <form onSubmit={onSubmit} className="grid max-h-[72vh] gap-2.5 overflow-y-auto pr-1">
@@ -26,6 +33,20 @@ function PacienteForm({ form, setForm, editing, onSubmit, onCancel }) {
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-700">
             <UserRound size={16} />
           </span>
+          <h4 className="text-xs font-black uppercase text-slate-700">Datos antropometricos</h4>
+        </div>
+        <div className="grid gap-2.5 md:grid-cols-3">
+          <Input compact label="Peso (kg)" type="number" step="0.01" value={form.peso} onChange={(e) => updateMeasurement('peso', e.target.value)} />
+          <Input compact label="Talla (m)" type="number" step="0.01" value={form.talla} onChange={(e) => updateMeasurement('talla', e.target.value)} />
+          <Input compact label="IMC" type="number" value={form.imc} disabled />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="mb-2.5 flex items-center gap-2 border-b border-slate-100 pb-2">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-700">
+            <UserRound size={16} />
+          </span>
           <h4 className="text-xs font-black uppercase text-slate-700">Datos personales</h4>
         </div>
         <div className="grid gap-2.5 md:grid-cols-3">
@@ -33,6 +54,7 @@ function PacienteForm({ form, setForm, editing, onSubmit, onCancel }) {
           <Input compact label="Apellidos" value={form.apellidos} onChange={(e) => update('apellidos', e.target.value)} />
           <Input compact label="CI" value={form.ci} onChange={(e) => update('ci', e.target.value)} />
           <Input compact label="Nacimiento" type="date" value={form.fecha_nacimiento} onChange={(e) => update('fecha_nacimiento', e.target.value)} />
+          <Input compact label="Lugar de nacimiento" value={form.lugar_nacimiento} onChange={(e) => update('lugar_nacimiento', e.target.value)} />
           <Input compact label="Edad" type="number" value={form.edad} onChange={(e) => update('edad', e.target.value)} />
           <Input
             compact
