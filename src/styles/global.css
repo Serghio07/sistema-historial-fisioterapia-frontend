@@ -40,4 +40,35 @@
   .bg-login {
     background: #183b3d;
   }
+
+  .auth-page {
+    display: grid;
+    align-items: center;
+  }
+
+  .auth-card {
+    transition: max-width 300ms ease;
+  }
+
+  .auth-view {
+    animation: auth-view-in 260ms ease-out;
+  }
+}
+
+@keyframes auth-view-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-height: 760px) {
+  .auth-page {
+    align-items: start;
+  }
 }

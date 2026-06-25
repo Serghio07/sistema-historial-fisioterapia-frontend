@@ -213,7 +213,7 @@ function Pacientes() {
         </div>
       </div>
 
-      <Modal open={showFormModal} title={editing ? 'Editar paciente' : 'Nuevo paciente'} onClose={closeFormModal} size="lg">
+      <Modal open={showFormModal} title={editing ? 'Editar paciente' : 'Nuevo paciente'} onClose={closeFormModal} size="compact">
         <PacienteForm form={form} setForm={setForm} editing={editing} onSubmit={submit} onCancel={closeFormModal} />
       </Modal>
 

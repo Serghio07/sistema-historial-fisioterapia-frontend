@@ -7,10 +7,13 @@ import Modal from '../../components/common/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { createHistoriaClinica, deleteHistoriaClinica, getHistoriasClinicas, updateHistoriaClinica } from '../../services/historiaClinicaService';
 import { getPacientes } from '../../services/pacienteService';
+import { getProfesionalesActivos } from '../../services/usuarioService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import HistoriaClinicaForm, { initialHistoria } from './HistoriaClinicaForm';
 import logo from '../../assets/logos/logo.png';
+import cicloMarcha from '../../assets/images/ciclo-marcha.png';
+import mapaCorporalAnatomico from '../../assets/images/mapa-corporal-anatomico.png';
 
 function mergeHistoria(historia) {
   return {
@@ -109,57 +112,14 @@ function HistoriaReporte({ historia }) {
     </div>
   );
 
-  const BodyFigure = ({ title }) => (
-    <div className="grid justify-items-center gap-1">
-      <div className="h-28 w-28 border border-slate-500 p-1">
-        <svg viewBox="0 0 110 110" className="h-full w-full text-slate-600">
-          <circle cx="33" cy="14" r="7" fill="none" stroke="currentColor" strokeWidth="1.4" />
-          <path d="M33 22 L33 56 M22 33 L44 33 M33 56 L23 94 M33 56 L43 94" fill="none" stroke="currentColor" strokeWidth="1.4" />
-          <path d="M26 24 C19 38 18 52 20 66 M40 24 C47 38 48 52 46 66" fill="none" stroke="currentColor" strokeWidth="1" />
-          <circle cx="78" cy="14" r="7" fill="none" stroke="currentColor" strokeWidth="1.4" />
-          <path d="M78 22 L78 56 M67 33 L89 33 M78 56 L68 94 M78 56 L88 94" fill="none" stroke="currentColor" strokeWidth="1.4" />
-          <path d="M71 24 C64 38 63 52 65 66 M85 24 C92 38 93 52 91 66" fill="none" stroke="currentColor" strokeWidth="1" />
-        </svg>
-      </div>
-      <span className="text-[10px] font-bold uppercase text-slate-500">{title}</span>
-    </div>
-  );
-
   const MarchaFigure = () => {
-    const poses = [
-      ['12', 'Contacto inicial'],
-      ['34', 'Respuesta carga'],
-      ['56', 'Apoyo medio'],
-      ['78', 'Apoyo final'],
-      ['100', 'Pre balanceo'],
-      ['122', 'Balanceo inicial'],
-      ['144', 'Balanceo medio'],
-      ['166', 'Balanceo final']
-    ];
-
     return (
-      <div className="border border-slate-500 p-2">
-        <p className="mb-1 text-center text-[9px] font-bold">Ciclo de marcha</p>
-        <svg viewBox="0 0 180 58" className="h-16 w-full text-slate-700">
-          <line x1="8" y1="8" x2="172" y2="8" stroke="currentColor" strokeWidth="0.8" />
-          <text x="42" y="6" fontSize="5" textAnchor="middle">Fase de apoyo</text>
-          <text x="132" y="6" fontSize="5" textAnchor="middle">Fase de balanceo</text>
-          {poses.map(([x, label], index) => (
-            <g key={label} transform={`translate(${x} 13)`}>
-              <circle cx="0" cy="4" r="3" fill="none" stroke="currentColor" strokeWidth="0.8" />
-              <line x1="0" y1="7" x2="0" y2="19" stroke="currentColor" strokeWidth="0.8" />
-              <line x1="-5" y1="12" x2="5" y2="11" stroke="currentColor" strokeWidth="0.8" />
-              <line x1="0" y1="19" x2={index % 2 === 0 ? '-6' : '-2'} y2="31" stroke="currentColor" strokeWidth="0.8" />
-              <line x1="0" y1="19" x2={index % 2 === 0 ? '4' : '8'} y2="31" stroke="currentColor" strokeWidth="0.8" />
-              <text x="0" y="43" fontSize="4.5" textAnchor="middle">
-                {label.split(' ')[0]}
-              </text>
-              <text x="0" y="49" fontSize="4.5" textAnchor="middle">
-                {label.split(' ').slice(1).join(' ')}
-              </text>
-            </g>
-          ))}
-        </svg>
+      <div className="overflow-hidden border border-slate-500 bg-white p-1.5">
+        <img
+          src={cicloMarcha}
+          alt="Ciclo de marcha"
+          className="h-auto w-full object-contain"
+        />
       </div>
     );
   };
@@ -267,9 +227,14 @@ function HistoriaReporte({ historia }) {
       <section className="mt-4">
         <h2 className="font-black uppercase">4. Condicion actual</h2>
         <p className="mt-2 font-bold uppercase">Mapa corporal:</p>
-        <div className="mt-2 grid grid-cols-[1fr_1fr_160px] items-start gap-5">
-          <BodyFigure title="Anterior / Posterior" />
-          <BodyFigure title="Lateral / Posterior" />
+        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_160px] items-start gap-5">
+          <div className="overflow-hidden border border-slate-500 bg-white p-1">
+            <img
+              src={mapaCorporalAnatomico}
+              alt="Mapa corporal anatómico masculino y femenino, vistas anterior y posterior"
+              className="h-auto max-h-64 w-full object-contain"
+            />
+          </div>
           <div className="border border-slate-500 p-2 leading-5">
             <p><strong>T</strong> = Traumatismo</p>
             <p><strong>E</strong> = Enfermedad</p>
@@ -328,7 +293,10 @@ function HistoriaReporte({ historia }) {
         <Area rows={6}>{evaluacion.plan_tratamiento}</Area>
         <Line className="mt-4"><strong>Periodicidad:</strong> {evaluacion.periodicidad}</Line>
         <div className="mt-12 text-center">
-          <span className="inline-block border-t border-slate-700 px-10 pt-2">Profesional a Cargo</span>
+          <strong className="mx-auto mb-1 block max-w-64 text-sm">
+            {historia.profesional_cargo || evaluacion.profesional_cargo || historia.usuario?.nombre || 'Profesional no registrado'}
+          </strong>
+          <span className="inline-block min-w-48 border-t border-slate-700 px-10 pt-2">Profesional a Cargo</span>
         </div>
       </section>
     </article>
@@ -366,9 +334,10 @@ function HistoriaCard({ historia, onView, onPreview, onPrint, onEdit, onDelete, 
 }
 
 function HistoriasClinicas() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [historias, setHistorias] = useState([]);
   const [pacientes, setPacientes] = useState([]);
+  const [profesionales, setProfesionales] = useState([]);
   const [form, setForm] = useState(initialHistoria);
   const [editing, setEditing] = useState(null);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -381,9 +350,14 @@ function HistoriasClinicas() {
   const load = async () => {
     setLoading(true);
     try {
-      const [historiasData, pacientesData] = await Promise.all([getHistoriasClinicas(), getPacientes()]);
+      const [historiasData, pacientesData, profesionalesData] = await Promise.all([
+        getHistoriasClinicas(),
+        getPacientes(),
+        getProfesionalesActivos()
+      ]);
       setHistorias(historiasData);
       setPacientes(pacientesData);
+      setProfesionales(profesionalesData);
     } finally {
       setLoading(false);
     }
@@ -408,7 +382,14 @@ function HistoriasClinicas() {
 
   const openNewHistoria = () => {
     setEditing(null);
-    setForm(initialHistoria);
+    setForm({
+      ...initialHistoria,
+      profesional_cargo: user?.nombre || '',
+      evaluacion_final: {
+        ...initialHistoria.evaluacion_final,
+        profesional_cargo: user?.nombre || ''
+      }
+    });
     setShowFormModal(true);
   };
 
@@ -508,7 +489,15 @@ function HistoriasClinicas() {
       </div>
 
       <Modal open={showFormModal} title={editing ? 'Editar historia clinica' : 'Nueva historia clinica'} onClose={closeFormModal} size="lg">
-        <HistoriaClinicaForm form={form} setForm={setForm} pacientes={pacientes} editing={editing} onSubmit={submit} onCancel={closeFormModal} />
+        <HistoriaClinicaForm
+          form={form}
+          setForm={setForm}
+          pacientes={pacientes}
+          profesionales={profesionales}
+          editing={editing}
+          onSubmit={submit}
+          onCancel={closeFormModal}
+        />
       </Modal>
 
       <HistoriaDetalleModal historia={selectedHistoria} onClose={() => setSelectedHistoria(null)} />

@@ -12,21 +12,22 @@ function PacienteForm({ form, setForm, editing, onSubmit, onCancel }) {
   const update = (key, value) => setForm({ ...form, [key]: value });
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4">
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-700">
-            <UserRound size={18} />
+    <form onSubmit={onSubmit} className="grid max-h-[72vh] gap-2.5 overflow-y-auto pr-1">
+      <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="mb-2.5 flex items-center gap-2 border-b border-slate-100 pb-2">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-700">
+            <UserRound size={16} />
           </span>
-          <h4 className="text-sm font-black uppercase text-slate-700">Datos personales</h4>
+          <h4 className="text-xs font-black uppercase text-slate-700">Datos personales</h4>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Input label="Nombres" value={form.nombres} onChange={(e) => update('nombres', e.target.value)} />
-          <Input label="Apellidos" value={form.apellidos} onChange={(e) => update('apellidos', e.target.value)} />
-          <Input label="CI" value={form.ci} onChange={(e) => update('ci', e.target.value)} />
-          <Input label="Nacimiento" type="date" value={form.fecha_nacimiento} onChange={(e) => update('fecha_nacimiento', e.target.value)} />
-          <Input label="Edad" type="number" value={form.edad} onChange={(e) => update('edad', e.target.value)} />
+        <div className="grid gap-2.5 md:grid-cols-3">
+          <Input compact label="Nombres" value={form.nombres} onChange={(e) => update('nombres', e.target.value)} />
+          <Input compact label="Apellidos" value={form.apellidos} onChange={(e) => update('apellidos', e.target.value)} />
+          <Input compact label="CI" value={form.ci} onChange={(e) => update('ci', e.target.value)} />
+          <Input compact label="Nacimiento" type="date" value={form.fecha_nacimiento} onChange={(e) => update('fecha_nacimiento', e.target.value)} />
+          <Input compact label="Edad" type="number" value={form.edad} onChange={(e) => update('edad', e.target.value)} />
           <Input
+            compact
             label="Sexo"
             value={form.sexo}
             onChange={(e) => update('sexo', e.target.value)}
@@ -39,34 +40,34 @@ function PacienteForm({ form, setForm, editing, onSubmit, onCancel }) {
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-700">
-            <BriefcaseBusiness size={18} />
+      <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="mb-2.5 flex items-center gap-2 border-b border-slate-100 pb-2">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-700">
+            <BriefcaseBusiness size={16} />
           </span>
-          <h4 className="text-sm font-black uppercase text-slate-700">Contacto y perfil</h4>
+          <h4 className="text-xs font-black uppercase text-slate-700">Contacto y perfil</h4>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Input label="Telefono" value={form.telefono} onChange={(e) => update('telefono', e.target.value)} />
-          <Input label="Estado civil" value={form.estado_civil} onChange={(e) => update('estado_civil', e.target.value)} options={civilStatusOptions} />
-          <Input label="Ocupacion" value={form.ocupacion} onChange={(e) => update('ocupacion', e.target.value)} className="md:col-span-2" />
+        <div className="grid gap-2.5 md:grid-cols-3">
+          <Input compact label="Teléfono" value={form.telefono} onChange={(e) => update('telefono', e.target.value)} />
+          <Input compact label="Estado civil" value={form.estado_civil} onChange={(e) => update('estado_civil', e.target.value)} options={civilStatusOptions} />
+          <Input compact label="Ocupación" value={form.ocupacion} onChange={(e) => update('ocupacion', e.target.value)} />
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-700">
-            <Home size={18} />
+      <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="mb-2.5 flex items-center gap-2 border-b border-slate-100 pb-2">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-700">
+            <Home size={16} />
           </span>
-          <h4 className="text-sm font-black uppercase text-slate-700">Direccion y referencia</h4>
+          <h4 className="text-xs font-black uppercase text-slate-700">Dirección y referencia</h4>
         </div>
-        <div className="grid gap-4">
-          <Input label="Domicilio" value={form.domicilio} onChange={(e) => update('domicilio', e.target.value)} multiline />
-          <Input label="Referencia" value={form.referencia} onChange={(e) => update('referencia', e.target.value)} multiline />
+        <div className="grid gap-2.5 md:grid-cols-2">
+          <Input compact label="Domicilio" value={form.domicilio} onChange={(e) => update('domicilio', e.target.value)} multiline />
+          <Input compact label="Referencia" value={form.referencia} onChange={(e) => update('referencia', e.target.value)} multiline />
         </div>
       </div>
 
-      <div className="sticky-actions">
+      <div className="sticky bottom-0 z-10 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white/95 pt-2.5 backdrop-blur">
         <Button type="submit">
           <Save size={17} />
           Guardar

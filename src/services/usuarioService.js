@@ -5,6 +5,11 @@ export const getUsuarios = async () => {
   return data;
 };
 
+export const getProfesionalesActivos = async () => {
+  const { data } = await api.get('/usuarios/profesionales/activos');
+  return data;
+};
+
 export const createUsuario = async (payload) => {
   const { data } = await api.post('/usuarios', payload);
   return data;
@@ -17,6 +22,11 @@ export const updateUsuario = async (id, payload) => {
 
 export const updateUsuarioEstado = async (id, estado) => {
   const { data } = await api.patch(`/usuarios/${id}/estado`, { estado });
+  return data;
+};
+
+export const reviewAccessRequest = async (id, decision) => {
+  const { data } = await api.patch(`/usuarios/${id}/solicitud`, { decision });
   return data;
 };
 

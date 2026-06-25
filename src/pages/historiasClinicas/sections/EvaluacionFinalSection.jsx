@@ -15,7 +15,9 @@ function EvaluacionFinalSection({ data, onChange }) {
         <Input label="Diagnostico kinesico CIF" value={data.diagnostico_kinesico_cif} onChange={(e) => onChange('diagnostico_kinesico_cif', e.target.value)} multiline />
         <Input label="Plan tratamiento" value={data.plan_tratamiento} onChange={(e) => onChange('plan_tratamiento', e.target.value)} multiline />
         <Input label="Periodicidad" value={data.periodicidad} onChange={(e) => onChange('periodicidad', e.target.value)} />
-        <Input label="Profesional cargo" value={data.profesional_cargo} onChange={(e) => onChange('profesional_cargo', e.target.value)} />
+        <div className="rounded-lg border border-brand-100 bg-brand-50/60 p-3 text-sm text-slate-600">
+          El profesional a cargo se selecciona en el primer paso y se mostrará en la impresión.
+        </div>
       </div>
     </section>
   );

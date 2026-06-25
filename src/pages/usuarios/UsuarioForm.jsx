@@ -1,67 +1,148 @@
-import { Eye, EyeOff, Save, ShieldCheck, UserRound } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, Save, ShieldCheck, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 
-function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
-  const [showPassword, setShowPassword] = useState(false);
+function PasswordField({ label = 'Contraseña', value, onChange, required, placeholder }) {
+  const [visible, setVisible] = useState(false);
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4">
-      <div className="rounded-lg border border-brand-100 bg-gradient-to-br from-brand-50 to-white p-4">
-        <div className="mb-4 flex items-center gap-2 text-brand-800">
-          <UserRound size={19} />
-          <h3 className="font-black">Datos de acceso</h3>
-        </div>
-        <div className="grid gap-4">
-          <Input label="Nombre" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required />
-          <Input label="Usuario" value={form.usuario} onChange={(e) => setForm({ ...form, usuario: e.target.value })} required />
-          <Input label="Email" type="email" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <label className="grid w-full self-start gap-1 text-sm font-bold text-slate-700">
-            <span>Password</span>
-            <span className="flex items-center rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-sm text-ink shadow-sm transition focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
-              <input
-                className="w-full border-0 bg-transparent p-0 text-sm shadow-none placeholder:text-slate-400 focus:ring-0"
-                type={showPassword ? 'text' : 'password'}
-                value={form.password}
-                placeholder={editing ? 'Nueva contrasena o dejar vacio' : ''}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                required={!editing}
-              />
-              <button
-                type="button"
-                className="ml-2 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-brand-50 hover:text-brand-700"
-                onClick={() => setShowPassword((current) => !current)}
-                title={showPassword ? 'Ocultar contrasena' : 'Ver contrasena'}
-                aria-label={showPassword ? 'Ocultar contrasena' : 'Ver contrasena'}
-              >
-                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-              </button>
-            </span>
-            {editing && <span className="text-xs font-semibold text-slate-500">Por seguridad no se muestra la contrasena actual. Escribe una nueva solo si deseas cambiarla.</span>}
-          </label>
-        </div>
+    <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+      <span>{label}</span>
+      <span className="flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-3 shadow-sm transition focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
+        <KeyRound size={17} className="mr-2 shrink-0 text-brand-600" />
+        <input
+          className="w-full border-0 bg-transparent p-0 text-sm shadow-none focus:ring-0"
+          type={visible ? 'text' : 'password'}
+          value={value}
+          placeholder={placeholder}
+          onChange={onChange}
+          required={required}
+        />
+        <button
+          type="button"
+          className="ml-2 text-slate-400 transition hover:text-brand-700"
+          onClick={() => setVisible((current) => !current)}
+          aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+        >
+          {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      </span>
+    </label>
+  );
+}
+
+function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
+  const [confirmarPassword, setConfirmarPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
+  const submit = (event) => {
+    event.preventDefault();
+    setPasswordError('');
+    if (!editing && form.password !== confirmarPassword) {
+      setPasswordError('Las contraseñas no coinciden.');
+      return;
+    }
+    onSubmit(event);
+  };
+
+  return (
+    <form onSubmit={submit} className="grid max-h-[72vh] gap-4 overflow-y-auto pr-1">
+      <div>
+        <p className="text-sm text-slate-500">
+          {editing
+            ? 'Actualiza los datos y el estado de esta cuenta.'
+            : 'Registra una cuenta para el personal autorizado de Physio Active.'}
+        </p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white/90 p-4">
-        <div className="mb-4 flex items-center gap-2 text-ink">
-          <ShieldCheck size={19} className="text-brand-600" />
-          <h3 className="font-black">Permisos</h3>
+      <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+        <div className="mb-4 flex items-center gap-2 text-slate-800">
+          <UserRound size={19} className="text-brand-600" />
+          <h3 className="font-black">Datos personales</h3>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
-            label="Rol"
-            value={form.rol}
-            onChange={(e) => setForm({ ...form, rol: e.target.value })}
-            options={[
-              { value: 'personal', label: 'Personal' },
-              { value: 'admin', label: 'Admin' }
-            ]}
+            label="Nombre completo"
+            value={form.nombre}
+            onChange={(event) => setForm({ ...form, nombre: event.target.value })}
+            required
           />
           <Input
-            label="Estado"
+            label="Correo electrónico"
+            type="email"
+            value={form.email || ''}
+            onChange={(event) => setForm({ ...form, email: event.target.value })}
+            required
+          />
+          <Input
+            label="Teléfono (opcional)"
+            type="tel"
+            value={form.telefono || ''}
+            onChange={(event) => setForm({ ...form, telefono: event.target.value })}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-brand-100 bg-brand-50/55 p-4">
+        <div className="mb-4 flex items-center gap-2 text-brand-800">
+          <KeyRound size={19} />
+          <h3 className="font-black">Datos de acceso</h3>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input
+            label="Usuario"
+            value={form.usuario}
+            onChange={(event) => setForm({ ...form, usuario: event.target.value })}
+            required
+          />
+          {editing ? (
+            <PasswordField
+              value={form.password}
+              onChange={(event) => setForm({ ...form, password: event.target.value })}
+              placeholder="Nueva contraseña (opcional)"
+            />
+          ) : (
+            <>
+              <PasswordField
+                value={form.password}
+                onChange={(event) => setForm({ ...form, password: event.target.value })}
+                required
+                placeholder="Contraseña"
+              />
+              <PasswordField
+                label="Confirmar contraseña"
+                value={confirmarPassword}
+                onChange={(event) => setConfirmarPassword(event.target.value)}
+                required
+                placeholder="Repite la contraseña"
+              />
+            </>
+          )}
+        </div>
+        {editing && (
+          <p className="mt-3 text-xs font-semibold text-slate-500">
+            Restablecer contraseña es opcional. Déjala vacía para conservar la actual.
+          </p>
+        )}
+        {passwordError && <p className="mt-3 text-sm font-semibold text-red-600">{passwordError}</p>}
+      </section>
+
+      <section className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+        <div className="mb-4 flex items-center gap-2 text-blue-800">
+          <ShieldCheck size={19} />
+          <h3 className="font-black">Acceso al sistema</h3>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input
+            label="Tipo de usuario"
+            value={editing && form.rol === 'admin' ? 'Doctor / Administrador' : 'Personal'}
+            disabled
+          />
+          <Input
+            label="Estado de cuenta"
             value={form.estado}
-            onChange={(e) => setForm({ ...form, estado: e.target.value })}
+            onChange={(event) => setForm({ ...form, estado: event.target.value })}
             options={[
               { value: 'activo', label: 'Activo' },
               { value: 'inactivo', label: 'Inactivo' },
@@ -69,17 +150,17 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
             ]}
           />
         </div>
-      </div>
-      <div className="flex flex-wrap gap-2">
+        <p className="mt-3 text-xs font-semibold text-blue-700">
+          El personal tendrá acceso únicamente a los módulos permitidos por el administrador.
+        </p>
+      </section>
+
+      <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white/95 pt-4">
+        <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
         <Button type="submit">
           <Save size={17} />
-          Guardar
+          {editing ? 'Guardar cambios' : 'Crear usuario'}
         </Button>
-        {onCancel && (
-          <Button variant="ghost" onClick={onCancel}>
-            Cancelar
-          </Button>
-        )}
       </div>
     </form>
   );

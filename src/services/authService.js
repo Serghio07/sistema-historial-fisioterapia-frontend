@@ -5,8 +5,8 @@ export const loginRequest = async (credentials) => {
   return data;
 };
 
-export const registerRequest = async (payload) => {
-  const { data } = await api.post('/auth/register', payload);
+export const accessRequest = async (payload) => {
+  const { data } = await api.post('/auth/solicitar-acceso', payload);
   return data;
 };
 
