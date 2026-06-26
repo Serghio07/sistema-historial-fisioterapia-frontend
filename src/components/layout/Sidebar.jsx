@@ -1,5 +1,6 @@
-import { Activity, Banknote, CalendarClock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, ListChecks, LogOut, ShieldCheck, UserCog, Users } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { Activity, Banknote, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, ListChecks, LogOut, Pill, ShieldCheck, UserCog, Users } from 'lucide-react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import icono from '../../assets/images/icono.png';
 
@@ -21,8 +22,16 @@ const personalItems = [
   { to: '/personal/planilla', label: 'Planilla del Personal', icon: Banknote }
 ];
 
+const documentItems = [
+  { to: '/documentos/consentimiento-informado', label: 'Consentimiento Informado', icon: FileText },
+  { to: '/documentos/signos-vitales', label: 'Signos Vitales', icon: HeartPulse },
+  { to: '/documentos/administracion-farmacos', label: 'Administracion de Farmacos', icon: Pill }
+];
+
 function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }) {
   const { user, isAdmin, logout } = useAuth();
+  const location = useLocation();
+  const [documentsOpen, setDocumentsOpen] = useState(location.pathname.startsWith('/documentos'));
 
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} ${mobileOpen ? 'sidebar-mobile-open' : ''}`}>
@@ -52,6 +61,32 @@ function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }
               </NavLink>
             );
           })}
+        <button
+          type="button"
+          onClick={() => setDocumentsOpen((current) => !current)}
+          className={`nav-link w-full ${location.pathname.startsWith('/documentos') ? 'nav-link-active' : ''}`}
+          title="Documentos"
+          aria-expanded={documentsOpen}
+        >
+          <FolderOpen size={18} />
+          <span className="sidebar-text flex min-w-0 flex-1 items-center justify-between gap-2">
+            <span>Documentos</span>
+            <ChevronDown size={16} className={`transition ${documentsOpen ? 'rotate-180' : ''}`} />
+          </span>
+        </button>
+        {documentsOpen && !collapsed && (
+          <div className="grid gap-1 pl-3">
+            {documentItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink key={item.to} to={item.to} onClick={onNavigate} className={({ isActive }) => `nav-link min-h-10 pl-5 text-xs ${isActive ? 'nav-link-active' : ''}`}>
+                  <Icon size={16} />
+                  <span className="sidebar-text">{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+        )}
         {isAdmin && (
           <>
             <div className="sidebar-text mt-3 border-t border-white/15 px-3 pt-4 text-xs font-black uppercase tracking-wider text-brand-100">

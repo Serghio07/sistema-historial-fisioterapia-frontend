@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, Save } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../../components/common/Button';
 import AnamnesisSection from './sections/AnamnesisSection';
 import AntecedentesFamiliaresSection from './sections/AntecedentesFamiliaresSection';
@@ -85,10 +85,21 @@ export const initialHistoria = {
 
 function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, user, isAdmin, editing, onSubmit, onCancel }) {
   const [stepIndex, setStepIndex] = useState(0);
+  const [canSubmit, setCanSubmit] = useState(false);
+  const contentRef = useRef(null);
 
   useEffect(() => {
     setStepIndex(0);
   }, [editing]);
+
+  useEffect(() => {
+    if (!contentRef.current) return;
+    contentRef.current.scrollTop = 0;
+    contentRef.current.closest('[data-modal-scroll]')?.scrollTo({ top: 0 });
+    setCanSubmit(false);
+    const timer = window.setTimeout(() => setCanSubmit(true), 300);
+    return () => window.clearTimeout(timer);
+  }, [stepIndex]);
 
   const setNested = (section, key, value) => {
     setForm({
@@ -146,9 +157,15 @@ function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, user, is
     [form, pacientes, profesionales, user, isAdmin, setForm]
   );
 
-  const currentStep = steps[stepIndex];
+  const currentStep = steps[stepIndex] || steps[steps.length - 1];
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === steps.length - 1;
+  const goBack = () => setStepIndex((current) => Math.max(current - 1, 0));
+  const goNext = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setStepIndex((current) => Math.min(current + 1, steps.length - 1));
+  };
 
   return (
     <form onSubmit={onSubmit} className="grid gap-3">
@@ -176,7 +193,7 @@ function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, user, is
         </div>
       </div>
 
-      <div className="max-h-[62vh] overflow-y-auto pr-1">
+      <div key={currentStep.title} ref={contentRef} className="max-h-[62vh] overflow-y-auto pr-1">
         {currentStep.content}
       </div>
 
@@ -187,17 +204,17 @@ function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, user, is
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="ghost" onClick={() => setStepIndex((current) => Math.max(current - 1, 0))} disabled={isFirst}>
+          <Button type="button" variant="ghost" onClick={goBack} disabled={isFirst}>
             <ArrowLeft size={17} />
             Atras
           </Button>
           {!isLast ? (
-            <Button type="button" onClick={() => setStepIndex((current) => Math.min(current + 1, steps.length - 1))}>
+            <Button type="button" onClick={goNext}>
               Siguiente
               <ArrowRight size={17} />
             </Button>
           ) : (
-            <Button type="submit">
+            <Button type="submit" disabled={!canSubmit}>
               <Save size={17} />
               {editing ? 'Actualizar historia' : 'Guardar historia'}
             </Button>

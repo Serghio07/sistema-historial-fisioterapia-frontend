@@ -16,6 +16,7 @@ import RolesPermisos from '../pages/rolesPermisos/RolesPermisos';
 import PrivateRoute from './PrivateRoute';
 import ActividadesDiarias from '../pages/personal/ActividadesDiarias';
 import PlanillaPersonal from '../pages/personal/PlanillaPersonal';
+import DocumentosClinicos from '../pages/documentos/DocumentosClinicos';
 
 function AppRoutes() {
   return (
@@ -35,6 +36,9 @@ function AppRoutes() {
             <Route path="planillas-atencion" element={<PlanillasAtencion />} />
             <Route path="informes-medicos" element={<Reportes />} />
             <Route path="reportes" element={<Reportes />} />
+            <Route path="documentos/consentimiento-informado" element={<DocumentosClinicos tipo="consentimiento" />} />
+            <Route path="documentos/signos-vitales" element={<DocumentosClinicos tipo="signos_vitales" />} />
+            <Route path="documentos/administracion-farmacos" element={<DocumentosClinicos tipo="farmacos" />} />
           </Route>
         </Route>
         <Route element={<PrivateRoute adminOnly />}>

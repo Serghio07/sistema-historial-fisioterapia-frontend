@@ -11,7 +11,7 @@ function Modal({ open, title, subtitle, children, onClose, size = 'md' }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 p-4">
+    <div data-modal-scroll className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 p-4">
       <section className={`my-4 w-full overflow-hidden rounded-2xl border border-white/80 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] ${sizes[size] || sizes.md}`}>
         <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ClipboardCheck, Eye, FileText, Plus } from 'lucide-react';
+import { ClipboardCheck, Download, Eye, FileText, Plus, Printer } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
@@ -9,6 +9,7 @@ import { Avatar } from '../../components/common/ProfilePhoto';
 import { getPaciente } from '../../services/pacienteService';
 import { getCitasPaciente, updateCitaEstado } from '../../services/citaService';
 import { getPlanillasAtencionPaciente } from '../../services/planillaAtencionService';
+import { getDocumentosPaciente } from '../../services/documentoClinicoService';
 import { formatDate } from '../../utils/formatDate';
 import { nombrePaciente } from '../../utils/validators';
 
@@ -16,6 +17,7 @@ function PacienteDetalle() {
   const { id } = useParams();
   const [paciente, setPaciente] = useState(null);
   const [planillas, setPlanillas] = useState([]);
+  const [documentos, setDocumentos] = useState([]);
   const [citas, setCitas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,9 +27,10 @@ function PacienteDetalle() {
       setLoading(true);
       setError('');
       try {
-        const [pacienteData, planillasData] = await Promise.all([getPaciente(id), getPlanillasAtencionPaciente(id)]);
+        const [pacienteData, planillasData, documentosData] = await Promise.all([getPaciente(id), getPlanillasAtencionPaciente(id), getDocumentosPaciente(id)]);
         setPaciente(pacienteData);
         setPlanillas(planillasData);
+        setDocumentos(documentosData);
 
         try {
           const citasData = await getCitasPaciente(id);
@@ -105,6 +108,58 @@ function PacienteDetalle() {
             </div>
           ])}
           empty="Este paciente todavia no tiene citas registradas."
+        />
+      </div>
+
+      <div className="panel">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-ink">Documentos y Registros Clinicos</h3>
+            <p className="text-sm text-slate-500">Consentimientos, signos vitales, farmacos y pagos asociados.</p>
+          </div>
+          <Link to={`/documentos/consentimiento-informado?paciente_id=${id}`}>
+            <Button>
+              <Plus size={17} />
+              Nuevo documento
+            </Button>
+          </Link>
+        </div>
+        <Table
+          columns={['Fecha', 'Tipo de registro', 'Descripcion', 'Responsable', 'Estado', 'Acciones']}
+          rows={documentos.map((documento) => {
+            const tipo = {
+              consentimiento: 'Consentimiento Informado',
+              signos_vitales: 'Ficha de Signos Vitales',
+              farmacos: 'Administracion de Farmacos'
+            }[documento.tipo] || documento.tipo;
+            const descripcion = documento.tipo === 'farmacos'
+              ? (documento.datos?.filas || []).flatMap((fila) => [fila.diclo && 'Diclo', fila.dexa && 'Dexa', fila.com_b && 'Com B'].filter(Boolean)).join(', ')
+              : documento.datos?.diagnostico || documento.descripcion || 'Registro clinico';
+            const route = {
+              consentimiento: '/documentos/consentimiento-informado',
+              signos_vitales: '/documentos/signos-vitales',
+              farmacos: '/documentos/administracion-farmacos'
+            }[documento.tipo];
+            return [
+              formatDate(documento.fecha),
+              tipo,
+              descripcion || 'Sin descripcion',
+              documento.creado_por?.nombre || 'Usuario',
+              documento.estado,
+              <div className="flex gap-2">
+                <Link to={route}>
+                  <ActionButton label="Vista previa" icon={Eye} tone="view" />
+                </Link>
+                <Link to={route}>
+                  <ActionButton label="Descargar" icon={Download} tone="download" />
+                </Link>
+                <Link to={route}>
+                  <ActionButton label="Imprimir" icon={Printer} tone="print" />
+                </Link>
+              </div>
+            ];
+          })}
+          empty="Este paciente todavia no tiene documentos clinicos registrados."
         />
       </div>
 
