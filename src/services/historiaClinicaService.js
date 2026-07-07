@@ -20,7 +20,12 @@ export const updateHistoriaClinica = async (id, payload) => {
   return data;
 };
 
-export const deleteHistoriaClinica = async (id) => {
-  const { data } = await api.delete(`/historias-clinicas/${id}`);
+export const deleteHistoriaClinica = async (id, payload = {}) => {
+  const { data } = await api.delete(`/historias-clinicas/${id}`, { data: payload });
+  return data;
+};
+
+export const restoreHistoriaClinica = async (id) => {
+  const { data } = await api.patch(`/historias-clinicas/${id}/restaurar`);
   return data;
 };

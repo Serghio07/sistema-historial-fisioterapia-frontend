@@ -27,6 +27,7 @@ import Modal from '../../components/common/Modal';
 import { Avatar } from '../../components/common/ProfilePhoto';
 import UsuarioForm from './UsuarioForm';
 import { createUsuario, getUsuarios, reviewAccessRequest, updateUsuario, updateUsuarioEstado } from '../../services/usuarioService';
+import { formatDate } from '../../utils/formatDate';
 
 const initialForm = {
   nombre: '',
@@ -34,6 +35,7 @@ const initialForm = {
   apellido_paterno: '',
   apellido_materno: '',
   ci: '',
+  titulo_profesional: '',
   cargo: '',
   dias_trabajo: ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'],
   hora_entrada: '08:00',
@@ -76,6 +78,15 @@ const statusLabel = {
 };
 
 const SYSTEM_TIME_ZONE = 'America/La_Paz';
+const dayLabels = {
+  lunes: 'Lunes',
+  martes: 'Martes',
+  miercoles: 'Miércoles',
+  jueves: 'Jueves',
+  viernes: 'Viernes',
+  sabado: 'Sábado',
+  domingo: 'Domingo'
+};
 
 function Badge({ children, tone }) {
   return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset ${tone}`}>{children}</span>;
@@ -251,6 +262,7 @@ function Usuarios() {
       apellido_paterno: form.apellido_paterno?.trim(),
       apellido_materno: form.apellido_materno?.trim() || null,
       ci: form.ci?.trim(),
+      titulo_profesional: form.titulo_profesional || null,
       cargo: form.cargo?.trim(),
       dias_trabajo: form.dias_trabajo,
       hora_entrada: form.hora_entrada,
@@ -290,7 +302,6 @@ function Usuarios() {
       setShowFormModal(false);
       setForm(initialForm);
       setEditing(null);
-      setMessage(editing ? 'Usuario actualizado correctamente.' : 'Personal creado correctamente.');
       await load();
     } catch (err) {
       setError(err.message);
@@ -303,11 +314,6 @@ function Usuarios() {
       await reviewAccessRequest(usuario.id, decision);
       setSelectedUsuario(null);
       setConfirmation(null);
-      setMessage(
-        decision === 'aprobar'
-          ? 'Cuenta aprobada correctamente. El usuario ya puede iniciar sesión.'
-          : 'Solicitud rechazada correctamente.'
-      );
       await load();
     } catch (err) {
       setError(err.message);
@@ -320,7 +326,6 @@ function Usuarios() {
       await updateUsuarioEstado(usuario.id, estado);
       setSelectedUsuario(null);
       setConfirmation(null);
-      setMessage(estado === 'activo' ? 'Cuenta reactivada correctamente.' : 'Cuenta bloqueada correctamente.');
       await load();
     } catch (err) {
       setError(err.message);
@@ -623,14 +628,67 @@ function Usuarios() {
               </dl>
             </section>
 
+            <section>
+              <div className="mb-3 flex items-center gap-2">
+                <Clock3 size={18} className="text-emerald-600" />
+                <h3 className="text-sm font-black text-slate-800">Datos profesionales y horario</h3>
+              </div>
+              <dl className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <dt className="text-xs font-bold text-slate-500">Título profesional</dt>
+                  <dd className="mt-2 text-sm font-bold text-slate-900">{selectedUsuario.ficha_personal?.titulo_profesional || 'No registrado'}</dd>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <dt className="text-xs font-bold text-slate-500">Cargo</dt>
+                  <dd className="mt-2 text-sm font-bold text-slate-900">{selectedUsuario.ficha_personal?.cargo || 'No registrado'}</dd>
+                </div>
+                <div className="rounded-xl border border-brand-100 bg-brand-50/50 p-4 shadow-sm sm:col-span-2">
+                  <dt className="text-xs font-bold text-brand-600">Nombre mostrado</dt>
+                  <dd className="mt-2 text-base font-black text-slate-900">
+                    {selectedUsuario.ficha_personal?.nombre_mostrado || selectedUsuario.nombre}
+                  </dd>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <dt className="text-xs font-bold text-slate-500">Cédula de identidad</dt>
+                  <dd className="mt-2 text-sm font-bold text-slate-900">{selectedUsuario.ficha_personal?.ci || 'No registrada'}</dd>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <dt className="text-xs font-bold text-slate-500">Fecha de ingreso</dt>
+                  <dd className="mt-2 text-sm font-bold text-slate-900">{selectedUsuario.ficha_personal?.fecha_ingreso ? formatDate(selectedUsuario.ficha_personal.fecha_ingreso) : 'No registrada'}</dd>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <dt className="text-xs font-bold text-slate-500">Forma de pago</dt>
+                  <dd className="mt-2 text-sm font-bold text-slate-900">{selectedUsuario.ficha_personal?.tipo_pago === 'por_servicio' ? 'Por servicio' : selectedUsuario.ficha_personal?.tipo_pago === 'mensual' ? 'Mensual' : 'No registrada'}</dd>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-2">
+                  <dt className="text-xs font-bold text-slate-500">Días de trabajo</dt>
+                  <dd className="mt-2 text-sm font-bold text-slate-900">
+                    {selectedUsuario.ficha_personal?.dias_trabajo?.length
+                      ? selectedUsuario.ficha_personal.dias_trabajo.map((dia) => dayLabels[dia] || dia).join(', ')
+                      : 'No registrados'}
+                  </dd>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <dt className="text-xs font-bold text-slate-500">Hora de entrada</dt>
+                  <dd className="mt-2 text-sm font-bold text-slate-900">{selectedUsuario.ficha_personal?.hora_entrada || 'No registrada'}</dd>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <dt className="text-xs font-bold text-slate-500">Hora de salida</dt>
+                  <dd className="mt-2 text-sm font-bold text-slate-900">{selectedUsuario.ficha_personal?.hora_salida || 'No registrada'}</dd>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-2">
+                  <dt className="text-xs font-bold text-slate-500">Dirección</dt>
+                  <dd className="mt-2 text-sm font-bold text-slate-900">{selectedUsuario.ficha_personal?.direccion || 'No registrada'}</dd>
+                </div>
+              </dl>
+            </section>
+
             <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-slate-100 bg-white/95 pt-4 backdrop-blur">
               <Button variant="ghost" onClick={() => setSelectedUsuario(null)}>Cerrar</Button>
-              {selectedUsuario.rol !== 'admin' && (
-                <Button variant="secondary" onClick={() => openEdit(selectedUsuario)}>
-                  <FilePenLine size={17} />
-                  Editar usuario
-                </Button>
-              )}
+              <Button variant="secondary" onClick={() => openEdit(selectedUsuario)}>
+                <FilePenLine size={17} />
+                Editar usuario
+              </Button>
               {selectedUsuario.estado === 'pendiente' && (
                 <>
                   <Button onClick={() => review(selectedUsuario, 'aprobar')}><Check size={17} />Aprobar</Button>

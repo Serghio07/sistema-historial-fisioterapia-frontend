@@ -4,34 +4,72 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import icono from '../../assets/images/icono.png';
 
-const items = [
-  { to: '/', label: 'Panel', icon: Activity },
-  { to: '/pacientes', label: 'Pacientes', icon: Users },
-  { to: '/historias-clinicas', label: 'Historias', icon: ClipboardList },
-  { to: '/citas', label: 'Citas / Agenda', icon: CalendarClock },
-  { to: '/sesiones', label: 'Sesiones', icon: CalendarDays },
-  { to: '/sesiones-semanales', label: 'Sesiones Semanales', icon: CalendarRange },
-  { to: '/planillas-atencion', label: 'Planillas', icon: ClipboardCheck },
-  { to: '/informes-medicos', label: 'Informes Medicos', icon: FileBarChart },
-  { to: '/usuarios', label: 'Usuarios', icon: UserCog, adminOnly: true },
-  { to: '/roles-permisos', label: 'Roles y Permisos', icon: ShieldCheck, adminOnly: true }
+const groups = [
+  {
+    key: 'pacientes',
+    label: 'Gestion de Pacientes',
+    icon: Users,
+    items: [
+      { to: '/pacientes', label: 'Pacientes', icon: Users },
+      { to: '/historias-clinicas', label: 'Historias Clinicas', icon: ClipboardList },
+      { to: '/informes-medicos', label: 'Informes Medicos', icon: FileBarChart }
+    ]
+  },
+  {
+    key: 'atencion',
+    label: 'Atencion y Agenda',
+    icon: CalendarClock,
+    items: [
+      { to: '/citas', label: 'Citas / Agenda', icon: CalendarClock },
+      { to: '/sesiones', label: 'Sesiones Diarias', icon: CalendarDays },
+      { to: '/sesiones-semanales', label: 'Sesiones Semanales', icon: CalendarRange }
+    ]
+  },
+  {
+    key: 'documentos',
+    label: 'Documentos Clinicos',
+    icon: FolderOpen,
+    items: [
+      { to: '/documentos/consentimiento-informado', label: 'Consentimiento Informado', icon: FileText },
+      { to: '/documentos/signos-vitales', label: 'Signos Vitales', icon: HeartPulse },
+      { to: '/documentos/administracion-farmacos', label: 'Administracion de Farmacos', icon: Pill }
+    ]
+  },
+  {
+    key: 'planillas',
+    label: 'Planillas y Control',
+    icon: ClipboardCheck,
+    items: [
+      { to: '/planillas-atencion', label: 'Planillas', icon: ClipboardCheck },
+      { to: '/personal/actividades', label: 'Actividades Diarias', icon: ListChecks },
+      { to: '/personal/planilla', label: 'Planilla del Personal', icon: Banknote, adminOnly: true }
+    ]
+  },
+  {
+    key: 'administracion',
+    label: 'Administracion',
+    icon: ShieldCheck,
+    adminOnly: true,
+    items: [
+      { to: '/usuarios', label: 'Usuarios', icon: UserCog },
+      { to: '/roles-permisos', label: 'Roles y Permisos', icon: ShieldCheck }
+    ]
+  }
 ];
 
-const personalItems = [
-  { to: '/personal/actividades', label: 'Actividades Diarias', icon: ListChecks },
-  { to: '/personal/planilla', label: 'Planilla del Personal', icon: Banknote }
-];
-
-const documentItems = [
-  { to: '/documentos/consentimiento-informado', label: 'Consentimiento Informado', icon: FileText },
-  { to: '/documentos/signos-vitales', label: 'Signos Vitales', icon: HeartPulse },
-  { to: '/documentos/administracion-farmacos', label: 'Administracion de Farmacos', icon: Pill }
-];
+const isGroupActive = (pathname, group) => group.items.some((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
 
 function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }) {
   const { user, isAdmin, logout } = useAuth();
   const location = useLocation();
-  const [documentsOpen, setDocumentsOpen] = useState(location.pathname.startsWith('/documentos'));
+  const [openGroups, setOpenGroups] = useState(() =>
+    groups.reduce((state, group) => ({
+      ...state,
+      [group.key]: isGroupActive(location.pathname, group) || ['pacientes', 'atencion', 'documentos'].includes(group.key)
+    }), {})
+  );
+
+  const toggleGroup = (key) => setOpenGroups((current) => ({ ...current, [key]: !current[key] }));
 
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} ${mobileOpen ? 'sidebar-mobile-open' : ''}`}>
@@ -50,59 +88,50 @@ function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }
       </div>
 
       <nav className="grid shrink-0 gap-2 pb-2">
-        {items
-          .filter((item) => !item.adminOnly || isAdmin)
-          .map((item) => {
-            const Icon = item.icon;
+        <NavLink to="/" onClick={onNavigate} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
+          <Activity size={18} />
+          <span className="sidebar-text">Panel</span>
+        </NavLink>
+
+        {groups
+          .filter((group) => !group.adminOnly || isAdmin)
+          .map((group) => {
+            const Icon = group.icon;
+            const active = isGroupActive(location.pathname, group);
+            const visibleItems = group.items.filter((item) => !item.adminOnly || isAdmin);
+            if (!visibleItems.length) return null;
+
             return (
-              <NavLink key={item.to} to={item.to} onClick={onNavigate} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
-                <Icon size={18} />
-                <span className="sidebar-text">{item.label}</span>
-              </NavLink>
+              <div key={group.key} className="grid gap-1">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.key)}
+                  className={`nav-link w-full ${active ? 'nav-link-active' : ''}`}
+                  title={group.label}
+                  aria-expanded={Boolean(openGroups[group.key])}
+                >
+                  <Icon size={18} />
+                  <span className="sidebar-text flex min-w-0 flex-1 items-center justify-between gap-2">
+                    <span className="truncate">{group.label}</span>
+                    <ChevronDown size={16} className={`shrink-0 transition ${openGroups[group.key] ? 'rotate-180' : ''}`} />
+                  </span>
+                </button>
+                {openGroups[group.key] && !collapsed && (
+                  <div className="grid gap-1 border-l border-white/15 pl-3">
+                    {visibleItems.map((item) => {
+                      const ItemIcon = item.icon;
+                      return (
+                        <NavLink key={item.to} to={item.to} onClick={onNavigate} className={({ isActive }) => `nav-link min-h-10 pl-4 text-xs ${isActive ? 'nav-link-active' : ''}`}>
+                          <ItemIcon size={16} />
+                          <span className="sidebar-text">{item.label}</span>
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
-        <button
-          type="button"
-          onClick={() => setDocumentsOpen((current) => !current)}
-          className={`nav-link w-full ${location.pathname.startsWith('/documentos') ? 'nav-link-active' : ''}`}
-          title="Documentos"
-          aria-expanded={documentsOpen}
-        >
-          <FolderOpen size={18} />
-          <span className="sidebar-text flex min-w-0 flex-1 items-center justify-between gap-2">
-            <span>Documentos</span>
-            <ChevronDown size={16} className={`transition ${documentsOpen ? 'rotate-180' : ''}`} />
-          </span>
-        </button>
-        {documentsOpen && !collapsed && (
-          <div className="grid gap-1 pl-3">
-            {documentItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink key={item.to} to={item.to} onClick={onNavigate} className={({ isActive }) => `nav-link min-h-10 pl-5 text-xs ${isActive ? 'nav-link-active' : ''}`}>
-                  <Icon size={16} />
-                  <span className="sidebar-text">{item.label}</span>
-                </NavLink>
-              );
-            })}
-          </div>
-        )}
-        {isAdmin && (
-          <>
-            <div className="sidebar-text mt-3 border-t border-white/15 px-3 pt-4 text-xs font-black uppercase tracking-wider text-brand-100">
-              Personal
-            </div>
-            {personalItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink key={item.to} to={item.to} onClick={onNavigate} className={({ isActive }) => `nav-link pl-5 ${isActive ? 'nav-link-active' : ''}`}>
-                  <Icon size={18} />
-                  <span className="sidebar-text">{item.label}</span>
-                </NavLink>
-              );
-            })}
-          </>
-        )}
       </nav>
 
       <button

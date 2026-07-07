@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { Download, Eye, FilePenLine, FileText, Printer, Save, Search, TableProperties, Trash2 } from 'lucide-react';
+import { Download, Eye, FilePenLine, Plus, Printer, Save, Search, Stethoscope, Trash2 } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -11,12 +11,15 @@ import Table from '../../components/common/Table';
 import { useAuth } from '../../context/AuthContext';
 import { createInformeMedico, deleteInformeMedico, getInformesMedicos, updateInformeMedico } from '../../services/informeMedicoService';
 import { getPacientes } from '../../services/pacienteService';
+import { getHistoriasClinicas } from '../../services/historiaClinicaService';
+import { getSesiones } from '../../services/sesionService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import logo from '../../assets/logos/logo.png';
 
 const initialForm = {
   paciente_id: '',
+  historia_clinica_id: '',
   fecha: new Date().toISOString().slice(0, 10),
   doctor: '',
   diagnostico: '',
@@ -30,8 +33,50 @@ const initialForm = {
   observacion_final: ''
 };
 
+const isHistoriaActiva = (historia) => !historia?.anulada && (historia?.estado || 'activa') === 'activa';
+
+const historiaLabel = (historia) => {
+  const fecha = formatDate(historia?.fecha_evaluacion);
+  const zona = historia?.condicion_actual?.zona_cuerpo || historia?.motivo_consulta || historia?.diagnostico_medico || 'Sin detalle';
+  return `${fecha} - ${zona} - Activa`;
+};
+
+const isSesionRealizada = (sesion) => {
+  const asistencia = String(sesion?.asistencia || '').toLowerCase();
+  const descontar = sesion?.descontarSesion === true || sesion?.descontar_sesion === true;
+  const anulada = sesion?.anulada === true || String(sesion?.estado || '').toLowerCase() === 'anulada';
+  return !anulada && (asistencia === 'asistio' || descontar);
+};
+
+const sesionesRealizadasLabel = (cantidad) =>
+  `${cantidad} ${cantidad === 1 ? 'SESION REALIZADA' : 'SESIONES REALIZADAS'}`;
+
+const historiaToInformeFields = (historia) => {
+  const antecedentes = historia?.antecedente_personal;
+  const antecedentesTexto = [
+    antecedentes?.patologicos ? antecedentes.detalle_patologicos || 'Antecedentes patologicos' : '',
+    antecedentes?.hospitalarios ? antecedentes.detalle_hospitalarios || 'Antecedentes hospitalarios' : '',
+    antecedentes?.quirurgicos ? antecedentes.detalle_quirurgicos || 'Antecedentes quirurgicos' : '',
+    antecedentes?.traumaticos ? antecedentes.detalle_traumaticos || 'Antecedentes traumaticos' : '',
+    antecedentes?.alergicos ? antecedentes.detalle_alergicos || 'Alergias' : '',
+    antecedentes?.farmacologicos ? antecedentes.detalle_farmacologicos || 'Antecedentes farmacologicos' : '',
+    antecedentes?.observaciones
+  ].filter(Boolean).join('\n');
+
+  return {
+    diagnostico: historia?.diagnostico_medico || '',
+    dx_cie: historia?.condicion_actual?.descripcion || historia?.enfermedad_actual || '',
+    antecedentes: antecedentesTexto,
+    conclusion_diagnostica: historia?.examen_kinesico?.pruebas_especificas || '',
+    tratamiento_fisioterapeutico: historia?.evaluacion_final?.plan_tratamiento || '',
+    medicamentos: historia?.intervencion_clinica?.observaciones || '',
+    estado_actual: historia?.evaluacion_final?.diagnostico_kinesico_cif || ''
+  };
+};
+
 function PrintableReport({ informe, pacientes }) {
   const paciente = informe?.paciente || pacientes.find((item) => Number(item.id) === Number(informe?.paciente_id));
+  const sesionesRealizadas = Number(informe?.sesiones_realizadas || 0);
   const tratamientoItems = (informe?.tratamiento_fisioterapeutico || '')
     .split('\n')
     .map((item) => item.trim())
@@ -42,7 +87,7 @@ function PrintableReport({ informe, pacientes }) {
     .filter(Boolean);
 
   return (
-    <article className="mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white px-12 py-10 font-sans text-[15px] leading-6 text-slate-900 shadow-soft print:shadow-none">
+    <article className="mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-12 py-10 font-sans text-[15px] leading-6 text-slate-900 shadow-soft print:shadow-none">
       <header className="relative border-b border-slate-900 pb-2">
         <img src={logo} alt="Physio Active" className="absolute left-0 top-0 h-28 w-32 object-contain" />
         <div className="pt-28 text-center">
@@ -86,8 +131,7 @@ function PrintableReport({ informe, pacientes }) {
 
         <div>
           <h3 className="font-black">
-            3.- Tratamiento Fisioterapeutico y de medicina fisica
-            {informe?.cantidad_sesiones ? <span> ( <span className="underline">{informe.cantidad_sesiones} sesiones</span> )</span> : null}
+            3.- Tratamiento Fisioterapeutico y de medicina fisica ({sesionesRealizadasLabel(sesionesRealizadas)}):
           </h3>
           {tratamientoItems.length ? (
             <ul className="ml-12 mt-2 list-disc">
@@ -113,9 +157,12 @@ function PrintableReport({ informe, pacientes }) {
 }
 
 function Reportes() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  const profesionalAutenticado = user?.nombre_mostrado || user?.ficha_personal?.nombre_mostrado || user?.nombre || '';
   const printRef = useRef(null);
   const [pacientes, setPacientes] = useState([]);
+  const [historias, setHistorias] = useState([]);
+  const [sesiones, setSesiones] = useState([]);
   const [informes, setInformes] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [editing, setEditing] = useState(null);
@@ -124,10 +171,58 @@ function Reportes() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [activePanel, setActivePanel] = useState('generar');
+  const [activePanel, setActivePanel] = useState('generados');
   const [query, setQuery] = useState('');
 
-  const previewInforme = useMemo(() => ({ ...form, paciente: pacientes.find((item) => Number(item.id) === Number(form.paciente_id)) }), [form, pacientes]);
+  const pacienteSeleccionado = useMemo(
+    () => pacientes.find((item) => Number(item.id) === Number(form.paciente_id)),
+    [pacientes, form.paciente_id]
+  );
+
+  const historiasPaciente = useMemo(
+    () => historias
+      .filter((historia) => Number(historia.paciente_id || historia.paciente?.id) === Number(form.paciente_id))
+      .filter(isHistoriaActiva)
+      .sort((a, b) => String(b.fecha_evaluacion || '').localeCompare(String(a.fecha_evaluacion || '')) || Number(b.id || 0) - Number(a.id || 0)),
+    [historias, form.paciente_id]
+  );
+
+  const historiaSeleccionada = useMemo(
+    () => historiasPaciente.find((historia) => String(historia.id) === String(form.historia_clinica_id)),
+    [historiasPaciente, form.historia_clinica_id]
+  );
+
+  const sesionesHistoriaSeleccionada = useMemo(
+    () => sesiones.filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(form.historia_clinica_id)),
+    [sesiones, form.historia_clinica_id]
+  );
+
+  const sesionesRealizadasHistoria = useMemo(
+    () => form.historia_clinica_id ? sesionesHistoriaSeleccionada.filter(isSesionRealizada).length : 0,
+    [form.historia_clinica_id, sesionesHistoriaSeleccionada]
+  );
+
+  const previewInforme = useMemo(
+    () => ({
+      ...form,
+      paciente: pacienteSeleccionado,
+      historia_clinica: historiaSeleccionada,
+      cantidad_sesiones: sesionesRealizadasHistoria,
+      sesiones_realizadas: sesionesRealizadasHistoria
+    }),
+    [form, pacienteSeleccionado, historiaSeleccionada, sesionesRealizadasHistoria]
+  );
+
+  const informeConSesionesRealizadas = (informe) => {
+    if (!informe) return informe;
+    const historiaId = informe.historia_clinica_id || informe.historia_clinica?.id;
+    const sesionesRealizadas = historiaId
+      ? sesiones
+        .filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historiaId))
+        .filter(isSesionRealizada).length
+      : Number(informe.sesiones_realizadas || informe.cantidad_sesiones || 0);
+    return { ...informe, sesiones_realizadas: sesionesRealizadas };
+  };
 
   const filteredInformes = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -140,9 +235,16 @@ function Reportes() {
   const load = async () => {
     setLoading(true);
     try {
-      const [pacientesData, informesData] = await Promise.all([getPacientes(), getInformesMedicos()]);
+      const [pacientesData, informesData, historiasData, sesionesData] = await Promise.all([
+        getPacientes(),
+        getInformesMedicos(),
+        getHistoriasClinicas(),
+        getSesiones()
+      ]);
       setPacientes(pacientesData);
       setInformes(informesData);
+      setHistorias(historiasData);
+      setSesiones(sesionesData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -154,10 +256,60 @@ function Reportes() {
     load();
   }, []);
 
+  useEffect(() => {
+    setForm((current) => ({ ...current, doctor: profesionalAutenticado }));
+  }, [profesionalAutenticado]);
+
   const update = (key, value) => setForm({ ...form, [key]: value });
+
+  const selectPaciente = (pacienteId) => {
+    const historiasActivas = historias
+      .filter((item) => Number(item.paciente_id || item.paciente?.id) === Number(pacienteId))
+      .filter(isHistoriaActiva)
+      .sort((a, b) => String(b.fecha_evaluacion || '').localeCompare(String(a.fecha_evaluacion || '')) || Number(b.id || 0) - Number(a.id || 0));
+    const historia = historiasActivas.length === 1 ? historiasActivas[0] : null;
+    const camposHistoria = historiaToInformeFields(historia);
+
+    setForm((current) => ({
+      ...current,
+      paciente_id: pacienteId,
+      historia_clinica_id: historia?.id || '',
+      diagnostico: historia ? camposHistoria.diagnostico : '',
+      dx_cie: historia ? camposHistoria.dx_cie : '',
+      antecedentes: historia ? camposHistoria.antecedentes : '',
+      conclusion_diagnostica: historia ? camposHistoria.conclusion_diagnostica : '',
+      cantidad_sesiones: historia ? sesiones.filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historia.id)).filter(isSesionRealizada).length : 0,
+      tratamiento_fisioterapeutico: historia ? camposHistoria.tratamiento_fisioterapeutico : '',
+      medicamentos: historia ? camposHistoria.medicamentos : '',
+      estado_actual: historia ? camposHistoria.estado_actual : '',
+      doctor: profesionalAutenticado
+    }));
+  };
+
+  const selectHistoria = (historiaId) => {
+    const historia = historiasPaciente.find((item) => String(item.id) === String(historiaId));
+    const camposHistoria = historiaToInformeFields(historia);
+    const sesionesRealizadas = historiaId
+      ? sesiones.filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historiaId)).filter(isSesionRealizada).length
+      : 0;
+
+    setForm((current) => ({
+      ...current,
+      historia_clinica_id: historiaId,
+      diagnostico: camposHistoria.diagnostico,
+      dx_cie: camposHistoria.dx_cie,
+      antecedentes: camposHistoria.antecedentes,
+      conclusion_diagnostica: camposHistoria.conclusion_diagnostica,
+      cantidad_sesiones: sesionesRealizadas,
+      tratamiento_fisioterapeutico: camposHistoria.tratamiento_fisioterapeutico,
+      medicamentos: camposHistoria.medicamentos,
+      estado_actual: camposHistoria.estado_actual
+    }));
+  };
 
   const validate = () => {
     if (!form.paciente_id) return 'Selecciona un paciente.';
+    if (!form.historia_clinica_id) return 'Selecciona una historia clinica activa.';
     if (!form.fecha) return 'La fecha es obligatoria.';
     if (!form.diagnostico) return 'El diagnostico es obligatorio.';
     return '';
@@ -171,11 +323,14 @@ function Reportes() {
     if (validationError) return;
 
     try {
-      const payload = cleanPayload(form);
+      const payload = cleanPayload({
+        ...form,
+        cantidad_sesiones: sesionesRealizadasHistoria
+      });
       editing ? await updateInformeMedico(editing, payload) : await createInformeMedico(payload);
-      setForm(initialForm);
+      setForm({ ...initialForm, doctor: profesionalAutenticado });
       setEditing(null);
-      setMessage('Informe medico guardado correctamente.');
+      setActivePanel('generados');
       await load();
     } catch (err) {
       setError(err.message);
@@ -184,15 +339,20 @@ function Reportes() {
 
   const editInforme = (informe) => {
     setEditing(informe.id);
+    const historiaId = informe.historia_clinica_id || informe.historia_clinica?.id || '';
+    const sesionesRealizadas = historiaId
+      ? sesiones.filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historiaId)).filter(isSesionRealizada).length
+      : Number(informe.cantidad_sesiones || 0);
     setForm({
       paciente_id: informe.paciente_id || informe.paciente?.id || '',
+      historia_clinica_id: historiaId,
       fecha: informe.fecha || new Date().toISOString().slice(0, 10),
-      doctor: informe.doctor || '',
+      doctor: profesionalAutenticado,
       diagnostico: informe.diagnostico || '',
       dx_cie: informe.dx_cie || '',
       antecedentes: informe.antecedentes || '',
       conclusion_diagnostica: informe.conclusion_diagnostica || '',
-      cantidad_sesiones: informe.cantidad_sesiones || '',
+      cantidad_sesiones: sesionesRealizadas,
       tratamiento_fisioterapeutico: informe.tratamiento_fisioterapeutico || '',
       medicamentos: informe.medicamentos || '',
       estado_actual: informe.estado_actual || '',
@@ -204,7 +364,13 @@ function Reportes() {
 
   const renderPrintableHtml = (informe) => {
     const paciente = informe?.paciente || pacientes.find((item) => Number(item.id) === Number(informe?.paciente_id));
-    const safe = (value) => value || 'Sin dato';
+    const escapeHtml = (value) => String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+    const safe = (value) => escapeHtml(value || 'Sin dato');
     const conclusionItems = (informe?.conclusion_diagnostica || '')
       .split('\n')
       .map((item) => item.trim())
@@ -213,8 +379,9 @@ function Reportes() {
       .split('\n')
       .map((item) => item.trim())
       .filter(Boolean);
+    const sesionesRealizadas = Number(informe?.sesiones_realizadas || 0);
     return `
-      <article style="width: 210mm; min-height: 297mm; padding: 18mm 20mm; font-family: Arial, sans-serif; color: #0f172a; font-size: 16px; line-height: 1.42;">
+      <article style="width: 216mm; min-height: 279mm; padding: 18mm 20mm; font-family: Arial, sans-serif; color: #0f172a; font-size: 16px; line-height: 1.42;">
         <header style="position: relative; border-bottom: 1px solid #0f172a; padding-bottom: 8px;">
           <img src="${logo}" style="position: absolute; left: 0; top: 0; height: 110px; width: 130px; object-fit: contain;" />
           <div style="padding-top: 112px; text-align: center;">
@@ -223,7 +390,7 @@ function Reportes() {
           </div>
         </header>
         <section style="margin-top: 18px;">
-          <p style="font-size: 20px; margin: 0 0 12px;"><strong>PACIENTE:</strong> ${nombrePaciente(paciente).toUpperCase()}</p>
+          <p style="font-size: 20px; margin: 0 0 12px;"><strong>PACIENTE:</strong> ${escapeHtml(nombrePaciente(paciente).toUpperCase())}</p>
           <p style="font-size: 20px; margin: 0 0 18px;"><strong>FECHA:</strong><span style="margin-left: 20px;">${formatDate(informe?.fecha)}</span></p>
           <p style="font-size: 20px; font-weight: 900; margin: 0 0 18px;">${safe(informe?.doctor)}</p>
           <p style="font-size: 20px; margin: 0 0 14px;"><strong>DX:</strong> <strong>${safe(informe?.diagnostico)}</strong></p>
@@ -235,26 +402,30 @@ function Reportes() {
           <h3 style="font-weight: 900; margin: 0 0 8px;">2.- <span style="text-decoration: underline;">Conclusion Diagnostica:</span> <span style="font-weight: 400;">A las pruebas semiologicas se evidencia lo siguiente.</span></h3>
           ${
             conclusionItems.length
-              ? `<ul style="margin: 8px 0 18px 48px;">${conclusionItems.map((item) => `<li style="text-transform: uppercase;">${item}</li>`).join('')}</ul>`
+              ? `<ul style="margin: 8px 0 18px 48px;">${conclusionItems.map((item) => `<li style="text-transform: uppercase;">${escapeHtml(item)}</li>`).join('')}</ul>`
               : `<p style="margin: 8px 0 18px 24px;">Sin conclusion diagnostica.</p>`
           }
-          <h3 style="font-weight: 900; margin: 0 0 8px;">3.- Tratamiento Fisioterapeutico y de medicina fisica ${
-            informe?.cantidad_sesiones ? `( <u>${informe.cantidad_sesiones} sesiones</u> )` : ''
-          }</h3>
+          <h3 style="font-weight: 900; margin: 0 0 8px;">3.- Tratamiento Fisioterapeutico y de medicina fisica (${sesionesRealizadasLabel(sesionesRealizadas)}):</h3>
           ${
             tratamientoItems.length
-              ? `<ul style="margin: 8px 0 10px 48px;">${tratamientoItems.map((item) => `<li>${item}</li>`).join('')}</ul>`
+              ? `<ul style="margin: 8px 0 10px 48px;">${tratamientoItems.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
               : `<p style="margin: 8px 0 10px;">Sin tratamiento registrado.</p>`
           }
-          ${informe?.medicamentos ? `<p style="white-space: pre-wrap; text-align: justify; margin: 0 0 28px;"><strong>Farmacologicamente:</strong> ${informe.medicamentos}</p>` : ''}
-          <p style="white-space: pre-wrap; text-align: justify; margin: 46px 0 18px;">${informe?.estado_actual || 'Paciente a la actualidad dado de alta post recuperacion funcional de su patologia.'}</p>
-          <p style="margin: 0;">${informe?.observacion_final || 'Es cuanto debo informar para fines del interesado'}</p>
+          ${informe?.medicamentos ? `<p style="white-space: pre-wrap; text-align: justify; margin: 0 0 28px;"><strong>Farmacologicamente:</strong> ${escapeHtml(informe.medicamentos)}</p>` : ''}
+          <p style="white-space: pre-wrap; text-align: justify; margin: 46px 0 18px;">${escapeHtml(informe?.estado_actual || 'Paciente a la actualidad dado de alta post recuperacion funcional de su patologia.')}</p>
+          <p style="margin: 0;">${escapeHtml(informe?.observacion_final || 'Es cuanto debo informar para fines del interesado')}</p>
         </section>
       </article>
     `;
   };
 
+  const tieneHistoriaSeleccionada = (informe) => Boolean(informe?.historia_clinica_id || informe?.historia_clinica?.id);
+
   const printInforme = (informe = previewInforme) => {
+    if (!tieneHistoriaSeleccionada(informe)) {
+      setError('Selecciona una historia clinica activa antes de generar el informe.');
+      return;
+    }
     const html = renderPrintableHtml(informe);
     const win = window.open('', '_blank');
     win.document.write(`
@@ -263,7 +434,7 @@ function Reportes() {
           <title>Informe medico</title>
           <style>
             body { margin: 0; font-family: Arial, sans-serif; }
-            @page { size: A4; margin: 12mm; }
+            @page { size: 216mm 279mm; margin: 12mm; }
             * { box-sizing: border-box; }
           </style>
         </head>
@@ -276,6 +447,10 @@ function Reportes() {
   };
 
   const downloadInformePdf = async (informe = previewInforme) => {
+    if (!tieneHistoriaSeleccionada(informe)) {
+      setError('Selecciona una historia clinica activa antes de generar el informe.');
+      return;
+    }
     const wrapper = document.createElement('div');
     wrapper.style.position = 'fixed';
     wrapper.style.left = '-10000px';
@@ -292,9 +467,9 @@ function Reportes() {
     });
 
     const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = 210;
-    const pageHeight = 297;
+    const pdf = new jsPDF('p', 'mm', [216, 279]);
+    const pageWidth = 216;
+    const pageHeight = 279;
     const imgHeight = (canvas.height * pageWidth) / canvas.width;
 
     let heightLeft = imgHeight;
@@ -320,10 +495,15 @@ function Reportes() {
     <section className="grid gap-5">
       {loading && <Loader />}
       <div className="page-title">
-        <div>
-          <p>Informes</p>
-          <h2>Informes Medicos</h2>
-          <span>Plantilla rapida para fisioterapia y rehabilitacion.</span>
+        <div className="w-full overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
+          <div className="grid gap-3 bg-gradient-to-r from-brand-900 to-brand-600 p-4 text-white md:grid-cols-[1fr_auto]">
+            <div>
+              <p className="!text-xs !font-black !uppercase !text-emerald-100">INFORMES</p>
+              <h2 className="!mt-1 !text-2xl !font-black !text-white md:!text-3xl">Informes Médicos</h2>
+              <span className="!mt-2 !block !text-sm !text-emerald-50">Genera, edita, imprime y descarga informes vinculados a pacientes e historias clínicas.</span>
+            </div>
+            <Stethoscope size={46} className="self-center text-white/90" />
+          </div>
         </div>
       </div>
 
@@ -331,143 +511,149 @@ function Reportes() {
       {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 p-3">
-          <button
-            type="button"
-            onClick={() => setActivePanel('generar')}
-            className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-black transition ${
-              activePanel === 'generar' ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-brand-50 hover:text-brand-700'
-            }`}
-          >
-            <FileText size={17} />
-            Para generar
-          </button>
-          <button
-            type="button"
-            onClick={() => setActivePanel('generados')}
-            className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-black transition ${
-              activePanel === 'generados' ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-brand-50 hover:text-brand-700'
-            }`}
-          >
-            <TableProperties size={17} />
-            Informes generados
-          </button>
-        </div>
-
-        <div className="p-4">
-          {activePanel === 'generar' ? (
-            <div className="grid gap-5 xl:grid-cols-[520px_1fr]">
-              <form onSubmit={submit} className="panel grid gap-4">
-                <h3 className="text-lg font-bold text-ink">{editing ? 'Editar informe' : 'Nuevo informe'}</h3>
-                <div className="form-grid">
-                  <Input
-                    label="Paciente"
-                    value={form.paciente_id}
-                    onChange={(e) => update('paciente_id', e.target.value)}
-                    options={[
-                      { value: '', label: 'Seleccionar paciente' },
-                      ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))
-                    ]}
-                  />
-                  <Input label="Fecha" type="date" value={form.fecha} onChange={(e) => update('fecha', e.target.value)} />
-                  <Input label="Doctor / Fisioterapeuta" value={form.doctor} onChange={(e) => update('doctor', e.target.value)} />
-                  <Input label="Cantidad de sesiones" type="number" min="0" value={form.cantidad_sesiones} onChange={(e) => update('cantidad_sesiones', e.target.value)} />
-                  <Input label="Diagnostico" value={form.diagnostico} onChange={(e) => update('diagnostico', e.target.value)} multiline className="md:col-span-2" />
-                  <Input label="DX CIE / Descripcion clinica" value={form.dx_cie} onChange={(e) => update('dx_cie', e.target.value)} multiline className="md:col-span-2" />
-                  <Input label="Antecedentes" value={form.antecedentes} onChange={(e) => update('antecedentes', e.target.value)} multiline className="md:col-span-2" />
-                  <Input label="Conclusion diagnostica" value={form.conclusion_diagnostica} onChange={(e) => update('conclusion_diagnostica', e.target.value)} multiline className="md:col-span-2" />
-                  <Input label="Tratamiento fisioterapeutico" value={form.tratamiento_fisioterapeutico} onChange={(e) => update('tratamiento_fisioterapeutico', e.target.value)} multiline className="md:col-span-2" />
-                  <Input label="Medicamentos / Farmacos" value={form.medicamentos} onChange={(e) => update('medicamentos', e.target.value)} multiline className="md:col-span-2" />
-                  <Input label="Estado actual del paciente" value={form.estado_actual} onChange={(e) => update('estado_actual', e.target.value)} multiline className="md:col-span-2" />
-                  <Input label="Observacion final" value={form.observacion_final} onChange={(e) => update('observacion_final', e.target.value)} multiline className="md:col-span-2" />
-                </div>
+        <div className="p-5">
+          <div>
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-ink">Informes generados</h3>
+                <p className="text-sm text-slate-500">Registros vinculados al historial del paciente.</p>
+              </div>
+              <Button onClick={() => {
+                setEditing(null);
+                setForm({ ...initialForm, doctor: profesionalAutenticado });
+                setActivePanel('generar');
+              }}>
+                <Plus size={17} />
+                Nuevo informe
+              </Button>
+            </div>
+            <div className="mb-5 grid gap-3 md:grid-cols-[1fr_auto]">
+              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
+                <Search size={17} className="shrink-0 text-slate-500" />
+                <input
+                  className="w-full border-0 bg-transparent p-0 text-sm text-ink shadow-none placeholder:text-slate-400 focus:ring-0"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Paciente, diagnostico, doctor o fecha"
+                />
+              </label>
+              <span className="inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-black uppercase text-brand-700">{filteredInformes.length} resultados</span>
+            </div>
+            <Table
+              columns={['Paciente', 'Fecha', 'Diagnostico', 'Doctor', 'Acciones']}
+              rows={filteredInformes.map((informe) => [
+                nombrePaciente(informe.paciente),
+                formatDate(informe.fecha),
+                informe.diagnostico,
+                informe.doctor || 'Sin dato',
                 <div className="flex flex-wrap gap-2">
-                  <Button type="submit">
-                    <Save size={17} />
-                    Guardar informe
-                  </Button>
-                  <Button variant="secondary" onClick={() => setShowPreview(true)}>
-                    <Eye size={17} />
-                    Vista previa
-                  </Button>
-                  <Button variant="ghost" onClick={() => printInforme()}>
-                    <Printer size={17} />
-                    Imprimir
-                  </Button>
-                  <Button variant="ghost" onClick={() => downloadInformePdf()}>
-                    <Download size={17} />
-                    Descargar PDF
-                  </Button>
-                  {editing && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setEditing(null);
-                        setForm(initialForm);
-                      }}
-                    >
-                      Cancelar
-                    </Button>
+                  <ActionButton label="Ver informe" icon={Eye} tone="view" onClick={() => setSelectedInforme(informeConSesionesRealizadas(informe))} />
+                  <ActionButton label="Editar informe" icon={FilePenLine} tone="edit" onClick={() => editInforme(informe)} />
+                  <ActionButton label="Imprimir informe" icon={Printer} tone="print" onClick={() => printInforme(informeConSesionesRealizadas(informe))} />
+                  <ActionButton label="Descargar PDF" icon={Download} tone="download" onClick={() => downloadInformePdf(informeConSesionesRealizadas(informe))} />
+                  {isAdmin && (
+                    <ActionButton label="Eliminar informe" icon={Trash2} tone="delete" onClick={() => deleteInformeMedico(informe.id).then(load)} />
                   )}
                 </div>
-              </form>
-
-              <div className="panel overflow-auto">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-bold text-ink">Vista previa A4</h3>
-                    <p className="text-sm text-slate-500">Asi se vera al imprimir o guardar como PDF.</p>
-                  </div>
-                </div>
-                <div id="printable-report" ref={printRef} className="bg-slate-100 p-4">
-                  <PrintableReport informe={previewInforme} pacientes={pacientes} />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="panel">
-              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-bold text-ink">Informes generados</h3>
-                  <p className="text-sm text-slate-500">Busca por paciente, diagnostico, doctor o fecha.</p>
-                </div>
-                <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black uppercase text-brand-700">{filteredInformes.length} resultados</span>
-              </div>
-              <label className="mb-4 grid gap-1 text-sm font-bold text-slate-700">
-                <span>Buscar</span>
-                <span className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
-                  <Search size={17} className="shrink-0 text-slate-500" />
-                  <input
-                    className="w-full border-0 bg-transparent p-0 text-sm text-ink shadow-none placeholder:text-slate-400 focus:ring-0"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Paciente, diagnostico, doctor o fecha"
-                  />
-                </span>
-              </label>
-              <Table
-                columns={['Paciente', 'Fecha', 'Diagnostico', 'Doctor', 'Acciones']}
-                rows={filteredInformes.map((informe) => [
-                  nombrePaciente(informe.paciente),
-                  formatDate(informe.fecha),
-                  informe.diagnostico,
-                  informe.doctor || 'Sin dato',
-                  <div className="flex flex-wrap gap-2">
-                    <ActionButton label="Ver informe" icon={Eye} tone="view" onClick={() => setSelectedInforme(informe)} />
-                    <ActionButton label="Editar informe" icon={FilePenLine} tone="edit" onClick={() => editInforme(informe)} />
-                    <ActionButton label="Imprimir informe" icon={Printer} tone="print" onClick={() => printInforme(informe)} />
-                    <ActionButton label="Descargar PDF" icon={Download} tone="download" onClick={() => downloadInformePdf(informe)} />
-                    {isAdmin && (
-                      <ActionButton label="Eliminar informe" icon={Trash2} tone="delete" onClick={() => deleteInformeMedico(informe.id).then(load)} />
-                    )}
-                  </div>
-                ])}
-                empty="No hay informes medicos generados."
-              />
-            </div>
-          )}
+              ])}
+              empty="No hay informes medicos generados."
+            />
+          </div>
         </div>
       </div>
+
+      <Modal
+        open={activePanel === 'generar'}
+        title={editing ? 'Editar informe' : 'Nuevo informe'}
+        subtitle="Completa los datos vinculados del paciente y revisa el formato antes de guardar."
+        onClose={() => {
+          setActivePanel('generados');
+          setEditing(null);
+        }}
+        size="xl"
+      >
+        <div className="grid gap-5 xl:grid-cols-[minmax(340px,500px)_minmax(0,1fr)]">
+          <form onSubmit={submit} className="grid gap-4">
+            <div className="form-grid">
+              <Input
+                label="Paciente"
+                value={form.paciente_id}
+                onChange={(e) => selectPaciente(e.target.value)}
+                className="md:col-span-2"
+                options={[
+                  { value: '', label: 'Seleccionar paciente' },
+                  ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))
+                ]}
+              />
+              <Input
+                label="Historia clínica"
+                value={form.historia_clinica_id}
+                onChange={(e) => selectHistoria(e.target.value)}
+                disabled={!form.paciente_id || historiasPaciente.length === 0}
+                className="md:col-span-2"
+                options={[
+                  { value: '', label: form.paciente_id ? 'Seleccionar historia clinica activa' : 'Selecciona primero un paciente' },
+                  ...historiasPaciente.map((historia) => ({ value: historia.id, label: historiaLabel(historia) }))
+                ]}
+              />
+              <Input label="Fecha" type="date" value={form.fecha} onChange={(e) => update('fecha', e.target.value)} />
+              <Input label="Doctor / Fisioterapeuta" value={profesionalAutenticado} disabled />
+              <Input label="Sesiones realizadas" type="number" min="0" value={sesionesRealizadasHistoria} disabled />
+              <Input label="Diagnostico" value={form.diagnostico} onChange={(e) => update('diagnostico', e.target.value)} multiline className="md:col-span-2" />
+              <Input label="DX CIE / Descripcion clinica" value={form.dx_cie} onChange={(e) => update('dx_cie', e.target.value)} multiline className="md:col-span-2" />
+              <Input label="Antecedentes" value={form.antecedentes} onChange={(e) => update('antecedentes', e.target.value)} multiline className="md:col-span-2" />
+              <Input label="Conclusion diagnostica" value={form.conclusion_diagnostica} onChange={(e) => update('conclusion_diagnostica', e.target.value)} multiline className="md:col-span-2" />
+              <Input label="Tratamiento fisioterapeutico" value={form.tratamiento_fisioterapeutico} onChange={(e) => update('tratamiento_fisioterapeutico', e.target.value)} multiline className="md:col-span-2" />
+              <Input label="Medicamentos / Farmacos" value={form.medicamentos} onChange={(e) => update('medicamentos', e.target.value)} multiline className="md:col-span-2" />
+              <Input label="Estado actual del paciente" value={form.estado_actual} onChange={(e) => update('estado_actual', e.target.value)} multiline className="md:col-span-2" />
+              <Input label="Observacion final" value={form.observacion_final} onChange={(e) => update('observacion_final', e.target.value)} multiline className="md:col-span-2" />
+            </div>
+            {form.paciente_id && (
+              <div className="rounded-lg border border-brand-100 bg-brand-50/70 p-3 text-sm text-slate-600">
+                <strong className="text-ink">Datos vinculados:</strong> {historiasPaciente.length} historias clinicas activas, {sesionesRealizadasHistoria} sesiones realizadas de la historia seleccionada.
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+              <Button type="submit">
+                <Save size={17} />
+                Guardar informe
+              </Button>
+              <Button variant="secondary" onClick={() => setShowPreview(true)}>
+                <Eye size={17} />
+                Vista previa
+              </Button>
+              <Button variant="ghost" onClick={() => printInforme()}>
+                <Printer size={17} />
+                Imprimir
+              </Button>
+              <Button variant="ghost" onClick={() => downloadInformePdf()}>
+                <Download size={17} />
+                Descargar PDF
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setEditing(null);
+                  setForm(initialForm);
+                  setActivePanel('generados');
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+
+          <div className="min-h-0 overflow-auto rounded-lg border border-slate-200 bg-slate-100 p-3">
+            <div className="mb-3">
+              <h3 className="text-base font-bold text-ink">Vista previa carta</h3>
+              <p className="text-sm text-slate-500">Asi se vera al imprimir o guardar como PDF.</p>
+            </div>
+            <div id="printable-report" ref={printRef}>
+              <PrintableReport informe={previewInforme} pacientes={pacientes} />
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={showPreview} title="Vista previa del informe" onClose={() => setShowPreview(false)} size="lg">
         <div className="max-h-[75vh] overflow-auto bg-slate-100 p-4">

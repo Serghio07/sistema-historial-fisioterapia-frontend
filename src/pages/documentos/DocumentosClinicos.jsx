@@ -119,7 +119,7 @@ const makeInitialForm = (tipo, user) => ({
   descripcion: config[tipo].description,
   datos: {
     ...initialDatos[tipo],
-    responsable_nombre: user?.nombre || '',
+    responsable_nombre: user?.nombre_mostrado || user?.ficha_personal?.nombre_mostrado || user?.nombre || '',
     filas: tipo === 'farmacos' ? [newFarmacoRow()] : undefined
   }
 });
@@ -237,7 +237,7 @@ function DocumentosClinicos({ tipo }) {
             tratamiento: current.datos.tratamiento || sugeridos.tratamiento,
             antecedentes_patologicos: current.datos.antecedentes_patologicos || sugeridos.antecedentes_patologicos,
             observaciones: current.datos.observaciones || sugeridos.observaciones_clinicas,
-            responsable_nombre: current.datos.responsable_nombre || user?.nombre || ''
+            responsable_nombre: current.datos.responsable_nombre || user?.nombre_mostrado || user?.ficha_personal?.nombre_mostrado || user?.nombre || ''
           }
         };
       });
@@ -286,7 +286,6 @@ function DocumentosClinicos({ tipo }) {
           : form.datos
       });
       editing ? await updateDocumentoClinico(editing, payload) : await createDocumentoClinico(payload);
-      setMessage('Registro guardado correctamente.');
       setShowForm(false);
       setEditing(null);
       setForm(makeInitialForm(tipo, user));
@@ -344,9 +343,9 @@ function DocumentosClinicos({ tipo }) {
   const downloadPdf = async (documento = previewDocumento) => {
     const { wrapper, rootElement, root } = await renderDocumentForExport(documento);
     const canvas = await html2canvas(rootElement.firstElementChild, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = 210;
-    const pageHeight = 297;
+    const pdf = new jsPDF('p', 'mm', [216, 279]);
+    const pageWidth = 216;
+    const pageHeight = 279;
     const imgHeight = (canvas.height * pageWidth) / canvas.width;
     let heightLeft = imgHeight;
     let position = 0;

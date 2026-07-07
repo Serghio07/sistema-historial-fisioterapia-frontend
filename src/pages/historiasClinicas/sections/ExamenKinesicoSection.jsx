@@ -12,7 +12,7 @@ function ExamenKinesicoSection({ data, onChange }) {
       <h3>Examen kinesico</h3>
       <div className="form-grid">
         {fields.map((key) => (
-          <Input key={key} label={labelize(key)} value={data[key]} onChange={(e) => onChange(key, e.target.value)} multiline />
+          <Input key={key} label={labelize(key)} value={data[key]} onChange={(e) => onChange(key, e.target.value.toLocaleUpperCase('es-BO'))} multiline />
         ))}
       </div>
     </section>

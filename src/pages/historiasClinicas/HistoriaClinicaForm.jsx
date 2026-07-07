@@ -22,7 +22,8 @@ export const initialHistoria = {
   motivo_consulta: '',
   enfermedad_actual: '',
   profesional_cargo: '',
-  estado: 'activa',
+  estado: 'borrador',
+  evolutivo: [],
   antecedente_personal: {
     patologicos: false,
     hospitalarios: false,
@@ -59,17 +60,17 @@ export const initialHistoria = {
     pruebas_especificas: ''
   },
   condicion_actual: {
-    tipo_lesion: 'M',
+    tipo_lesion: [],
     zona_cuerpo: '',
     estudios_imagenologicos: '',
     descripcion: ''
   },
   intervencion_clinica: {
-    escala_dolor: 0,
+    escala_dolor: '',
     tono: '',
     goniometria_balance_articular: '',
     balance_muscular: '',
-    trofismo: 'Conservado',
+    trofismo: 'CONSERVADO',
     detalle_trofismo: '',
     observaciones: ''
   },
@@ -78,12 +79,13 @@ export const initialHistoria = {
     evaluacion_marcha: '',
     diagnostico_kinesico_cif: '',
     plan_tratamiento: '',
+    sesiones_contratadas: '',
     periodicidad: '',
     profesional_cargo: ''
   }
 };
 
-function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, user, isAdmin, editing, onSubmit, onCancel }) {
+function HistoriaClinicaForm({ form, setForm, pacientes, user, editing, onSubmit, onCancel }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [canSubmit, setCanSubmit] = useState(false);
   const contentRef = useRef(null);
@@ -116,7 +118,7 @@ function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, user, is
       {
         title: 'Datos del paciente',
         description: 'Identificacion, fecha, profesional y datos antropometricos.',
-        content: <DatosPacienteSection form={form} setForm={setForm} pacientes={pacientes} profesionales={profesionales} user={user} isAdmin={isAdmin} />
+        content: <DatosPacienteSection form={form} setForm={setForm} pacientes={pacientes} user={user} />
       },
       {
         title: 'Anamnesis',
@@ -154,16 +156,29 @@ function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, user, is
         content: <EvaluacionFinalSection data={form.evaluacion_final} onChange={(key, value) => setNested('evaluacion_final', key, value)} />
       }
     ],
-    [form, pacientes, profesionales, user, isAdmin, setForm]
+    [form, pacientes, user, setForm]
   );
 
   const currentStep = steps[stepIndex] || steps[steps.length - 1];
+  const paciente = pacientes.find((item) => String(item.id) === String(form.paciente_id));
+  const sexLabel = { M: 'MASCULINO', F: 'FEMENINO' }[paciente?.sexo] || paciente?.sexo || 'SIN DATO';
+  const completed = [
+    Boolean(form.paciente_id && form.fecha_evaluacion),
+    Boolean(form.motivo_consulta || form.diagnostico_medico || form.enfermedad_actual),
+    Object.values(form.antecedente_personal || {}).some(Boolean),
+    Object.values(form.antecedente_familiar || {}).some(Boolean),
+    Object.values(form.examen_kinesico || {}).some(Boolean),
+    Boolean(form.condicion_actual?.zona_cuerpo),
+    form.intervencion_clinica?.escala_dolor !== '' && form.intervencion_clinica?.escala_dolor != null,
+    Boolean(form.evaluacion_final?.plan_tratamiento && Number(form.evaluacion_final?.sesiones_contratadas || 0) > 0)
+  ];
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === steps.length - 1;
   const goBack = () => setStepIndex((current) => Math.max(current - 1, 0));
   const goNext = (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!form.paciente_id) return;
     setStepIndex((current) => Math.min(current + 1, steps.length - 1));
   };
 
@@ -184,16 +199,30 @@ function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, user, is
             <button
               key={step.title}
               type="button"
-              onClick={() => setStepIndex(index)}
-              className={`h-2 rounded-full transition ${index <= stepIndex ? 'bg-brand-600' : 'bg-slate-200 hover:bg-slate-300'}`}
+              onClick={() => (index === 0 || form.paciente_id) && setStepIndex(index)}
+              disabled={index > 0 && !form.paciente_id}
+              className={`grid min-h-12 place-items-center rounded-lg border px-1 text-[10px] font-black uppercase transition ${
+                index === stepIndex ? 'border-brand-600 bg-brand-600 text-white' : completed[index] ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500'
+              } disabled:cursor-not-allowed disabled:opacity-45`}
               title={step.title}
               aria-label={step.title}
-            />
+            >
+              <span>{index + 1}. {step.title}</span>
+            </button>
           ))}
         </div>
       </div>
 
       <div key={currentStep.title} ref={contentRef} className="max-h-[62vh] overflow-y-auto pr-1">
+        {stepIndex > 0 && paciente && (
+          <div className="sticky top-0 z-10 mb-3 flex flex-wrap gap-x-4 gap-y-1 rounded-lg border border-brand-100 bg-brand-50/95 px-3 py-2 text-xs font-bold text-slate-700 shadow-sm backdrop-blur">
+            <span>PACIENTE: <strong>{`${paciente.nombres} ${paciente.apellidos || ''}`.trim().toUpperCase()}</strong></span>
+            <span>CI: <strong>{paciente.ci || 'SIN DATO'}</strong></span>
+            <span>EDAD: <strong>{paciente.edad != null ? `${paciente.edad} AÑOS` : 'SIN DATO'}</strong></span>
+            <span>SEXO: <strong>{sexLabel}</strong></span>
+            <span>FECHA: <strong>{form.fecha_evaluacion || 'SIN FECHA'}</strong></span>
+          </div>
+        )}
         {currentStep.content}
       </div>
 
@@ -214,10 +243,14 @@ function HistoriaClinicaForm({ form, setForm, pacientes, profesionales, user, is
               <ArrowRight size={17} />
             </Button>
           ) : (
-            <Button type="submit" disabled={!canSubmit}>
-              <Save size={17} />
-              {editing ? 'Actualizar historia' : 'Guardar historia'}
-            </Button>
+            <>
+              <Button type="button" variant="ghost" onClick={(event) => onSubmit(event, 'borrador')}>
+                <Save size={17} />Guardar borrador
+              </Button>
+              <Button type="submit" disabled={!canSubmit}>
+                <Save size={17} />{editing ? 'Actualizar historia' : 'Guardar historia'}
+              </Button>
+            </>
           )}
         </div>
       </div>

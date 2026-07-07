@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, CalendarClock, CalendarDays, CheckCircle2, FilePenLine, ListTodo, Plus, Search, Trash2 } from 'lucide-react';
+import { Activity, CalendarClock, CalendarDays, CheckCircle2, Eye, FilePenLine, ListTodo, Plus, Search, Trash2 } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -10,12 +10,92 @@ import { getCitas } from '../../services/citaService';
 import { getPacientes } from '../../services/pacienteService';
 import { getSesiones } from '../../services/sesionService';
 import { createTareaPersonal, deleteTareaPersonal, getTareasPersonal, updateTareaEstado, updateTareaPersonal } from '../../services/tareaPersonalService';
+import { getActividades } from '../../services/actividadService';
+import { getProfesionalesActivos } from '../../services/usuarioService';
 import { nombrePaciente } from '../../utils/validators';
+import { useAuth } from '../../context/AuthContext';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const initialTask = { paciente_id: '', titulo: '', descripcion: '', fecha: today(), hora: '08:00', prioridad: 'media', estado: 'pendiente' };
 const stateLabel = { pendiente: 'Pendiente', en_progreso: 'En progreso', completada: 'Completada', cancelada: 'Cancelada' };
-const stateTone = { pendiente: 'bg-amber-50 text-amber-700', en_progreso: 'bg-blue-50 text-blue-700', completada: 'bg-emerald-50 text-emerald-700', cancelada: 'bg-slate-100 text-slate-600' };
+const fieldLabels = {
+  titulo: 'Título', descripcion: 'Descripción', diagnostico: 'Diagnóstico',
+  diagnostico_medico: 'Diagnóstico médico', motivo: 'Motivo',
+  tipo_atencion: 'Tipo de atención', asistencia: 'Asistencia',
+  observacion: 'Observación', estado: 'Estado', fecha: 'Fecha',
+  hora: 'Hora', cantidad_sesiones: 'Cantidad de sesiones',
+  nombres: 'Nombres', apellidos: 'Apellidos', ci: 'Cédula de identidad',
+  fecha_nacimiento: 'Fecha de nacimiento', lugar_nacimiento: 'Lugar de nacimiento',
+  edad: 'Edad', sexo: 'Sexo', telefono: 'Teléfono', domicilio: 'Domicilio',
+  estado_civil: 'Estado civil', ocupacion: 'Ocupación', referencia: 'Referencia',
+  peso: 'Peso (kg)', talla: 'Talla (m)', imc: 'IMC',
+  sesiones_debe: 'Sesiones contratadas', sesiones_hizo: 'Sesiones realizadas',
+  numero_sesion: 'Número de sesión', metodo_pago: 'Método de pago',
+  estado_pago: 'Estado del pago', fecha_evaluacion: 'Fecha de evaluación',
+  dx_cie: 'Diagnóstico CIE', antecedentes: 'Antecedentes',
+  conclusion_diagnostica: 'Conclusión diagnóstica',
+  tratamiento_fisioterapeutico: 'Tratamiento fisioterapéutico',
+  medicamentos: 'Medicamentos', estado_actual: 'Estado actual',
+  observacion_final: 'Observación final', prioridad: 'Prioridad',
+  fecha_inicio: 'Fecha de inicio', fecha_fin: 'Fecha de finalización'
+};
+const printableValue = (value) => {
+  if (value === null || value === undefined || value === '') return 'Sin dato';
+  if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+};
+const shownName = (usuario) => {
+  const ficha = usuario?.ficha_personal;
+  return ficha?.nombre_mostrado
+    || [ficha?.titulo_profesional, ficha?.cargo, ficha?.nombres, ficha?.apellido_paterno, ficha?.apellido_materno].filter(Boolean).join(' ')
+    || usuario?.nombre
+    || 'Usuario no disponible';
+};
+const boliviaDateTime = (value, fallbackDate = '', fallbackTime = '') => {
+  if (!value) return { fecha: fallbackDate, hora: fallbackTime };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { fecha: fallbackDate, hora: fallbackTime };
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/La_Paz',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date);
+  const get = (type) => parts.find((part) => part.type === type)?.value;
+  return {
+    fecha: `${get('year')}-${get('month')}-${get('day')}`,
+    hora: `${get('hour')}:${get('minute')}`
+  };
+};
+const detailKeys = {
+  Paciente: ['ci', 'telefono', 'edad', 'sexo', 'domicilio', 'ocupacion'],
+  'Historia clínica': ['diagnostico_medico', 'fecha_evaluacion', 'motivo', 'observacion'],
+  Sesión: ['numero_sesion', 'asistencia', 'metodo_pago', 'estado_pago', 'observacion'],
+  Cita: ['tipo_atencion', 'motivo', 'fecha', 'hora', 'estado'],
+  'Informe médico': ['diagnostico', 'dx_cie', 'cantidad_sesiones', 'estado_actual'],
+  'Documento clínico': ['tipo', 'titulo', 'fecha', 'estado', 'descripcion'],
+  'Tarea extra': ['titulo', 'descripcion', 'prioridad', 'fecha', 'hora', 'estado'],
+  'Planilla de atención': ['diagnostico', 'fecha_inicio', 'fecha_fin', 'observacion']
+};
+const activityDetails = (activity) => {
+  const data = activity.source === 'audit'
+    ? { ...(activity.raw.paciente || {}), ...(activity.raw.datos || {}) }
+    : activity.raw || {};
+  const moduleName = activity.raw?.modulo
+    || (activity.source === 'task' ? 'Tarea extra'
+      : activity.tipo.toLowerCase().includes('cita') ? 'Cita'
+        : activity.tipo.toLowerCase().includes('sesión') ? 'Sesión'
+          : activity.tipo);
+  const preferred = detailKeys[moduleName] || Object.keys(fieldLabels);
+  return preferred
+    .filter((key) => fieldLabels[key] && data[key] !== null && data[key] !== undefined && data[key] !== '')
+    .slice(0, 5)
+    .map((key) => [key, data[key]]);
+};
 
 function TaskForm({ form, setForm, pacientes, onSubmit, onCancel, editing }) {
   const update = (key, value) => setForm({ ...form, [key]: value });
@@ -46,55 +126,97 @@ function TaskForm({ form, setForm, pacientes, onSubmit, onCancel, editing }) {
 }
 
 function ActividadesDiarias() {
+  const { user, isAdmin } = useAuth();
   const [fecha, setFecha] = useState(today());
   const [query, setQuery] = useState('');
   const [pacientes, setPacientes] = useState([]);
   const [sesiones, setSesiones] = useState([]);
   const [citas, setCitas] = useState([]);
   const [tareas, setTareas] = useState([]);
+  const [bitacora, setBitacora] = useState([]);
+  const [profesionales, setProfesionales] = useState([]);
   const [form, setForm] = useState(initialTask);
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [selectedActivity, setSelectedActivity] = useState(null);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [pacientesData, sesionesData, citasData, tareasData] = await Promise.all([getPacientes(), getSesiones(), getCitas(), getTareasPersonal()]);
+      const [pacientesData, sesionesData, citasData, tareasData, bitacoraData, profesionalesData] = await Promise.all([
+        getPacientes(),
+        getSesiones(),
+        getCitas(),
+        getTareasPersonal(),
+        getActividades(fecha),
+        getProfesionalesActivos()
+      ]);
       setPacientes(pacientesData);
       setSesiones(sesionesData);
       setCitas(citasData);
       setTareas(tareasData);
+      setBitacora(bitacoraData);
+      setProfesionales(profesionalesData);
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [fecha]);
 
   const actividades = useMemo(() => {
     const term = query.trim().toLowerCase();
+    const responsibleName = (actorId, fallback) => {
+      const profesional = profesionales.find((item) => String(item.id) === String(actorId));
+      return profesional ? (profesional.nombre_mostrado || shownName(profesional)) : shownName(fallback);
+    };
     const rows = [
+      ...bitacora
+        .filter((item) => !(item.accion === 'Creó' && ['Cita', 'Sesión', 'Tarea extra'].includes(item.modulo)))
+        .map((item) => ({
+          id: `bitacora-${item.id}`,
+          raw: item,
+          actorId: item.usuario_id || item.usuario?.id,
+          source: 'audit',
+          fecha: item.fecha,
+          hora: item.hora?.slice(0, 5) || '',
+          tipo: `${item.accion} ${item.modulo}`,
+          responsable: responsibleName(item.usuario_id || item.usuario?.id, item.usuario),
+          paciente: item.paciente ? nombrePaciente(item.paciente) : 'Sin paciente',
+          estado: '',
+          detalle: item.detalle || `${item.accion} ${item.modulo.toLowerCase()}`
+        })),
       ...tareas.map((item) => ({
-        id: `tarea-${item.id}`, raw: item, source: 'task', fecha: item.fecha, hora: item.hora?.slice(0, 5) || '',
-        tipo: 'Tarea extra', responsable: item.creado_por?.nombre || 'Usuario no disponible',
+        id: `tarea-${item.id}`, raw: item, source: 'task',
+        ...boliviaDateTime(item.created_at || item.createdAt, item.fecha, item.hora?.slice(0, 5) || ''),
+        actorId: item.usuario_id || item.creado_por?.id,
+        tipo: 'Creó tarea extra', responsable: responsibleName(item.usuario_id || item.creado_por?.id, item.creado_por),
         paciente: nombrePaciente(item.paciente), estado: item.estado, detalle: item.titulo
       })),
       ...citas.map((item) => ({
-        id: `cita-${item.id}`, source: 'clinical', fecha: item.fecha, hora: item.hora_inicio?.slice(0, 5) || '',
-        tipo: 'Cita', responsable: item.registrado_por?.nombre || 'Registro anterior',
+        id: `cita-${item.id}`, raw: item, source: 'clinical',
+        ...boliviaDateTime(item.created_at || item.createdAt, item.fecha, item.hora_inicio?.slice(0, 5) || ''),
+        actorId: item.usuario_id || item.registrado_por?.id,
+        tipo: 'Creó cita', responsable: responsibleName(item.usuario_id || item.registrado_por?.id, item.registrado_por),
         paciente: nombrePaciente(item.paciente), detalle: item.tipo_atencion || item.motivo || ''
       })),
       ...sesiones.map((item) => ({
-        id: `sesion-${item.id}`, source: 'clinical', fecha: item.fecha, hora: '',
-        tipo: 'Sesión', responsable: item.registrado_por?.nombre || 'Registro anterior',
+        id: `sesion-${item.id}`, raw: item, source: 'clinical',
+        ...boliviaDateTime(item.created_at || item.createdAt, item.fecha, ''),
+        actorId: item.usuario_id || item.registrado_por?.id,
+        tipo: 'Creó sesión', responsable: responsibleName(item.usuario_id || item.registrado_por?.id, item.registrado_por),
         paciente: nombrePaciente(item.paciente), detalle: item.observacion || `Asistencia: ${item.asistencia}`
       }))
     ];
     return rows
-      .filter((item) => (!fecha || item.fecha === fecha) && (!term || `${item.responsable} ${item.paciente} ${item.tipo} ${item.detalle}`.toLowerCase().includes(term)))
+      .filter((item) =>
+        (isAdmin || String(item.actorId) === String(user?.id))
+        && (!fecha || item.fecha === fecha)
+        && (!term || `${item.responsable} ${item.paciente} ${item.tipo} ${item.detalle}`.toLowerCase().includes(term))
+      )
       .sort((a, b) => String(a.hora).localeCompare(String(b.hora)));
-  }, [tareas, citas, sesiones, fecha, query]);
+  }, [tareas, citas, sesiones, bitacora, profesionales, fecha, query, isAdmin, user?.id]);
 
   const openNew = () => { setEditing(null); setForm({ ...initialTask, fecha }); setShowForm(true); };
   const openEdit = (task) => { setEditing(task.id); setForm({ ...initialTask, ...task, hora: task.hora?.slice(0, 5) || '' }); setShowForm(true); };
@@ -103,7 +225,6 @@ function ActividadesDiarias() {
     try {
       editing ? await updateTareaPersonal(editing, form) : await createTareaPersonal(form);
       setShowForm(false);
-      setMessage(editing ? 'Tarea extra actualizada.' : 'Tarea extra registrada correctamente.');
       await load();
     } catch (error) {
       setMessage(error.message);
@@ -113,24 +234,28 @@ function ActividadesDiarias() {
   return (
     <section className="grid gap-5">
       {loading && <Loader />}
-      <header className="overflow-hidden rounded-2xl bg-gradient-to-r from-[#123f3f] via-brand-800 to-cyan-700 p-6 text-white shadow-lg">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
+        <div className="grid gap-3 bg-gradient-to-r from-brand-900 to-brand-600 p-4 text-white md:grid-cols-[1fr_auto]">
           <div>
-            <p className="text-xs font-black uppercase tracking-wider text-brand-100">Seguimiento clínico</p>
-            <h2 className="mt-1 text-3xl font-black">Actividades Diarias</h2>
-            <p className="mt-2 text-sm text-brand-50">Citas, sesiones y tareas adicionales registradas para cada paciente.</p>
+            <p className="text-sm font-bold text-brand-50">Bitácora clínica</p>
+            <h2 className="mt-1 text-2xl font-black md:text-3xl">Actividades Diarias</h2>
+            <span className="mt-2 block text-sm text-brand-50">
+              {isAdmin
+                ? 'Resumen de creaciones, ediciones, cambios y eliminaciones realizadas por todo el equipo.'
+                : 'Resumen de las creaciones, ediciones, cambios y eliminaciones realizadas por tu cuenta.'}
+            </span>
           </div>
-          <Button onClick={openNew} className="min-h-11 bg-white !text-brand-800 hover:bg-brand-50"><Plus size={18} />Nueva tarea extra</Button>
+          <Activity size={42} className="self-center text-brand-50" />
         </div>
-      </header>
+      </div>
       {message && <p className="notice">{message}</p>}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           [Activity, actividades.length, 'Actividades', 'text-brand-600'],
           [ListTodo, actividades.filter((i) => i.source === 'task').length, 'Tareas extra', 'text-violet-600'],
-          [CalendarDays, actividades.filter((i) => i.tipo === 'Sesión').length, 'Sesiones', 'text-emerald-600'],
-          [CalendarClock, actividades.filter((i) => i.tipo === 'Cita').length, 'Citas', 'text-sky-600']
+          [CalendarDays, actividades.filter((i) => i.tipo.toLowerCase().includes('sesión')).length, 'Sesiones', 'text-emerald-600'],
+          [CalendarClock, actividades.filter((i) => i.tipo.toLowerCase().includes('cita')).length, 'Citas', 'text-sky-600']
         ].map(([Icon, value, label, color]) => (
           <article key={label} className="rounded-xl border border-white bg-white p-4 shadow-sm">
             <Icon className={color} /><strong className="mt-3 block text-3xl">{value}</strong><span className="text-sm text-slate-500">{label}</span>
@@ -151,19 +276,23 @@ function ActividadesDiarias() {
           <div className="flex items-end"><Button onClick={openNew}><Plus size={17} />Añadir tarea extra</Button></div>
         </div>
         <Table
-          columns={['Hora', 'Registrado por', 'Actividad', 'Paciente', 'Estado', 'Detalle', 'Acciones']}
+          columns={['Hora', 'Registrado por', 'Actividad', 'Paciente', 'Detalle', 'Acciones']}
           rows={actividades.map((item) => [
             item.hora || '—',
             item.responsable,
-            <span className={`rounded-full px-2.5 py-1 text-xs font-black ${item.source === 'task' ? 'bg-violet-50 text-violet-700' : item.tipo === 'Cita' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700'}`}>{item.tipo}</span>,
+            <span className={`rounded-full px-2.5 py-1 text-xs font-black ${item.source === 'task' ? 'bg-violet-50 text-violet-700' : item.source === 'audit' ? 'bg-amber-50 text-amber-700' : item.tipo.toLowerCase().includes('cita') ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700'}`}>{item.tipo}</span>,
             item.paciente,
-            item.source === 'task' ? <span className={`rounded-full px-2.5 py-1 text-xs font-black ${stateTone[item.estado]}`}>{stateLabel[item.estado]}</span> : '—',
             item.detalle,
-            item.source === 'task' ? <div className="flex gap-2">
-              {item.raw.estado !== 'completada' && <ActionButton label="Completar" icon={CheckCircle2} tone="edit" onClick={() => updateTareaEstado(item.raw.id, 'completada').then(load)} />}
-              <ActionButton label="Editar" icon={FilePenLine} tone="edit" onClick={() => openEdit(item.raw)} />
-              <ActionButton label="Eliminar" icon={Trash2} tone="delete" onClick={() => deleteTareaPersonal(item.raw.id).then(load)} />
-            </div> : '—'
+            <div className="flex gap-2">
+              <ActionButton label={item.source === 'task' ? 'Ver tarea' : 'Ver actividad'} icon={Eye} tone="view" onClick={() => setSelectedActivity(item)} />
+              {item.source === 'task' && (isAdmin || String(item.raw.usuario_id) === String(user?.id)) && (
+                <>
+                  {item.raw.estado !== 'completada' && <ActionButton label="Completar" icon={CheckCircle2} tone="edit" onClick={() => updateTareaEstado(item.raw.id, 'completada').then(load)} />}
+                  <ActionButton label="Editar" icon={FilePenLine} tone="edit" onClick={() => openEdit(item.raw)} />
+                  <ActionButton label="Eliminar" icon={Trash2} tone="delete" onClick={() => deleteTareaPersonal(item.raw.id).then(load)} />
+                </>
+              )}
+            </div>
           ])}
           empty="No hay actividades registradas para la fecha seleccionada."
         />
@@ -171,6 +300,41 @@ function ActividadesDiarias() {
 
       <Modal open={showForm} title={editing ? 'Editar tarea extra' : 'Nueva tarea extra'} subtitle="Registra una actividad adicional vinculada al paciente." onClose={() => setShowForm(false)} size="md">
         <TaskForm form={form} setForm={setForm} pacientes={pacientes} editing={editing} onSubmit={submit} onCancel={() => setShowForm(false)} />
+      </Modal>
+
+      <Modal
+        open={Boolean(selectedActivity)}
+        title={selectedActivity?.source === 'task' ? 'Detalle de la tarea' : 'Detalle de la actividad'}
+        subtitle="Resumen de lo que realizó el usuario."
+        onClose={() => setSelectedActivity(null)}
+        size="sm"
+      >
+        {selectedActivity && (
+          <div className="grid gap-3">
+            <section className="rounded-lg border border-brand-100 bg-brand-50/60 p-3">
+              <span className="text-xs font-black uppercase text-brand-600">{selectedActivity.tipo}</span>
+              <h3 className="mt-1 text-base font-black text-slate-900">{selectedActivity.detalle}</h3>
+              <p className="mt-1 text-xs text-slate-600">
+                <strong>{selectedActivity.responsable}</strong> · {selectedActivity.fecha} · {selectedActivity.hora || 'Sin hora'}
+              </p>
+            </section>
+            <dl className="divide-y divide-slate-100 rounded-lg border border-slate-200 px-3">
+              <div className="grid grid-cols-[105px_1fr] gap-2 py-2 text-sm">
+                <dt className="font-bold text-slate-500">Paciente</dt>
+                <dd className="font-bold text-slate-900">{selectedActivity.paciente}</dd>
+              </div>
+              {activityDetails(selectedActivity).map(([key, value]) => (
+                <div key={key} className="grid grid-cols-[105px_1fr] gap-2 py-2 text-sm">
+                  <dt className="font-bold text-slate-500">{fieldLabels[key]}</dt>
+                  <dd className="whitespace-pre-wrap font-semibold text-slate-900">{printableValue(value)}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="flex justify-end">
+              <Button variant="ghost" onClick={() => setSelectedActivity(null)}>Cerrar</Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </section>
   );

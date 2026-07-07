@@ -189,7 +189,6 @@ function SesionesSemanales() {
       setForm(initialForm);
       setEditing(null);
       setShowFormModal(false);
-      setMessage('Sesión semanal guardada correctamente.');
       await load();
     } catch (err) {
       setError(err.message);
@@ -251,13 +250,8 @@ function SesionesSemanales() {
 
       {message && <p className="notice">{message}</p>}
 
-      <div className="mx-auto grid w-full max-w-6xl gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Seguimiento semanal" value={resumen.pacientesUnicos} icon={CalendarCheck} tone="border-emerald-100 bg-emerald-50/80 text-emerald-700" />
-        <StatCard label="Sesiones sincronizadas" value={resumen.sesionesTotal} icon={Activity} tone="border-cyan-100 bg-cyan-50/80 text-cyan-700" />
-        <StatCard label="Con fármacos" value={resumen.conFarmacos} icon={Pill} tone="border-blue-100 bg-blue-50/80 text-blue-700" />
-        <StatCard label="Debe total Bs" value={resumen.deudaTotal.toFixed(2)} icon={WalletCards} tone="border-amber-100 bg-amber-50/80 text-amber-700" />
-      </div>
-
+      
+    
       <div className="mx-auto w-full max-w-6xl rounded-lg border border-white/70 bg-white/90 p-4 shadow-soft backdrop-blur">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
           <div>

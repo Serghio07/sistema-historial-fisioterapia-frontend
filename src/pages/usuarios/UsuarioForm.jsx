@@ -8,6 +8,8 @@ const DIAS = [
   ['lunes', 'Lun'], ['martes', 'Mar'], ['miercoles', 'Mie'], ['jueves', 'Jue'],
   ['viernes', 'Vie'], ['sabado', 'Sab'], ['domingo', 'Dom']
 ];
+const TITULOS = ['', 'Doc.', 'Dr.', 'Dra.', 'Lic.', 'Sr.', 'Sra.'];
+const CARGOS_SUGERIDOS = ['Ft.', 'Kine.', 'Adm.', 'Rec.', 'Aux.', 'Pas.'];
 
 const STEPS = [
   { title: 'Datos personales', description: 'Identidad, contacto y fotografía.', icon: UserRound },
@@ -37,6 +39,13 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
   const [confirmarPassword, setConfirmarPassword] = useState('');
   const [error, setError] = useState('');
   const update = (key, value) => setForm({ ...form, [key]: value });
+  const nombreCompleto = [form.nombres, form.apellido_paterno, form.apellido_materno]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  const nombreMostrado = [form.titulo_profesional, form.cargo, nombreCompleto]
+    .filter(Boolean)
+    .join(' ');
 
   useEffect(() => {
     setStep(0);
@@ -110,7 +119,27 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
 
         {step === 1 && <section className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Cargo" value={form.cargo} onChange={(e) => update('cargo', e.target.value)} required />
+            <Input
+              label="Título profesional (opcional)"
+              value={form.titulo_profesional || ''}
+              onChange={(e) => update('titulo_profesional', e.target.value)}
+              options={TITULOS.map((value) => ({ value, label: value || 'Sin título' }))}
+            />
+            <div>
+              <Input
+                label="Cargo / Área"
+                value={form.cargo}
+                onChange={(e) => update('cargo', e.target.value)}
+                list="cargo-area-options"
+                placeholder="Selecciona o escribe uno"
+                required
+              />
+              <datalist id="cargo-area-options">
+                {CARGOS_SUGERIDOS.map((cargo) => <option key={cargo} value={cargo} />)}
+              </datalist>
+            </div>
+            <Input label="Nombre completo" value={nombreCompleto} disabled />
+            <Input label="Nombre mostrado" value={nombreMostrado} disabled />
             <Input label="Fecha de ingreso" type="date" value={form.fecha_ingreso} onChange={(e) => update('fecha_ingreso', e.target.value)} required />
             <Input label="Tipo de pago" value={form.tipo_pago} onChange={(e) => update('tipo_pago', e.target.value)} options={[{ value: 'mensual', label: 'Mensual' }, { value: 'por_servicio', label: 'Por servicio' }]} />
             <Input label="Sueldo base (Bs.)" type="number" min="0" step="0.01" value={form.sueldo_base} onChange={(e) => update('sueldo_base', e.target.value)} disabled={form.tipo_pago === 'por_servicio'} />
@@ -144,7 +173,7 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
           </section>
           <section className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input label="Tipo de usuario" value="Personal" disabled />
+              <Input label="Tipo de usuario" value={form.rol === 'admin' ? 'Doctor / Administrador' : 'Personal'} disabled />
               <Input label="Estado de cuenta" value={form.estado} onChange={(e) => update('estado', e.target.value)} options={[{ value: 'activo', label: 'Activo' }, { value: 'inactivo', label: 'Inactivo' }, { value: 'bloqueado', label: 'Bloqueado' }]} />
             </div>
           </section>

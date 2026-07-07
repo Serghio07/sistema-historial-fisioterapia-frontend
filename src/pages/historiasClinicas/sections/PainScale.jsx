@@ -11,7 +11,7 @@ function painLabel(value) {
 }
 
 function PainScale({ value, onChange }) {
-  const current = Number(value || 0);
+  const current = value === '' || value == null ? null : Number(value);
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -20,7 +20,7 @@ function PainScale({ value, onChange }) {
           <h4 className="text-base font-black text-ink">Escala de dolor</h4>
           <p className="text-sm text-slate-500">Valoracion clinica de 0 a 10.</p>
         </div>
-        <strong className="rounded-lg bg-slate-900 px-3 py-2 text-white">{current}/10 · {painLabel(current)}</strong>
+        <strong className="rounded-lg bg-slate-900 px-3 py-2 text-white">{current == null ? 'SIN SELECCIONAR' : `${current}/10 · ${painLabel(current)}`}</strong>
       </div>
       <div className="grid grid-cols-11 overflow-hidden rounded-lg border border-slate-300">
         {Array.from({ length: 11 }, (_, index) => (

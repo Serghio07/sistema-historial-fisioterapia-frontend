@@ -39,13 +39,13 @@ function AppRoutes() {
             <Route path="documentos/consentimiento-informado" element={<DocumentosClinicos tipo="consentimiento" />} />
             <Route path="documentos/signos-vitales" element={<DocumentosClinicos tipo="signos_vitales" />} />
             <Route path="documentos/administracion-farmacos" element={<DocumentosClinicos tipo="farmacos" />} />
+            <Route path="personal/actividades" element={<ActividadesDiarias />} />
           </Route>
         </Route>
         <Route element={<PrivateRoute adminOnly />}>
           <Route element={<Layout />}>
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="roles-permisos" element={<RolesPermisos />} />
-            <Route path="personal/actividades" element={<ActividadesDiarias />} />
             <Route path="personal/planilla" element={<PlanillaPersonal />} />
           </Route>
         </Route>

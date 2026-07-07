@@ -10,8 +10,7 @@ export const accessRequest = async (payload) => {
   return data;
 };
 
-export const saveSession = ({ token, usuario }) => {
-  localStorage.setItem('physio_token', token);
+export const saveSession = ({ usuario }) => {
   localStorage.setItem('physio_user', JSON.stringify(usuario));
 };
 
@@ -21,6 +20,6 @@ export const getStoredUser = () => {
 };
 
 export const clearSession = () => {
-  localStorage.removeItem('physio_token');
   localStorage.removeItem('physio_user');
+  api.post('/auth/logout').catch(() => {});
 };

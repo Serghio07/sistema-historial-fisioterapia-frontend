@@ -35,7 +35,7 @@ const DotLine = ({ children, className = '' }) => (
 function ConsentimientoPreview({ documento }) {
   const data = documento.datos || {};
   return (
-    <article className="mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white px-10 py-7 text-[13px] leading-6 text-slate-950 shadow-soft print:shadow-none">
+    <article className="mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-10 py-7 text-[13px] leading-6 text-slate-950 shadow-soft print:shadow-none">
       <img src={logo} alt="Physio Active" className="mb-3 h-24 w-36 object-contain" />
       <h1 className="bg-blue-700 px-3 py-1.5 text-center text-sm font-black uppercase tracking-wide text-white">Declaracion de Consentimiento Informado</h1>
 
@@ -73,7 +73,7 @@ function SignosPreview({ documento }) {
     </span>
   );
   return (
-    <article className="relative mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white px-10 py-8 font-mono text-[13px] leading-6 text-slate-950 shadow-soft print:shadow-none">
+    <article className="relative mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-10 py-8 font-mono text-[13px] leading-6 text-slate-950 shadow-soft print:shadow-none">
       <img src={logo} alt="Physio Active" className="absolute right-8 top-6 h-16 w-24 object-contain" />
       <h1 className="border border-slate-900 px-4 py-4 text-center text-2xl font-black uppercase tracking-wide">Ficha de Signos Vitales</h1>
 
@@ -133,7 +133,7 @@ function FarmacosPreview({ documento }) {
   const total = filas.reduce((sum, fila) => sum + Number(fila.monto_bs || 0), 0);
   const rows = Array.from({ length: Math.max(14, filas.length) }, (_, index) => filas[index] || {});
   return (
-    <article className="relative mx-auto min-h-[210mm] w-full max-w-[297mm] bg-white px-8 py-7 text-sm text-slate-950 shadow-soft print:shadow-none">
+    <article className="relative mx-auto min-h-[216mm] w-full max-w-[279mm] bg-white px-8 py-7 text-sm text-slate-950 shadow-soft print:shadow-none" style={{ page: 'carta-landscape' }}>
       <img src={logo} alt="Physio Active" className="absolute right-8 top-5 h-16 w-24 object-contain" />
       <h1 className="mb-5 pr-28 text-center text-3xl font-black uppercase tracking-wide text-orange-700">Administracion de Farmacos</h1>
       <table className="w-full table-fixed border-collapse text-center text-xs">
@@ -180,7 +180,7 @@ function DocumentoPreview({ documento }) {
   if (documento.tipo === 'farmacos') return <FarmacosPreview documento={documento} />;
 
   return (
-    <article className="mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white px-8 py-7 text-sm leading-5 text-slate-900 shadow-soft print:shadow-none">
+    <article className="mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-8 py-7 text-sm leading-5 text-slate-900 shadow-soft print:shadow-none">
       <header className="grid grid-cols-[90px_minmax(0,1fr)_90px] items-center gap-3 border-b border-slate-700 pb-3">
         <img src={logo} alt="Physio Active" className="h-16 w-24 object-contain" />
         <div className="text-center">

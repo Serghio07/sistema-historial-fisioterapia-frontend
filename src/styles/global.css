@@ -73,7 +73,39 @@
   }
 }
 
+@keyframes success-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.success-toast {
+  animation: success-toast-in 220ms ease-out;
+}
+
 @media print {
+  body:has([data-historia-print]) * {
+    visibility: hidden;
+  }
+
+  body:has([data-historia-print]) [data-historia-print],
+  body:has([data-historia-print]) [data-historia-print] * {
+    visibility: visible;
+  }
+
+  body:has([data-historia-print]) [data-historia-print] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    page: historia-clinica;
+  }
+
   body:has(#planilla-personal-print) * {
     visibility: hidden;
   }
@@ -92,7 +124,17 @@
   }
 
   @page {
-    size: landscape;
+    size: 216mm 279mm;
     margin: 10mm;
   }
+}
+
+@page historia-clinica {
+  size: 216mm 279mm;
+  margin: 0;
+}
+
+@page carta-landscape {
+  size: 279mm 216mm;
+  margin: 10mm;
 }

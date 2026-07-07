@@ -227,7 +227,6 @@ function Citas() {
     try {
       const payload = cleanPayload(form);
       editing ? await updateCita(editing, payload) : await createCita(payload);
-      setMessage('Cita guardada correctamente.');
       resetForm();
       setShowFormModal(false);
       await load();

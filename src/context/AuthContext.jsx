@@ -1,11 +1,25 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { clearSession, getStoredUser, loginRequest, saveSession } from '../services/authService';
+import { getProfesionalesActivos } from '../services/usuarioService';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(getStoredUser());
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    getProfesionalesActivos()
+      .then((profesionales) => {
+        const actualizado = profesionales.find((item) => String(item.id) === String(user.id));
+        if (!actualizado) return;
+        const perfil = { ...user, ...actualizado };
+        saveSession({ usuario: perfil });
+        setUser(perfil);
+      })
+      .catch(() => {});
+  }, [user?.id]);
 
   const login = async (credentials) => {
     setLoading(true);

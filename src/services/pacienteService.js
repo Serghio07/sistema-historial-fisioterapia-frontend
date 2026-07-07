@@ -20,7 +20,7 @@ export const updatePaciente = async (id, payload) => {
   return data;
 };
 
-export const deletePaciente = async (id) => {
+export const deactivatePaciente = async (id) => {
   const { data } = await api.delete(`/pacientes/${id}`);
   return data;
 };

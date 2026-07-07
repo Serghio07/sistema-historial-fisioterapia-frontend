@@ -55,7 +55,6 @@ function PlanillaPersonal() {
       }
       const created = await createPlanillaPersonal({ mes, anio });
       setPlanilla(created);
-      setMessage('Planilla mensual generada con el personal activo.');
       await loadHistorico();
     } catch (error) {
       setMessage(error.message);
@@ -77,7 +76,6 @@ function PlanillaPersonal() {
       const updated = await updatePlanillaPersonal(planilla.id, { detalles: planilla.detalles, observaciones: planilla.observaciones });
       setPlanilla(updated);
       setEditing(false);
-      setMessage('Planilla historica actualizada correctamente.');
       await loadHistorico();
     } catch (error) {
       setMessage(error.message);

@@ -5,6 +5,7 @@ import { Avatar } from '../common/ProfilePhoto';
 
 function Navbar({ onMenuClick }) {
   const { user } = useAuth();
+  const nombreMostrado = user?.nombre_mostrado || user?.ficha_personal?.nombre_mostrado || user?.nombre || user?.usuario;
 
   return (
     <header className="navbar">
@@ -19,9 +20,9 @@ function Navbar({ onMenuClick }) {
         </div>
       </div>
       <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
-        <Avatar src={user?.foto} name={user?.nombre || user?.usuario} size="sm" />
+        <Avatar src={user?.foto} name={nombreMostrado} size="sm" />
         <ShieldCheck size={15} className="text-brand-600" />
-        <span>{user?.nombre || user?.usuario}</span>
+        <span>{nombreMostrado}</span>
       </div>
     </header>
   );

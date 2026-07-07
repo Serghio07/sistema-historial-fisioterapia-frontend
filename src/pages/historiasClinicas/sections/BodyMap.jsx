@@ -35,8 +35,8 @@ function Figure({ title, selected, onSelect, mirrored = false }) {
             <circle
               cx={zone.x}
               cy={zone.y * 1.42}
-              r={selected === zone.id ? 6.8 : 5.2}
-              className={selected === zone.id ? 'fill-coral stroke-white stroke-[2]' : 'fill-brand-500/75 stroke-white stroke-[2] hover:fill-coral'}
+              r={selected.includes(zone.id.toUpperCase()) ? 6.8 : 5.2}
+              className={selected.includes(zone.id.toUpperCase()) ? 'fill-coral stroke-white stroke-[2]' : 'fill-brand-500/75 stroke-white stroke-[2] hover:fill-coral'}
             />
           </g>
         ))}
@@ -46,6 +46,11 @@ function Figure({ title, selected, onSelect, mirrored = false }) {
 }
 
 function BodyMap({ value, onChange }) {
+  const selected = String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
+  const toggle = (zone) => {
+    const normalized = zone.toUpperCase();
+    onChange(selected.includes(normalized) ? selected.filter((item) => item !== normalized).join(', ') : [...selected, normalized].join(', '));
+  };
   return (
     <div className="rounded-xl border border-brand-100 bg-brand-50/60 p-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -56,8 +61,8 @@ function BodyMap({ value, onChange }) {
         <span className="rounded-lg bg-white px-3 py-2 text-sm font-bold text-brand-700 shadow-sm">{value || 'Sin zona seleccionada'}</span>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Figure title="Anterior" selected={value} onSelect={onChange} />
-        <Figure title="Posterior" selected={value} onSelect={onChange} mirrored />
+        <Figure title="Anterior" selected={selected} onSelect={toggle} />
+        <Figure title="Posterior" selected={selected} onSelect={toggle} mirrored />
       </div>
     </div>
   );
