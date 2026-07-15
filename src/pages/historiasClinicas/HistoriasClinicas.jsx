@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Ban, ChevronDown, ChevronUp, ClipboardPlus, Eye, FilePenLine, Filter, HeartPulse, List, Printer, RotateCcw, Search, Stethoscope, UserRound, Users } from 'lucide-react';
+import { Ban, ClipboardPlus, Eye, FilePenLine, FileText, Filter, HeartPulse, Info, List, MoreVertical, Printer, RotateCcw, Search, Star, Stethoscope, UserRound, Users } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
+import Pagination from '../../components/common/Pagination';
 import { useAuth } from '../../context/AuthContext';
 import { createHistoriaClinica, deleteHistoriaClinica, getHistoriasClinicas, restoreHistoriaClinica, updateHistoriaClinica } from '../../services/historiaClinicaService';
 import { getPacientes } from '../../services/pacienteService';
@@ -14,6 +15,9 @@ import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import HistoriaClinicaForm, { initialHistoria } from './HistoriaClinicaForm';
 import EvolutivoSection from './sections/EvolutivoSection';
+import PacienteHistoriasAccordion from './PacienteHistoriasAccordion';
+import HistoriaDetalleProfesional from './HistoriaDetalleProfesional';
+import EvolutivosDocumento from './EvolutivosDocumento';
 import logo from '../../assets/logos/logo.png';
 import cicloMarcha from '../../assets/images/ciclo-marcha.png';
 import mapaCorporalAnatomico from '../../assets/images/mapa-corporal-anatomico.png';
@@ -26,6 +30,11 @@ const motivosAnulacion = [
   'Informacion incompleta',
   'Otro'
 ];
+
+const isSesionActivaRealizada = (sesion) =>
+  !sesion?.anulada
+  && String(sesion?.estado || '').toLowerCase() !== 'anulada'
+  && String(sesion?.asistencia || '').toLowerCase() === 'asistio';
 
 const initialAnulacionForm = {
   motivo_anulacion: motivosAnulacion[0],
@@ -79,7 +88,7 @@ function TextBlock({ label, value }) {
   );
 }
 
-function HistoriaDetalleModal({ historia, onClose }) {
+function HistoriaDetalleModalLegacy({ historia, onClose }) {
   if (!historia) return null;
 
   return (
@@ -468,90 +477,104 @@ function HistoriaCard({ historia, onView, onPrint, onEdit, onEvolutivo, onAnular
   );
 }
 
-function PacienteHistoriasCard({ group, expanded, showAnuladas, sesiones, onToggle, onToggleAnuladas, onNew, onViewPatient, renderHistoria }) {
-  const { paciente, historias, allHistorias } = group;
+function PacienteHistoriasCard({ group, sesiones, onShowHistory, onNew, onViewPatient, onView, onEdit, onPreview, onPrint, onEvolutivo, onAnular, isAdmin }) {
+  const { paciente, allHistorias } = group;
   const latest = allHistorias.find((historia) => historia.estado !== 'anulada') || allHistorias[0];
-  const historiasActivas = historias.filter((historia) => historia.estado !== 'anulada');
-  const historiasAnuladas = historias.filter((historia) => historia.estado === 'anulada');
+  const draft = allHistorias.find((historia) => historia.estado === 'borrador');
+  const [showMenu, setShowMenu] = useState(false);
   const initials = nombrePaciente(paciente)
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0])
     .join('');
-  const counts = allHistorias.reduce((result, historia) => {
-    result[historia.estado || 'borrador'] += 1;
-    return result;
-  }, { activa: 0, borrador: 0, anulada: 0 });
   const pain = latest.intervencion_clinica?.escala_dolor;
   const historiaResumenSesiones = allHistorias.find((historia) => historia.estado === 'activa' && Number(historia.evaluacion_final?.sesiones_contratadas || 0) > 0);
   const sesionesContratadas = Number(historiaResumenSesiones?.evaluacion_final?.sesiones_contratadas || 0);
   const sesionesRealizadas = historiaResumenSesiones
     ? sesiones.filter((sesion) =>
       String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historiaResumenSesiones.id)
-      && ['pendiente', 'asistio'].includes(sesion.asistencia || 'pendiente')
+      && isSesionActivaRealizada(sesion)
     ).length
     : 0;
   const sesionesRestantes = Math.max(sesionesContratadas - sesionesRealizadas, 0);
 
-  return (
-    <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_auto]">
-        <div className="grid min-w-0 gap-3 sm:grid-cols-[48px_minmax(0,1fr)]">
-          <div className="grid h-12 w-12 place-items-center rounded-full bg-brand-50 text-sm font-black uppercase text-brand-700 ring-1 ring-brand-100">
-            {initials || 'PA'}
-          </div>
-          <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <strong className="truncate text-lg font-black uppercase text-ink">{nombrePaciente(paciente)}</strong>
-            <span className={`rounded-full px-2.5 py-1 text-xs font-black ${paciente?.estado ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{paciente?.estado ? 'ACTIVO' : 'INACTIVO'}</span>
-          </div>
-          <p className="mt-2 text-sm text-slate-500"><strong>CI:</strong> {paciente?.ci || 'SIN DATO'} <span className="mx-2">|</span> <strong>TEL:</strong> {paciente?.telefono || 'SIN DATO'}</p>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs font-black uppercase">
-              <span className="rounded-lg bg-brand-50 px-3 py-2 text-brand-700">Historias: {allHistorias.length}</span>
-              <span className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-700">Activas: {counts.activa}</span>
-              <span className="rounded-lg bg-amber-50 px-3 py-2 text-amber-700">Borradores: {counts.borrador}</span>
-              <span className="rounded-lg bg-slate-100 px-3 py-2 text-slate-600">Anuladas: {counts.anulada}</span>
-              <span className="rounded-lg bg-blue-50 px-3 py-2 text-blue-700">Sesiones: {sesionesRealizadas} / {sesionesContratadas}</span>
-              <span className="rounded-lg bg-cyan-50 px-3 py-2 text-cyan-700">Restantes: {sesionesRestantes}</span>
-            </div>
-          <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
-            <span><strong>ÚLTIMA EVALUACIÓN:</strong> {formatDate(latest.fecha_evaluacion)}</span>
-            <span><strong>ÚLTIMO MOTIVO:</strong> {latest.motivo_consulta || 'SIN REGISTRAR'}</span>
-            <span><strong>ÚLTIMA ZONA:</strong> {latest.condicion_actual?.zona_cuerpo || 'SIN REGISTRAR'}</span>
-            <span><strong>ÚLTIMO DOLOR:</strong> {pain === '' || pain == null ? 'SIN REGISTRAR' : `${pain}/10`}</span>
-          </div>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-start gap-2 xl:justify-end">
-          <Button variant="ghost" onClick={onToggle}>{expanded ? <ChevronUp size={17} /> : <ChevronDown size={17} />}VER HISTORIAS</Button>
-          <Button onClick={onNew}><ClipboardPlus size={17} />NUEVA HISTORIA</Button>
-          <Button variant="ghost" onClick={onViewPatient}><UserRound size={17} />VER PACIENTE</Button>
-        </div>
+  return <article className="bg-white px-4 py-5 transition hover:bg-slate-50/40">
+    <div className="grid gap-5 xl:grid-cols-[245px_minmax(350px,1fr)_190px_190px]">
+      <div className="flex gap-3 xl:border-r xl:border-slate-200 xl:pr-5">
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand-50 text-sm font-black uppercase text-brand-700 ring-1 ring-brand-100">{initials || 'PA'}</div>
+        <div className="min-w-0"><strong className="block truncate text-sm font-black uppercase text-slate-900">{nombrePaciente(paciente)}</strong><span className={`mt-1 inline-flex rounded-md px-2 py-1 text-[10px] font-bold ${paciente?.estado ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>Paciente {paciente?.estado ? 'activo' : 'inactivo'}</span><dl className="mt-3 grid gap-1 text-xs text-slate-500"><div><dt className="inline font-bold text-slate-700">CI: </dt><dd className="inline">{paciente?.ci || 'Sin dato'}</dd></div><div><dt className="inline font-bold text-slate-700">Tel: </dt><dd className="inline">{paciente?.telefono || 'Sin dato'}</dd></div></dl><button type="button" onClick={onViewPatient} className="mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[11px] font-bold text-slate-600 hover:bg-slate-50"><UserRound size={14} />Ver datos del paciente</button></div>
       </div>
-      {expanded && (
-        <div className="grid gap-3 border-t border-brand-100 bg-brand-50/40 p-4">
-          <section className="grid gap-3">
-            <h4 className="text-sm font-black uppercase text-brand-800">HISTORIAS ACTIVAS ({historiasActivas.length})</h4>
-            {historiasActivas.map(renderHistoria)}
-            {historiasActivas.length === 0 && <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">No hay historias activas o borradores para este filtro.</p>}
-          </section>
+      <div className="min-w-0"><div className="flex flex-wrap items-center gap-4"><span className={`inline-flex items-center gap-2 text-xs font-black ${latest.estado === 'borrador' ? 'text-amber-600' : latest.estado === 'anulada' ? 'text-red-600' : 'text-emerald-700'}`}><i className={`h-2 w-2 rounded-full ${latest.estado === 'borrador' ? 'bg-amber-400' : latest.estado === 'anulada' ? 'bg-red-500' : 'bg-emerald-600'}`} />Historia {latest.estado || 'borrador'}</span><span className="text-xs text-slate-500">{formatDate(latest.fecha_evaluacion)}</span></div>
+        <div className="mt-4 grid gap-x-5 gap-y-3 text-xs sm:grid-cols-2"><p><strong className="mr-1 text-slate-700">Motivo:</strong>{latest.motivo_consulta || 'Sin motivo registrado'}</p><p><strong className="mr-1 text-slate-700">Diagnóstico:</strong>{latest.diagnostico_medico || 'Sin diagnóstico registrado'}</p><p><strong className="mr-1 text-slate-700">Zona:</strong>{latest.condicion_actual?.zona_cuerpo || 'Zona no especificada'}</p><p><strong className="mr-1 text-slate-700">Dolor:</strong>{pain === '' || pain == null ? 'No evaluado' : `${pain}/10`}</p><p className="sm:col-span-2"><strong className="mr-1 text-slate-700">Profesional:</strong>{latest.profesional_cargo || 'Sin profesional registrado'}</p></div>
+        {draft && draft.id !== latest.id && <button type="button" onClick={() => onEdit(draft)} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-black text-amber-700"><FilePenLine size={15} />Borrador pendiente · Continuar borrador</button>}
+      </div>
+      <div>{sesionesContratadas > 0 ? <div className="rounded-xl border border-slate-200 p-4"><strong className="text-sm text-slate-800">{sesionesRealizadas} de {sesionesContratadas}</strong><span className="mt-1 block text-[11px] font-bold text-slate-500">realizadas</span><div className="my-3 h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-brand-600" style={{ width: `${Math.min(100, (sesionesRealizadas / sesionesContratadas) * 100)}%` }} /></div><span className="text-xs text-slate-500"><strong className="text-slate-700">{sesionesRestantes}</strong> restantes</span></div> : <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">Sin sesiones contratadas</div>}</div>
+      <div className="grid content-start gap-2"><button className="clinical-action border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => onView(latest)}><Eye size={16} />Ver historia</button>{latest.estado === 'activa' && <button className="clinical-action border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => onEvolutivo(latest)}><FilePenLine size={16} />Registrar evolutivo</button>}<button className="clinical-action border-slate-200 text-slate-600 hover:bg-slate-50" onClick={() => onPreview(latest)}><FileText size={16} />Vista previa PDF</button>{allHistorias.length > 1 && <button className="clinical-action border-slate-200 bg-slate-50 text-slate-600" onClick={onShowHistory}><List size={16} />Ver historial completo ({allHistorias.length})</button>}
+        <div className="relative"><button type="button" onClick={() => setShowMenu((value) => !value)} className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"><MoreVertical size={16} />Más acciones</button>{showMenu && <div className="absolute right-0 z-20 mt-1 grid w-full min-w-48 rounded-xl border border-slate-200 bg-white p-1 shadow-xl">{latest.estado !== 'anulada' && <button className="menu-action" onClick={() => { onEdit(latest); setShowMenu(false); }}><FilePenLine size={15} />Editar historia</button>}<button className="menu-action" onClick={() => { onNew(); setShowMenu(false); }}><ClipboardPlus size={15} />Nueva evaluación</button><button className="menu-action" onClick={() => { onPrint(latest); setShowMenu(false); }}><Printer size={15} />Imprimir historia</button>{isAdmin && latest.estado !== 'anulada' && <button className="menu-action text-red-600 hover:bg-red-50" onClick={() => { onAnular(latest); setShowMenu(false); }}><Ban size={15} />Anular historia</button>}</div>}</div>
+      </div>
+    </div>
+  </article>;
+}
 
-          <section className="grid gap-3 rounded-lg border border-red-100 bg-red-50/50 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="text-sm font-black uppercase text-slate-500">HISTORIAS ANULADAS ({historiasAnuladas.length})</h4>
-              <Button variant="danger" onClick={onToggleAnuladas}>
-                {showAnuladas ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
-                {showAnuladas ? 'OCULTAR' : 'MOSTRAR'}
-              </Button>
+function PatientHistoryModal({ group, onClose, onView, onEdit, onEvolutivo, onPrint, onAnular, isAdmin }) {
+  const [filter, setFilter] = useState('todos');
+  const [order, setOrder] = useState('recent');
+  if (!group) return null;
+  const items = group.allHistorias
+    .filter((historia) => filter === 'todos' || historia.estado === filter)
+    .sort((a, b) => {
+      const comparison = String(b.fecha_evaluacion || '').localeCompare(String(a.fecha_evaluacion || '')) || Number(b.id) - Number(a.id);
+      return order === 'recent' ? comparison : -comparison;
+    });
+  const newestId = [...group.allHistorias].sort((a, b) => String(b.fecha_evaluacion || '').localeCompare(String(a.fecha_evaluacion || '')) || Number(b.id) - Number(a.id))[0]?.id;
+  const statusClass = (status) => status === 'activa' ? 'bg-emerald-50 text-emerald-700' : status === 'borrador' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700';
+  const HistoryAction = ({ icon: Icon, label, tone = 'slate', onClick }) => {
+    const styles = { blue: 'border-blue-200 text-blue-600 hover:bg-blue-50', green: 'border-emerald-200 text-emerald-700 hover:bg-emerald-50', red: 'border-rose-200 text-rose-600 hover:bg-rose-50', slate: 'border-slate-200 text-slate-600 hover:bg-slate-50' };
+    return <button type="button" onClick={onClick} className="group grid w-[62px] justify-items-center gap-1.5 text-center text-[9px] font-semibold leading-tight text-slate-600"><span className={`grid h-10 w-10 place-items-center rounded-lg border bg-white transition ${styles[tone]}`}><Icon size={19} /></span>{label}</button>;
+  };
+
+  return <Modal open title={`Historias clínicas de ${nombrePaciente(group.paciente)}`} subtitle={`CI: ${group.paciente?.ci || 'Sin dato'} · ${group.allHistorias.length} historias registradas`} onClose={onClose} size="lg">
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">{[['todos', 'Todos'], ['activa', 'Activas'], ['borrador', 'Borradores'], ['anulada', 'Anuladas']].map(([value, label]) => <button key={value} onClick={() => setFilter(value)} className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${filter === value ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{label}</button>)}</div>
+        <select value={order} onChange={(event) => setOrder(event.target.value)} className="rounded-lg border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm"><option value="recent">Más recientes primero</option><option value="oldest">Más antiguas primero</option></select>
+      </div>
+
+      <div className="grid max-h-[58vh] gap-3 overflow-y-auto pr-1">
+        {items.map((historia) => {
+          const latest = historia.id === newestId;
+          const pain = historia.intervencion_clinica?.escala_dolor;
+          return <article key={historia.id} className={`relative grid gap-4 rounded-xl border p-4 transition lg:grid-cols-[115px_minmax(0,1fr)_auto] ${latest ? 'border-emerald-200 bg-emerald-50/25 shadow-sm' : 'border-slate-200 bg-white'}`}>
+            {latest && <span className="absolute inset-y-0 left-0 w-[3px] rounded-l-xl bg-emerald-500" />}
+            <div className="border-b border-slate-100 pb-3 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4">
+              {latest && <span className="mb-3 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[9px] font-black text-emerald-700"><Star size={11} />Más reciente</span>}
+              <strong className="block text-sm font-black text-slate-800">{formatDate(historia.fecha_evaluacion)}</strong>
+              <span className="mt-1 block text-[10px] text-slate-400">{historia.created_at ? formatDateTime(historia.created_at).split(',').pop()?.trim() : ''}</span>
+              <span className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusClass(historia.estado)}`}>{historia.estado}</span>
             </div>
-            {showAnuladas && historiasAnuladas.map(renderHistoria)}
-            {showAnuladas && historiasAnuladas.length === 0 && <p className="rounded-lg border border-red-100 bg-white/80 p-3 text-sm text-slate-500">No hay historias anuladas para este filtro.</p>}
-          </section>
-        </div>
-      )}
-    </article>
-  );
+            <div className="min-w-0 self-center text-xs text-slate-600">
+              <p className="flex flex-wrap gap-x-2 gap-y-1"><span><strong className="text-slate-700">Motivo:</strong> {historia.motivo_consulta || 'Sin registrar'}</span><i className="text-slate-300">•</i><span><strong className="text-slate-700">Diagnóstico:</strong> {historia.diagnostico_medico || 'Sin registrar'}</span></p>
+              <p className="mt-2 flex flex-wrap gap-x-2 gap-y-1"><span><strong className="text-slate-700">Zona:</strong> {historia.condicion_actual?.zona_cuerpo || 'Sin registrar'}</span><i className="text-slate-300">•</i><span><strong className="text-slate-700">Dolor:</strong> {pain === undefined || pain === '' ? 'Sin registrar' : `${pain}/10`}</span><i className="text-slate-300">•</i><span><strong className="text-slate-700">Tipo:</strong> {historia.condicion_actual?.tipo_lesion || 'Sin registrar'}</span></p>
+              <p className="mt-3 text-[11px] text-slate-500"><strong>Profesional:</strong> {historia.profesional_cargo || 'Sin registrar'}</p>
+            </div>
+            <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
+              <HistoryAction icon={Eye} label="Ver" tone="blue" onClick={() => onView(historia)} />
+              {historia.estado !== 'anulada' && <HistoryAction icon={FilePenLine} label="Editar" tone="blue" onClick={() => onEdit(historia)} />}
+              {historia.estado === 'activa' && <HistoryAction icon={FilePenLine} label="Registrar evolutivo" tone="green" onClick={() => onEvolutivo(historia)} />}
+              <HistoryAction icon={Printer} label="Imprimir" onClick={() => onPrint(historia)} />
+              {historia.estado !== 'anulada' && <HistoryAction icon={ClipboardPlus} label="Evolutivo y plan de tratamiento" tone="green" onClick={() => onEvolutivo(historia)} />}
+              {isAdmin && historia.estado !== 'anulada' && <HistoryAction icon={Ban} label="Anular historia" tone="red" onClick={() => onAnular(historia)} />}
+            </div>
+          </article>;
+        })}
+        {!items.length && <p className="empty-state">No hay historias en este estado.</p>}
+      </div>
+
+      <div className="flex items-center gap-3 rounded-lg border border-blue-100 bg-blue-50/60 px-4 py-3 text-xs text-blue-700"><Info size={18} className="shrink-0" />Aquí puedes ver y administrar todas las historias clínicas registradas para este paciente.</div>
+      <div className="flex justify-end border-t border-slate-100 pt-3"><Button variant="ghost" onClick={onClose}>Cerrar</Button></div>
+    </div>
+  </Modal>;
 }
 
 function HistoriasClinicas() {
@@ -577,7 +600,7 @@ function HistoriasClinicas() {
   const [painFilter, setPainFilter] = useState('');
   const [lesionFilter, setLesionFilter] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [expandedPatientId, setExpandedPatientId] = useState(null);
+  const [historyGroup, setHistoryGroup] = useState(null);
   const [selectedHistoria, setSelectedHistoria] = useState(null);
   const [previewHistoria, setPreviewHistoria] = useState(null);
   const [evolutivoHistoria, setEvolutivoHistoria] = useState(null);
@@ -585,7 +608,10 @@ function HistoriasClinicas() {
   const [historiaAAnular, setHistoriaAAnular] = useState(null);
   const [historiaARestaurar, setHistoriaARestaurar] = useState(null);
   const [anulacionForm, setAnulacionForm] = useState(initialAnulacionForm);
-  const [anuladasVisibles, setAnuladasVisibles] = useState({});
+  const [evolutivosPreview, setEvolutivosPreview] = useState(null);
+  const [expandedPatientId, setExpandedPatientId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const load = async () => {
     setLoading(true);
@@ -610,7 +636,7 @@ function HistoriasClinicas() {
   }, []);
 
   const statusCounts = useMemo(() => historias.reduce((counts, historia) => {
-    counts.todos += 1;
+    if (historia.estado !== 'anulada') counts.todos += 1;
     counts[historia.estado || 'borrador'] += 1;
     return counts;
   }, { todos: 0, activa: 0, borrador: 0, anulada: 0 }), [historias]);
@@ -641,7 +667,7 @@ function HistoriasClinicas() {
           || (painFilter === 'strong' && pain >= 7 && pain <= 10);
 
         return (!term || searchable.includes(term))
-          && (statusFilter === 'todos' || historia.estado === statusFilter)
+          && (statusFilter === 'todos' ? historia.estado !== 'anulada' : historia.estado === statusFilter)
           && (!dateFrom || historia.fecha_evaluacion >= dateFrom)
           && (!dateTo || historia.fecha_evaluacion <= dateTo)
           && (!professionalFilter || historia.profesional_cargo === professionalFilter)
@@ -666,6 +692,14 @@ function HistoriasClinicas() {
     });
     return Array.from(groups.values());
   }, [filteredHistorias, historias]);
+
+  const displayItems = viewMode === 'grouped' ? groupedHistorias : filteredHistorias;
+  const paginatedItems = displayItems.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+    setExpandedPatientId(null);
+  }, [query, statusFilter, dateFrom, dateTo, professionalFilter, zoneFilter, painFilter, lesionFilter, viewMode, pageSize]);
 
   const existingPatientStories = useMemo(() => {
     if (editing || !form.paciente_id) return [];
@@ -757,7 +791,7 @@ function HistoriasClinicas() {
 
   const anularHistoria = async () => {
     if (!anulacionForm.motivo_anulacion) {
-      setMessage('El motivo de anulacion es obligatorio.');
+      window.dispatchEvent(new CustomEvent('app:error', { detail: { message: 'El motivo de anulación es obligatorio.' } }));
       return;
     }
 
@@ -801,39 +835,9 @@ function HistoriasClinicas() {
     <section className="grid gap-4">
       {loading && <Loader />}
 
-      <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-        <div className="relative grid gap-3 overflow-hidden bg-gradient-to-r from-brand-900 via-brand-700 to-brand-500 p-4 text-white lg:grid-cols-[1fr_auto]">
-          <img src={logo} alt="" className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-white/90 object-contain p-5 opacity-10" />
-          <div>
-            <p className="text-xs font-black uppercase text-brand-50">Physio Active</p>
-            <h2 className="mt-1 text-2xl font-black md:text-3xl">Historias Clinicas</h2>
-            <span className="mt-1 block max-w-2xl text-sm leading-5 text-brand-50">
-              Consulta y gestion de historias clinicas de pacientes.
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-center">
-            <div className="rounded-lg bg-white/15 p-2">
-              <HeartPulse className="mx-auto mb-1" size={18} />
-              <strong>{pacientes.length}</strong>
-              <span className="block text-xs text-brand-50">Pacientes</span>
-            </div>
-            <div className="rounded-lg bg-white/15 p-2">
-              <Stethoscope className="mx-auto mb-1" size={18} />
-              <strong>{historias.length}</strong>
-              <span className="block text-xs text-brand-50">Historias</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {message && <p className="notice">{message}</p>}
-
-      <div className="panel">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-          <div>
-            <h3 className="text-lg font-bold text-ink">Historias registradas</h3>
-            <p className="text-sm text-slate-500">Pacientes agrupados con sus evaluaciones clínicas.</p>
-          </div>
+      <div className="panel rounded-2xl p-5 md:p-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><ClipboardPlus size={23} /></span><div><h2 className="text-xl font-black text-slate-900">Historias clínicas</h2><p className="text-xs text-slate-500">Pacientes agrupados con sus evaluaciones clínicas</p></div></div>
           <Button onClick={() => openNewHistoria()}>
             <ClipboardPlus size={17} />
             Nueva historia clinica
@@ -841,23 +845,26 @@ function HistoriasClinicas() {
         </div>
 
         <div className="mb-4 grid gap-3">
-          <div className="flex items-center gap-2">
-            <Search size={18} className="shrink-0 text-slate-500" />
+          <div className="grid gap-3 lg:grid-cols-[minmax(300px,1fr)_auto_auto]">
+            <div className="relative"><Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
-              className="w-full rounded-lg border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+              className="w-full rounded-lg border-slate-200 bg-white py-2.5 pl-11 pr-3 text-sm shadow-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="BUSCAR POR PACIENTE, CI, TELÉFONO, MOTIVO, DIAGNÓSTICO, ZONA, ESTADO O PROFESIONAL"
+              placeholder="Buscar por paciente, CI, teléfono, motivo, diagnóstico, zona o profesional..."
             />
+            </div>
+            <Button variant="ghost" onClick={() => setShowAdvancedFilters((current) => !current)}><Filter size={17} />Filtros avanzados</Button>
+            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1"><button type="button" onClick={() => setViewMode('grouped')} className={`inline-flex items-center gap-1 rounded-md px-4 py-1.5 text-xs font-black ${viewMode === 'grouped' ? 'bg-emerald-50 text-brand-700 shadow-sm ring-1 ring-brand-100' : 'text-slate-500'}`}><Users size={15} />Agrupado</button><button type="button" onClick={() => setViewMode('all')} className={`inline-flex items-center gap-1 rounded-md px-4 py-1.5 text-xs font-black ${viewMode === 'all' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'}`}><List size={15} />Listado</button></div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-2">
               {[
-                ['todos', 'TODAS'],
-                ['activa', 'ACTIVAS'],
-                ['borrador', 'BORRADORES'],
-                ['anulada', 'ANULADAS']
+                ['todos', 'Todos'],
+                ['activa', 'Activas'],
+                ['borrador', 'Borradores'],
+                ['anulada', 'Anuladas']
               ].map(([value, label]) => (
                 <button
                   key={value}
@@ -865,17 +872,11 @@ function HistoriasClinicas() {
                   onClick={() => setStatusFilter(value)}
                   className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${statusFilter === value ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300'}`}
                 >
-                  {label} {statusCounts[value]}
+                  {label} ({statusCounts[value]})
                 </button>
               ))}
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="ghost" onClick={() => setShowAdvancedFilters((current) => !current)}><Filter size={17} />FILTROS AVANZADOS</Button>
-              <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
-                <button type="button" onClick={() => setViewMode('grouped')} className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-black ${viewMode === 'grouped' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'}`}><Users size={15} />AGRUPADO</button>
-                <button type="button" onClick={() => setViewMode('all')} className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-black ${viewMode === 'all' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'}`}><List size={15} />LISTADO</button>
-              </div>
-            </div>
+            <p className="text-xs font-semibold text-slate-500">{viewMode === 'grouped' ? `${groupedHistorias.length} pacientes encontrados` : `${filteredHistorias.length} registros`} <span className="mx-2">·</span> {filteredHistorias.length} historias clínicas</p>
           </div>
 
           {showAdvancedFilters && (
@@ -909,35 +910,50 @@ function HistoriasClinicas() {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-2 text-xs font-black uppercase">
-            {viewMode === 'grouped' && <span className="rounded-full bg-brand-50 px-3 py-1.5 text-brand-700">{groupedHistorias.length} PACIENTES ENCONTRADOS</span>}
-            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{filteredHistorias.length} HISTORIAS CLÍNICAS</span>
-          </div>
         </div>
 
-        <div className="grid gap-3">
+        {viewMode === 'grouped' && <div className="hidden grid-cols-[minmax(240px,1.55fr)_minmax(175px,.9fr)_minmax(140px,.7fr)_minmax(165px,.8fr)_32px] gap-4 rounded-t-xl border border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-black uppercase tracking-wide text-slate-500 md:grid"><span>Paciente</span><span>Última historia</span><span>Historias</span><span>Sesiones</span><span aria-hidden="true" /></div>}
+        <div className={`grid overflow-visible ${viewMode === 'grouped' ? 'divide-y divide-slate-200 rounded-b-xl border border-t-0 border-slate-200' : 'gap-3'}`}>
           {viewMode === 'grouped'
-            ? groupedHistorias.map((group) => {
+            ? paginatedItems.map((group) => {
                 const patientId = group.paciente?.id || group.historias[0]?.paciente_id;
                 return (
-                  <PacienteHistoriasCard
+                  <PacienteHistoriasAccordion
                     key={patientId}
                     group={group}
-                    expanded={String(expandedPatientId) === String(patientId)}
-                    showAnuladas={statusFilter === 'anulada' || Boolean(anuladasVisibles[patientId])}
                     sesiones={sesiones}
+                    expanded={String(expandedPatientId) === String(patientId)}
                     onToggle={() => setExpandedPatientId((current) => String(current) === String(patientId) ? null : patientId)}
-                    onToggleAnuladas={() => setAnuladasVisibles((current) => ({ ...current, [patientId]: !current[patientId] }))}
+                    onShowHistory={() => setHistoryGroup(group)}
                     onNew={() => openNewHistoria(patientId)}
                     onViewPatient={() => navigate(`/pacientes/${patientId}`)}
-                    renderHistoria={(historia) => renderHistoria(historia, true)}
+                    onView={(historia) => setSelectedHistoria(historia)}
+                    onEdit={editHistoria}
+                    onPreview={setPreviewHistoria}
+                    onPrint={printHistoria}
+                    onEvolutivo={openEvolutivo}
+                    onViewEvolutions={setEvolutivosPreview}
+                    onAnular={setHistoriaAAnular}
+                    isAdmin={isAdmin}
                   />
                 );
               })
-            : filteredHistorias.map((historia) => renderHistoria(historia))}
+            : paginatedItems.map((historia) => renderHistoria(historia))}
           {filteredHistorias.length === 0 && <p className="empty-state">No hay historias clinicas para mostrar.</p>}
         </div>
+        <Pagination total={displayItems.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
       </div>
+
+      <PatientHistoryModal
+        group={historyGroup}
+        onClose={() => setHistoryGroup(null)}
+        onView={(historia) => { setHistoryGroup(null); setSelectedHistoria(historia); }}
+        onEdit={(historia) => { setHistoryGroup(null); editHistoria(historia); }}
+        onEvolutivo={(historia) => { setHistoryGroup(null); openEvolutivo(historia); }}
+        onPrint={(historia) => { setHistoryGroup(null); printHistoria(historia); }}
+        onAnular={(historia) => { setHistoryGroup(null); setHistoriaAAnular(historia); }}
+        isAdmin={isAdmin}
+      />
 
       <Modal open={showFormModal} title={editing ? 'Editar historia clinica' : 'Nueva historia clinica'} onClose={closeFormModal} size="lg">
         {existingPatientStories.length > 0 && (
@@ -965,7 +981,18 @@ function HistoriasClinicas() {
         />
       </Modal>
 
-      <HistoriaDetalleModal historia={selectedHistoria} onClose={() => setSelectedHistoria(null)} />
+      <HistoriaDetalleProfesional
+        historia={selectedHistoria}
+        onClose={() => setSelectedHistoria(null)}
+        onEvolutivo={(historia) => { setSelectedHistoria(null); openEvolutivo(historia); }}
+        onPreview={(historia) => { setSelectedHistoria(null); setPreviewHistoria(historia); }}
+        onPatient={() => { const patientId = selectedHistoria?.paciente_id || selectedHistoria?.paciente?.id; setSelectedHistoria(null); navigate(`/pacientes/${patientId}`); }}
+        onEdit={(historia) => { setSelectedHistoria(null); editHistoria(historia); }}
+        onPrint={(historia) => { setSelectedHistoria(null); printHistoria(historia); }}
+        onAnular={(historia) => { setSelectedHistoria(null); setHistoriaAAnular(historia); }}
+        isAdmin={isAdmin}
+      />
+      <EvolutivosDocumento historia={evolutivosPreview} onClose={() => setEvolutivosPreview(null)} />
 
       <Modal
         open={Boolean(historiaAAnular)}
@@ -1031,9 +1058,15 @@ function HistoriasClinicas() {
       </Modal>
 
       <Modal open={Boolean(previewHistoria)} title="Vista previa de historia clinica" onClose={() => setPreviewHistoria(null)} size="lg">
-        <div className="max-h-[75vh] overflow-auto bg-slate-100 p-4">
-          <div data-historia-print={previewHistoria?.id}>
-            <HistoriaReporte historia={previewHistoria} />
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+            <p className="text-sm text-slate-500">Revise el documento antes de imprimirlo o guardarlo como PDF.</p>
+            <Button onClick={() => window.print()}><Printer size={17} />Imprimir / Guardar PDF</Button>
+          </div>
+          <div className="max-h-[68vh] overflow-auto bg-slate-100 p-4">
+            <div data-historia-print={previewHistoria?.id}>
+              <HistoriaReporte historia={previewHistoria} />
+            </div>
           </div>
         </div>
       </Modal>

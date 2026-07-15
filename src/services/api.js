@@ -35,6 +35,9 @@ api.interceptors.response.use(
       error.response?.data?.message ||
       error.response?.data?.errors?.join(', ') ||
       'Error de conexion con el servidor';
+    if (!error.config?.hideErrorToast) {
+      window.dispatchEvent(new CustomEvent('app:error', { detail: { message } }));
+    }
     return Promise.reject(new Error(message));
   }
 );

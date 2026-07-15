@@ -11,6 +11,7 @@ import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
 import Table from '../../components/common/Table';
 import { useAuth } from '../../context/AuthContext';
+import { getHistoriasClinicas } from '../../services/historiaClinicaService';
 import { getPacientes } from '../../services/pacienteService';
 import { createPlanillaAtencion, deletePlanillaAtencion, getPlanillasAtencion, updatePlanillaAtencion } from '../../services/planillaAtencionService';
 import { getSesiones } from '../../services/sesionService';
@@ -22,6 +23,7 @@ const today = new Date().toISOString().slice(0, 10);
 
 const initialForm = {
   paciente_id: '',
+  historia_clinica_id: '',
   fecha_inicio: today,
   fecha_fin: today,
   diagnostico: '',
@@ -34,6 +36,7 @@ function PlanillasAtencion() {
   const printRef = useRef(null);
   const [searchParams] = useSearchParams();
   const [pacientes, setPacientes] = useState([]);
+  const [historias, setHistorias] = useState([]);
   const [sesionesRegistradas, setSesionesRegistradas] = useState([]);
   const [planillas, setPlanillas] = useState([]);
   const [form, setForm] = useState(initialForm);
@@ -52,6 +55,11 @@ function PlanillasAtencion() {
     [pacientes, form.paciente_id]
   );
 
+  const historiasPaciente = useMemo(() => historias
+    .filter((historia) => Number(historia.paciente_id || historia.paciente?.id) === Number(form.paciente_id))
+    .sort((a, b) => String(b.fecha_evaluacion || '').localeCompare(String(a.fecha_evaluacion || '')) || Number(b.id || 0) - Number(a.id || 0)),
+  [historias, form.paciente_id]);
+
   const previewPlanilla = useMemo(() => ({ ...form, paciente: pacienteSeleccionado }), [form, pacienteSeleccionado]);
 
   const filteredPlanillas = useMemo(() => {
@@ -67,15 +75,17 @@ function PlanillasAtencion() {
   const sesionesPacienteSeleccionado = useMemo(() => {
     return sesionesRegistradas
       .filter((sesion) => Number(sesion.paciente_id || sesion.paciente?.id) === Number(form.paciente_id))
+      .filter((sesion) => !form.historia_clinica_id || Number(sesion.historia_clinica_id || sesion.historia_clinica?.id) === Number(form.historia_clinica_id))
       .sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')));
-  }, [sesionesRegistradas, form.paciente_id]);
+  }, [sesionesRegistradas, form.paciente_id, form.historia_clinica_id]);
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const [pacientesData, planillasData, sesionesData] = await Promise.all([getPacientes(), getPlanillasAtencion(), getSesiones()]);
+      const [pacientesData, historiasData, planillasData, sesionesData] = await Promise.all([getPacientes(), getHistoriasClinicas(), getPlanillasAtencion(), getSesiones()]);
       setPacientes(pacientesData);
+      setHistorias(historiasData);
       setPlanillas(planillasData);
       setSesionesRegistradas(sesionesData);
       if (pacienteInicialId && !form.paciente_id) {
@@ -103,9 +113,10 @@ function PlanillasAtencion() {
 
   const update = (key, value) => setForm({ ...form, [key]: value });
 
-  const sesionesDesdePaciente = (pacienteId, source = sesionesRegistradas) => {
+  const sesionesDesdePaciente = (pacienteId, source = sesionesRegistradas, historiaId = form.historia_clinica_id) => {
     const sesionesPaciente = source
       .filter((sesion) => Number(sesion.paciente_id || sesion.paciente?.id) === Number(pacienteId))
+      .filter((sesion) => !historiaId || Number(sesion.historia_clinica_id || sesion.historia_clinica?.id) === Number(historiaId))
       .sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')));
 
     return sesionesPaciente.map((sesion, index) => ({
@@ -119,14 +130,30 @@ function PlanillasAtencion() {
 
   const selectPaciente = (pacienteId) => {
     const paciente = pacientes.find((item) => Number(item.id) === Number(pacienteId));
-    const sesionesPaciente = sesionesDesdePaciente(pacienteId);
+    const historiasDelPaciente = historias.filter((historia) => Number(historia.paciente_id || historia.paciente?.id) === Number(pacienteId));
+    const historiaUnica = historiasDelPaciente.length === 1 ? historiasDelPaciente[0] : null;
+    const sesionesPaciente = sesionesDesdePaciente(pacienteId, sesionesRegistradas, historiaUnica?.id || '');
     setForm({
       ...form,
       paciente_id: pacienteId,
-      diagnostico: form.diagnostico || paciente?.referencia || '',
+      historia_clinica_id: historiaUnica?.id || '',
+      diagnostico: historiaUnica?.diagnostico_medico || paciente?.referencia || '',
       fecha_inicio: sesionesPaciente[0]?.fecha || form.fecha_inicio,
       fecha_fin: sesionesPaciente.at(-1)?.fecha || form.fecha_fin,
       sesiones: sesionesPaciente.length ? sesionesPaciente : form.sesiones
+    });
+  };
+
+  const selectHistoria = (historiaId) => {
+    const historia = historias.find((item) => Number(item.id) === Number(historiaId));
+    const sesionesHistoria = sesionesDesdePaciente(form.paciente_id, sesionesRegistradas, historiaId);
+    setForm({
+      ...form,
+      historia_clinica_id: historiaId,
+      diagnostico: historia?.diagnostico_medico || historia?.evaluacion_final?.diagnostico_kinesico_cif || '',
+      fecha_inicio: sesionesHistoria[0]?.fecha || historia?.fecha_evaluacion || form.fecha_inicio,
+      fecha_fin: sesionesHistoria.at(-1)?.fecha || form.fecha_fin,
+      sesiones: sesionesHistoria.length ? sesionesHistoria : [{ fecha: historia?.fecha_evaluacion || today, numero_sesion: 1, firma_paciente: '', firma_profesional: '', observacion: '' }]
     });
   };
 
@@ -342,6 +369,7 @@ function PlanillasAtencion() {
                 options={[{ value: '', label: 'Seleccionar paciente' }, ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))]}
               />
               <Input label="Edad" value={pacienteSeleccionado?.edad || ''} disabled />
+              <Input label="Historia clínica" value={form.historia_clinica_id} onChange={(e) => selectHistoria(e.target.value)} options={[{ value: '', label: historiasPaciente.length ? `Seleccionar entre ${historiasPaciente.length} historias` : 'Sin historias clínicas' }, ...historiasPaciente.map((historia) => ({ value: historia.id, label: `${formatDate(historia.fecha_evaluacion)} · ${historia.condicion_actual?.zona_cuerpo || historia.motivo_consulta || historia.diagnostico_medico || 'Historia clínica'}` }))]} disabled={!form.paciente_id || !historiasPaciente.length} />
               <Input label="Fecha inicio" type="date" value={form.fecha_inicio} onChange={(e) => update('fecha_inicio', e.target.value)} />
               <Input label="Fecha fin" type="date" value={form.fecha_fin} onChange={(e) => update('fecha_fin', e.target.value)} />
               <Input label="Diagnostico / Dx" value={form.diagnostico} onChange={(e) => update('diagnostico', e.target.value)} multiline className="md:col-span-2" />

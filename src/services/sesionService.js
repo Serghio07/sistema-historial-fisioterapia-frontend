@@ -15,7 +15,7 @@ export const updateSesion = async (id, payload) => {
   return data;
 };
 
-export const deleteSesion = async (id) => {
-  const { data } = await api.delete(`/sesiones/${id}`);
+export const deleteSesion = async (id, payload = {}) => {
+  const { data } = await api.delete(`/sesiones/${id}`, { data: payload });
   return data;
 };

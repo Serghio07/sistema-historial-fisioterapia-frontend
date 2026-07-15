@@ -24,6 +24,7 @@ import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
+import Pagination from '../../components/common/Pagination';
 import { Avatar } from '../../components/common/ProfilePhoto';
 import UsuarioForm from './UsuarioForm';
 import { createUsuario, getUsuarios, reviewAccessRequest, updateUsuario, updateUsuarioEstado } from '../../services/usuarioService';
@@ -194,6 +195,8 @@ function Usuarios() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const load = async () => {
     setLoading(true);
@@ -232,6 +235,9 @@ function Usuarios() {
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [usuarios, activeTab, query, rolFilter, estadoFilter]);
+  const paginatedUsers = visibleUsers.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => { setPage(1); }, [activeTab, query, rolFilter, estadoFilter, pageSize]);
 
   const clearFeedback = () => {
     setMessage('');
@@ -494,7 +500,7 @@ function Usuarios() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {visibleUsers.map((usuario) => (
+                {paginatedUsers.map((usuario) => (
                   <tr key={usuario.id} className="transition hover:bg-brand-50/35">
                     <td className="px-4 py-3"><UsuarioIdentity usuario={usuario} compact /></td>
                     <td className="px-4 py-3 text-sm text-slate-600">{usuario.email || 'Sin correo'}</td>
@@ -515,7 +521,7 @@ function Usuarios() {
           </div>
 
           <div className="mt-4 grid gap-3 md:hidden">
-            {visibleUsers.map((usuario) => (
+            {paginatedUsers.map((usuario) => (
               <article key={usuario.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <UsuarioIdentity usuario={usuario} />
@@ -537,6 +543,7 @@ function Usuarios() {
               <span className="mt-1 block text-xs text-slate-400">Prueba cambiando la búsqueda o los filtros.</span>
             </div>
           )}
+          <Pagination total={visibleUsers.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
         </div>
       </div>
 

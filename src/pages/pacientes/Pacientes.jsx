@@ -4,6 +4,7 @@ import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
+import Pagination from '../../components/common/Pagination';
 import { Avatar } from '../../components/common/ProfilePhoto';
 import PacienteForm from './PacienteForm';
 import { createPaciente, deactivatePaciente, getPacientes, updatePaciente } from '../../services/pacienteService';
@@ -48,6 +49,8 @@ function Pacientes() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const notify = (text, type = 'success') => {
     if (type === 'success') return;
@@ -78,6 +81,9 @@ function Pacientes() {
       return matchesStatus && matchesQuery;
     });
   }, [pacientes, query, statusFilter]);
+  const paginatedPatients = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => { setPage(1); }, [query, statusFilter, pageSize]);
 
   const patientCounts = useMemo(() => pacientes.reduce((counts, paciente) => {
     counts[paciente.estado ? 'active' : 'inactive'] += 1;
@@ -201,7 +207,7 @@ function Pacientes() {
         </div>
 
         <div className="grid gap-3">
-          {filtered.map((paciente) => (
+          {paginatedPatients.map((paciente) => (
             <article key={paciente.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-md">
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="grid min-w-0 gap-3 sm:grid-cols-[56px_minmax(0,1fr)]">
@@ -241,6 +247,7 @@ function Pacientes() {
             </p>
           )}
         </div>
+        <Pagination total={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
       </div>
 
       <Modal open={showFormModal} title={editing ? 'EDITAR PACIENTE' : 'NUEVO PACIENTE'} subtitle="Complete los datos generales del paciente." onClose={closeFormModal} size="lg">

@@ -233,6 +233,9 @@ function HistoriaClinicaForm({ form, setForm, pacientes, user, editing, onSubmit
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="ghost" onClick={(event) => onSubmit(event, 'borrador')}>
+            <Save size={17} />Guardar borrador
+          </Button>
           <Button type="button" variant="ghost" onClick={goBack} disabled={isFirst}>
             <ArrowLeft size={17} />
             Atras
@@ -244,9 +247,6 @@ function HistoriaClinicaForm({ form, setForm, pacientes, user, editing, onSubmit
             </Button>
           ) : (
             <>
-              <Button type="button" variant="ghost" onClick={(event) => onSubmit(event, 'borrador')}>
-                <Save size={17} />Guardar borrador
-              </Button>
               <Button type="submit" disabled={!canSubmit}>
                 <Save size={17} />{editing ? 'Actualizar historia' : 'Guardar historia'}
               </Button>

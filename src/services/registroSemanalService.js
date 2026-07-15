@@ -1,7 +1,12 @@
 import api from './api';
 
-export const getRegistrosSemanales = async () => {
-  const { data } = await api.get('/sesiones-semanales');
+export const getRegistrosSemanales = async (params = {}) => {
+  const { data } = await api.get('/sesiones-semanales', { params });
+  return data;
+};
+
+export const recalcularRegistrosSemanales = async (payload) => {
+  const { data } = await api.post('/sesiones-semanales/recalcular', payload);
   return data;
 };
 

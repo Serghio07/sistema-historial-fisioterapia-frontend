@@ -1,235 +1,391 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, CalendarCheck, CalendarRange, CalendarSync, CheckCircle2, Eye, FilePenLine, Pill, PlusCircle, Search, Trash2, WalletCards } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Activity,
+  CalendarCheck,
+  CalendarRange,
+  CalendarSync,
+  CheckCircle2,
+  ClipboardList,
+  Eye,
+  FileText,
+  Pill,
+  Search,
+  WalletCards,
+  XCircle
+} from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
 import Table from '../../components/common/Table';
-import { useAuth } from '../../context/AuthContext';
-import { getPacientes } from '../../services/pacienteService';
 import {
-  createRegistroSemanal,
-  deleteRegistroSemanal,
   getRegistrosSemanales,
-  updateRegistroSemanal
+  recalcularRegistrosSemanales
 } from '../../services/registroSemanalService';
 import { formatDate } from '../../utils/formatDate';
-import { cleanPayload, nombrePaciente } from '../../utils/validators';
-import SesionSemanalForm from './SesionSemanalForm';
+import { nombrePaciente } from '../../utils/validators';
 
-const currentWeek = () => {
-  const now = new Date();
-  const day = now.getDay();
+const localDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getWeekRange = (value = new Date()) => {
+  const date = typeof value === 'string' ? new Date(`${value}T00:00:00`) : new Date(value);
+  const day = date.getDay();
   const fromMonday = day === 0 ? 6 : day - 1;
-  const start = new Date(now);
-  start.setDate(now.getDate() - fromMonday);
+  const start = new Date(date);
+  start.setDate(date.getDate() - fromMonday);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
-  const localDate = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const dateDay = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${dateDay}`;
-  };
   return { inicio: localDate(start), fin: localDate(end) };
 };
 
-const week = currentWeek();
-
-const initialForm = {
-  paciente_id: '',
-  semana_inicio: week.inicio,
-  semana_fin: week.fin,
-  diagnostico: '',
-  telefono: '',
-  edad: '',
-  sexo: '',
-  lunes: '',
-  martes: '',
-  miercoles: '',
-  jueves: '',
-  viernes: '',
-  sabado: '',
-  debe_bs: 0,
-  observacion: ''
+const isSessionInRange = (sesion, range) => {
+  if (!range?.inicio || !range?.fin) return true;
+  return sesion.fecha >= range.inicio && sesion.fecha <= range.fin;
 };
 
-const diasSincronizados = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+const weekDays = [
+  { key: 'lunes', label: 'Lun' },
+  { key: 'martes', label: 'Mar' },
+  { key: 'miercoles', label: 'Mie' },
+  { key: 'jueves', label: 'Jue' },
+  { key: 'viernes', label: 'Vie' },
+  { key: 'sabado', label: 'Sab' },
+  { key: 'domingo', label: 'Dom' }
+];
 
 const asistenciaLabel = {
   pendiente: 'Pendiente',
-  asistio: 'Asistió',
-  no_asistio: 'No asistió',
+  asistio: 'Asistio',
+  no_asistio: 'Falto',
   cancelada: 'Cancelada',
   reprogramada: 'Reprogramada'
 };
 
-function sesionesSincronizadas(registro) {
-  return Object.values(registro.sesiones_resumen || {}).flat();
-}
+const asistenciaTone = {
+  asistio: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  pendiente: 'border-amber-200 bg-amber-50 text-amber-700',
+  no_asistio: 'border-red-200 bg-red-50 text-red-700',
+  cancelada: 'border-slate-200 bg-slate-100 text-slate-600',
+  reprogramada: 'border-amber-200 bg-amber-50 text-amber-700'
+};
 
-function resumenFarmacos(registro) {
-  const sesiones = sesionesSincronizadas(registro);
-  const conFarmacos = sesiones.filter((sesion) => sesion.aplica_farmacos);
-  const observaciones = [...new Set(
-    conFarmacos.map((sesion) => sesion.observacion_farmacos).filter(Boolean)
-  )];
+const money = (value) => `${Number(value || 0).toFixed(2)} Bs`;
+
+const sesionesSincronizadas = (registro, range = null) => Object.values(registro.sesiones_resumen || {})
+  .flat()
+  .filter((sesion) => isSessionInRange(sesion, range));
+
+const conteos = (registro, range = null) => {
+  const sesiones = sesionesSincronizadas(registro, range);
   return {
+    sesiones,
     total: sesiones.length,
-    cantidad: conFarmacos.length,
-    aplica: conFarmacos.length > 0,
-    observaciones
+    asistio: sesiones.filter((sesion) => sesion.asistencia === 'asistio').length,
+    pendiente: sesiones.filter((sesion) => sesion.asistencia === 'pendiente' || sesion.asistencia === 'reprogramada').length,
+    falto: sesiones.filter((sesion) => sesion.asistencia === 'no_asistio').length,
+    deuda: sesiones.reduce((sum, sesion) => sum + Number(sesion.saldo_pendiente || 0), 0),
+    farmacos: sesiones.some((sesion) => sesion.aplica_farmacos)
   };
-}
+};
 
-function Detail({ label, value }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <span className="block text-xs font-black uppercase text-slate-500">{label}</span>
-      <strong className="mt-1 block text-sm font-semibold text-ink">{value === null || value === undefined || value === '' ? 'Sin dato' : value}</strong>
-    </div>
-  );
-}
+const estadoRegistro = (registro, range = null) => {
+  const stats = conteos(registro, range);
+  const estadoHistoria = registro.historia_clinica?.estado;
+  if (estadoHistoria === 'anulada') return 'Finalizado';
+  if (stats.falto > 0) return 'Con faltas';
+  if (stats.pendiente > 0) return 'Pendiente';
+  return 'En tratamiento';
+};
+
+const fechasSesion = (registro, range) => {
+  const fechas = [...new Set(sesionesSincronizadas(registro, range).map((sesion) => sesion.fecha))].sort();
+  if (!fechas.length) return 'Sin fecha';
+  return fechas.map((fecha) => formatDate(fecha)).join(', ');
+};
+
+const sesionesRestantes = (registro, range) => {
+  const sesiones = sesionesSincronizadas(registro, range);
+  const contratadas = sesiones.reduce((max, sesion) => Math.max(max, Number(sesion.sesiones_debe || 0)), 0);
+  const realizadas = sesiones.reduce((max, sesion) => Math.max(max, Number(sesion.sesiones_hizo || 0)), 0);
+  const asistidasRango = sesiones.filter((sesion) => sesion.asistencia === 'asistio').length;
+  return Math.max(contratadas - (realizadas || asistidasRango), 0);
+};
+
+const statusClass = (estado) => ({
+  'En tratamiento': 'bg-emerald-50 text-emerald-700',
+  Finalizado: 'bg-slate-100 text-slate-600',
+  Pendiente: 'bg-amber-50 text-amber-700',
+  'Con faltas': 'bg-red-50 text-red-700'
+}[estado] || 'bg-slate-100 text-slate-600');
+
+const initials = (paciente) => {
+  const name = nombrePaciente(paciente);
+  return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'PA';
+};
+
+const dayDate = (weekStart, index) => {
+  const date = new Date(`${weekStart}T00:00:00`);
+  date.setDate(date.getDate() + index);
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
+};
 
 function StatCard({ label, value, icon: Icon, tone }) {
   return (
-    <article className={`rounded-lg border p-5 shadow-sm ${tone}`}>
+    <article className={`rounded-lg border p-4 shadow-sm ${tone}`}>
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-black uppercase">{label}</span>
-        <Icon size={22} />
+        <Icon size={20} />
       </div>
-      <strong className="mt-3 block text-3xl text-ink">{value}</strong>
+      <strong className="mt-2 block text-2xl text-ink">{value}</strong>
     </article>
   );
 }
 
+function PatientCell({ registro }) {
+  const paciente = registro.paciente || {};
+  return (
+    <div className="flex min-w-[220px] items-center gap-3">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-50 text-sm font-black text-brand-700">
+        {initials(paciente)}
+      </span>
+      <div>
+        <strong className="block text-sm text-ink">{nombrePaciente(paciente)}</strong>
+        <span className="block text-xs text-slate-500">CI: {paciente.ci || 'Sin dato'}</span>
+        <span className="block text-xs text-slate-500">Tel: {paciente.telefono || registro.telefono || 'Sin dato'}</span>
+      </div>
+    </div>
+  );
+}
+
+function HistoriaCell({ registro }) {
+  const historia = registro.historia_clinica;
+  return (
+    <div className="min-w-[190px]">
+      <strong className="block text-sm text-ink">{historia?.motivo_consulta || 'Historia clinica'}</strong>
+      <span className="block text-xs text-slate-500">Dx: {registro.diagnostico || historia?.diagnostico_medico || 'Sin diagnostico'}</span>
+    </div>
+  );
+}
+
+function CountBadge({ value, tone }) {
+  return <span className={`inline-flex min-w-8 justify-center rounded-full px-2.5 py-1 text-xs font-black ${tone}`}>{value}</span>;
+}
+
+function DetailModal({ registro, dateRange, onClose, onHistory }) {
+  const stats = conteos(registro, dateRange);
+  const estado = estadoRegistro(registro, dateRange);
+  const historia = registro.historia_clinica;
+  const observacionesClinicas = stats.sesiones.map((sesion) => sesion.observacion).filter(Boolean);
+  const observacionesFarmacos = stats.sesiones.map((sesion) => sesion.observacion_farmacos).filter(Boolean);
+
+  return (
+    <Modal
+      open={Boolean(registro)}
+      title="Detalle de sesiones"
+      subtitle="Resumen de asistencia, pagos, farmacos y evolucion del paciente en el rango seleccionado."
+      onClose={onClose}
+      size="xl"
+    >
+      <div className="grid max-h-[72vh] gap-4 overflow-y-auto pr-1">
+        <section className="rounded-lg border border-brand-100 bg-brand-50/60 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-xl font-black text-ink">{nombrePaciente(registro.paciente)}</h3>
+              <p className="mt-1 text-sm font-semibold text-slate-600">
+                CI: {registro.paciente?.ci || 'Sin dato'} | TEL: {registro.paciente?.telefono || registro.telefono || 'Sin dato'}
+              </p>
+              <p className="mt-2 text-sm text-slate-700">
+                Historia clinica: {historia?.fecha_evaluacion ? `${formatDate(historia.fecha_evaluacion)} - ` : ''}{historia?.motivo_consulta || 'Sin motivo registrado'}
+              </p>
+              <p className="text-sm text-slate-700">Dx: {registro.diagnostico || historia?.diagnostico_medico || 'Sin diagnostico'}</p>
+              <p className="text-sm text-slate-700">Rango: {formatDate(dateRange.inicio)} al {formatDate(dateRange.fin)}</p>
+            </div>
+            <span className={`rounded-full px-3 py-1 text-xs font-black ${statusClass(estado)}`}>{estado}</span>
+          </div>
+        </section>
+
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <StatCard label="Sesiones" value={stats.total} icon={CalendarCheck} tone="border-cyan-100 bg-cyan-50 text-cyan-700" />
+          <StatCard label="Asistio" value={stats.asistio} icon={CheckCircle2} tone="border-emerald-100 bg-emerald-50 text-emerald-700" />
+          <StatCard label="Pendiente" value={stats.pendiente} icon={Activity} tone="border-amber-100 bg-amber-50 text-amber-700" />
+          <StatCard label="Falto" value={stats.falto} icon={XCircle} tone="border-red-100 bg-red-50 text-red-700" />
+          <StatCard label="Deuda semanal" value={money(stats.deuda)} icon={WalletCards} tone="border-red-100 bg-red-50 text-red-700" />
+          <StatCard label="Farmacos" value={stats.farmacos ? 'Si' : 'No'} icon={Pill} tone="border-violet-100 bg-violet-50 text-violet-700" />
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <h3 className="text-base font-black text-ink">Detalle por dia</h3>
+          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {weekDays.map((day, index) => {
+              const sesionesDia = (registro.sesiones_resumen?.[day.key] || []).filter((sesion) => isSessionInRange(sesion, dateRange));
+              return (
+                <article key={day.key} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <strong className="text-sm text-ink">{day.label} {dayDate(registro.semana_inicio, index)}</strong>
+                    {!sesionesDia.length && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-600">Sin sesion</span>}
+                  </div>
+                  {sesionesDia.length ? (
+                    <div className="mt-3 grid gap-2">
+                      {sesionesDia.map((sesion) => (
+                        <div key={sesion.id} className="rounded-lg border border-white bg-white p-3 text-sm text-slate-700 shadow-sm">
+                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-black ${asistenciaTone[sesion.asistencia] || asistenciaTone.pendiente}`}>
+                            {asistenciaLabel[sesion.asistencia] || sesion.asistencia}
+                          </span>
+                          <p className="mt-2 font-semibold text-slate-700">{sesion.metodo_pago || 'Pendiente'} / {sesion.estado_pago || 'Pendiente'}</p>
+                          <p className="text-xs text-slate-500">Pagado: {money(sesion.monto_pagado)}</p>
+                          <p className="text-xs text-slate-500">Saldo: {money(sesion.saldo_pendiente)}</p>
+                          <p className="text-xs text-slate-500">Farmacos: {sesion.aplica_farmacos ? 'Si' : 'No'}</p>
+                          <p className="mt-1 text-xs text-slate-500">Obs: {sesion.observacion || 'Sin observacion'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-400">Sin sesion</p>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-4">
+          <h3 className="font-black text-emerald-800">Evolucion semanal</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            {registro.observacion || observacionesClinicas.join(' ') || 'Sin evolucion semanal registrada.'}
+          </p>
+        </section>
+
+        <section className="rounded-lg border border-violet-100 bg-violet-50/60 p-4">
+          <h3 className="font-black text-violet-800">Farmacos y observaciones</h3>
+          <p className="mt-2 text-sm text-slate-700">Farmacos: {stats.farmacos ? 'Si' : 'No'}</p>
+          <p className="text-sm text-slate-700">Observacion de farmacos: {observacionesFarmacos.join(' ') || 'Sin registro.'}</p>
+          <p className="text-sm text-slate-700">Observacion clinica: {observacionesClinicas.join(' ') || 'Sin observaciones relevantes.'}</p>
+        </section>
+
+        <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+          <Button variant="ghost" onClick={onClose}>Cerrar</Button>
+          <Button onClick={() => onHistory(registro)}>
+            <FileText size={17} />
+            Ver historia clinica
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function SesionesSemanales() {
-  const { isAdmin } = useAuth();
-  const [pacientes, setPacientes] = useState([]);
+  const navigate = useNavigate();
+  const [dateRange, setDateRange] = useState(getWeekRange());
   const [registros, setRegistros] = useState([]);
-  const [form, setForm] = useState(initialForm);
-  const [editing, setEditing] = useState(null);
   const [selectedRegistro, setSelectedRegistro] = useState(null);
-  const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState({
+    query: '',
+    estado: 'Todos',
+    deuda: 'Todos',
+    farmacos: 'Todos'
+  });
 
-  const load = async () => {
+  const load = async (range = dateRange) => {
     setLoading(true);
     setError('');
     try {
-      const pacientesData = await getPacientes();
-      setPacientes(pacientesData);
-    } catch (err) {
-      setError(`No se pudieron cargar pacientes: ${err.message}`);
-    }
-
-    try {
-      const registrosData = await getRegistrosSemanales();
-      setRegistros(registrosData);
+      const data = await getRegistrosSemanales({
+        fecha_inicio: range.inicio,
+        fecha_fin: range.fin
+      });
+      setRegistros(data);
     } catch (err) {
       setRegistros([]);
-      setError(`Los pacientes cargaron, pero las sesiones semanales fallaron: ${err.message}.`);
+      setError(`No se pudo cargar el resumen semanal: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    load();
-  }, []);
-
-  const resumen = useMemo(() => {
-    const conFarmacos = registros.filter((registro) => registro.aplica_farmacos).length;
-    const deudaTotal = registros.reduce((sum, registro) => sum + Number(registro.debe_bs || 0), 0);
-    const pacientesUnicos = new Set(registros.map((registro) => registro.paciente_id)).size;
-    const sesionesTotal = registros.reduce((sum, registro) => sum + Number(registro.total_sesiones || 0), 0);
-    return { conFarmacos, deudaTotal, pacientesUnicos, sesionesTotal };
-  }, [registros]);
-
-  const syncedRegistro = useMemo(() => registros.find(
-    (registro) =>
-      String(registro.paciente_id) === String(form.paciente_id) &&
-      registro.semana_inicio === form.semana_inicio
-  ) || null, [registros, form.paciente_id, form.semana_inicio]);
+    load(dateRange);
+  }, [dateRange.inicio, dateRange.fin]);
 
   const filteredRegistros = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return registros;
-    return registros.filter((registro) =>
-      `${nombrePaciente(registro.paciente)} ${registro.diagnostico || ''} ${registro.telefono || ''} ${registro.semana_inicio || ''} ${registro.semana_fin || ''}`.toLowerCase().includes(term)
-    );
-  }, [registros, query]);
+    const term = filters.query.trim().toLowerCase();
+    return registros.filter((registro) => {
+      const stats = conteos(registro, dateRange);
+      const estado = estadoRegistro(registro, dateRange);
+      const text = [
+        nombrePaciente(registro.paciente),
+        registro.paciente?.ci,
+        registro.paciente?.telefono,
+        registro.telefono,
+        registro.diagnostico,
+        registro.historia_clinica?.motivo_consulta
+      ].filter(Boolean).join(' ').toLowerCase();
 
-  const validate = () => {
-    if (!form.paciente_id) return 'Selecciona un paciente.';
-    if (!form.semana_inicio) return 'La fecha de inicio es obligatoria.';
-    if (!form.semana_fin) return 'La fecha de fin es obligatoria.';
-    if (Number(form.debe_bs || 0) < 0) return 'Debe Bs no puede ser negativo.';
-    if (form.edad !== '' && Number(form.edad || 0) < 0) return 'La edad no puede ser negativa.';
-    return '';
+      if (stats.total === 0) return false;
+      if (term && !text.includes(term)) return false;
+      if (filters.estado !== 'Todos' && estado !== filters.estado) return false;
+      if (filters.deuda === 'Con deuda' && stats.deuda <= 0) return false;
+      if (filters.deuda === 'Sin deuda' && stats.deuda > 0) return false;
+      if (filters.farmacos === 'Si' && !stats.farmacos) return false;
+      if (filters.farmacos === 'No' && stats.farmacos) return false;
+      return true;
+    });
+  }, [registros, filters, dateRange]);
+
+  const resumen = useMemo(() => {
+    const pacientesUnicos = new Set(filteredRegistros.map((registro) => registro.paciente_id)).size;
+    return filteredRegistros.reduce((acc, registro) => {
+      const stats = conteos(registro, dateRange);
+      acc.sesiones += stats.total;
+      acc.asistidas += stats.asistio;
+      acc.pendientes += stats.pendiente;
+      acc.faltas += stats.falto;
+      acc.deuda += stats.deuda;
+      return acc;
+    }, { pacientes: pacientesUnicos, sesiones: 0, asistidas: 0, pendientes: 0, faltas: 0, deuda: 0 });
+  }, [filteredRegistros, dateRange]);
+
+  const onDateChange = (field, value) => {
+    setDateRange((current) => {
+      const next = { ...current, [field]: value };
+      if (next.inicio > next.fin) {
+        return field === 'inicio' ? { ...next, fin: value } : { ...next, inicio: value };
+      }
+      return next;
+    });
+    setMessage('');
   };
 
-  const submit = async (event) => {
-    event.preventDefault();
+  const refreshWeek = async () => {
+    setLoading(true);
     setMessage('');
-    const validationError = validate();
-    setError(validationError);
-    if (validationError) return;
-
+    setError('');
     try {
-      const payload = cleanPayload({
-        ...form,
-        edad: form.edad === '' ? null : Number(form.edad || 0),
-        debe_bs: Number(form.debe_bs || 0)
+      await recalcularRegistrosSemanales({
+        fecha_inicio: dateRange.inicio,
+        fecha_fin: dateRange.fin
       });
-      editing ? await updateRegistroSemanal(editing, payload) : await createRegistroSemanal(payload);
-      setForm(initialForm);
-      setEditing(null);
-      setShowFormModal(false);
-      await load();
+      await load(dateRange);
+      setMessage('Resumen actualizado desde sesiones diarias.');
     } catch (err) {
-      setError(err.message);
+      setError(`No se pudo actualizar el resumen semanal: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const editRegistro = (registro) => {
-    setEditing(registro.id);
-    setForm({
-      paciente_id: registro.paciente_id || registro.paciente?.id || '',
-      semana_inicio: registro.semana_inicio || initialForm.semana_inicio,
-      semana_fin: registro.semana_fin || initialForm.semana_fin,
-      diagnostico: registro.diagnostico || '',
-      telefono: registro.telefono || '',
-      edad: registro.edad || '',
-      sexo: registro.sexo || '',
-      lunes: registro.lunes || '',
-      martes: registro.martes || '',
-      miercoles: registro.miercoles || '',
-      jueves: registro.jueves || '',
-      viernes: registro.viernes || '',
-      sabado: registro.sabado || '',
-      debe_bs: registro.debe_bs || 0,
-      observacion: registro.observacion || ''
-    });
-    setSelectedRegistro(null);
-    setShowFormModal(true);
-  };
-
-  const openNuevaSemana = () => {
-    setEditing(null);
-    setForm(initialForm);
-    setError('');
-    setShowFormModal(true);
-  };
-
-  const closeFormModal = () => {
-    setShowFormModal(false);
-    setEditing(null);
-    setForm(initialForm);
-    setError('');
+  const openHistory = (registro) => {
+    if (!registro.historia_clinica_id) return;
+    navigate(`/historias-clinicas/${registro.historia_clinica_id}`);
   };
 
   return (
@@ -238,9 +394,9 @@ function SesionesSemanales() {
       <div className="overflow-hidden rounded-lg border border-white/60 bg-white shadow-soft">
         <div className="grid gap-3 bg-gradient-to-r from-[#123f3f] via-brand-700 to-teal-500 p-4 text-white md:grid-cols-[1fr_auto]">
           <div>
-            <p className="text-sm font-bold text-brand-50">Planificación semanal</p>
+            <p className="text-sm font-bold text-brand-50">Planificacion semanal</p>
             <h2 className="mt-1 text-2xl font-black md:text-3xl">Sesiones Semanales</h2>
-            <span className="mt-2 block text-sm text-brand-50">Resumen semanal de asistencia, continuidad, pagos y evolución del tratamiento.</span>
+            <span className="mt-2 block text-sm text-brand-50">Resumen semanal de asistencia, continuidad, pagos y evolucion del tratamiento.</span>
           </div>
           <div className="grid h-14 w-14 place-items-center rounded-lg border border-white/25 bg-white/15 shadow-sm backdrop-blur">
             <CalendarRange size={30} className="text-brand-50" />
@@ -249,225 +405,144 @@ function SesionesSemanales() {
       </div>
 
       {message && <p className="notice">{message}</p>}
+      {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
 
-      
-    
-      <div className="mx-auto w-full max-w-6xl rounded-lg border border-white/70 bg-white/90 p-4 shadow-soft backdrop-blur">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-          <div>
-            <h3 className="text-lg font-bold text-ink">Registros semanales</h3>
-            <p className="text-sm text-slate-500">Control de atención por paciente y semana.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black uppercase text-brand-700">{filteredRegistros.length} resultados</span>
-            <Button onClick={openNuevaSemana}>
-              <PlusCircle size={17} />
-              Generar resumen semanal
+      <div className="rounded-lg border border-white/70 bg-white/95 p-3 shadow-soft backdrop-blur">
+        <div className="grid items-end gap-3 md:grid-cols-2 xl:grid-cols-8">
+          <label className="grid gap-1 text-sm font-bold text-slate-700">
+            <span>Desde</span>
+            <input type="date" value={dateRange.inicio} onChange={(event) => onDateChange('inicio', event.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold shadow-sm focus:border-brand-500 focus:ring-brand-500" />
+          </label>
+          <label className="grid gap-1 text-sm font-bold text-slate-700">
+            <span>Hasta</span>
+            <input type="date" value={dateRange.fin} onChange={(event) => onDateChange('fin', event.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold shadow-sm focus:border-brand-500 focus:ring-brand-500" />
+          </label>
+          <label className="grid gap-1 text-sm font-bold text-slate-700 xl:col-span-2">
+            <span>Buscar paciente</span>
+            <span className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 shadow-sm focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
+              <Search size={17} className="shrink-0 text-slate-500" />
+              <input
+                className="w-full border-0 bg-transparent p-0 text-sm text-ink shadow-none placeholder:text-slate-400 focus:ring-0"
+                value={filters.query}
+                onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))}
+                placeholder="Nombre, CI o telefono"
+              />
+            </span>
+          </label>
+          <label className="grid gap-1 text-sm font-bold text-slate-700">
+            <span>Estado</span>
+            <select value={filters.estado} onChange={(event) => setFilters((current) => ({ ...current, estado: event.target.value }))} className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold shadow-sm focus:border-brand-500 focus:ring-brand-500">
+              {['Todos', 'En tratamiento', 'Finalizado', 'Pendiente', 'Con faltas'].map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-bold text-slate-700">
+            <span>Con deuda</span>
+            <select value={filters.deuda} onChange={(event) => setFilters((current) => ({ ...current, deuda: event.target.value }))} className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold shadow-sm focus:border-brand-500 focus:ring-brand-500">
+              {['Todos', 'Con deuda', 'Sin deuda'].map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-bold text-slate-700">
+            <span>Con farmacos</span>
+            <select value={filters.farmacos} onChange={(event) => setFilters((current) => ({ ...current, farmacos: event.target.value }))} className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold shadow-sm focus:border-brand-500 focus:ring-brand-500">
+              {['Todos', 'Si', 'No'].map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </label>
+          <div className="md:col-span-2 xl:col-span-1">
+            <Button onClick={refreshWeek} className="min-h-10 w-full px-3 xl:whitespace-nowrap">
+              <CalendarSync size={17} />
+              Actualizar
             </Button>
           </div>
         </div>
-        <label className="mb-4 grid gap-1 text-sm font-bold text-slate-700">
-          <span>Buscar</span>
-          <span className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
-            <Search size={17} className="shrink-0 text-slate-500" />
-            <input
-              className="w-full border-0 bg-transparent p-0 text-sm text-ink shadow-none placeholder:text-slate-400 focus:ring-0"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Paciente, diagnóstico, teléfono o fecha"
-            />
-          </span>
-        </label>
-        {error && <p className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
-        <div className="hidden md:block">
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <StatCard label="Pacientes atendidos" value={resumen.pacientes} icon={Activity} tone="border-brand-100 bg-brand-50 text-brand-700" />
+        <StatCard label="Sesiones registradas" value={resumen.sesiones} icon={CalendarCheck} tone="border-cyan-100 bg-cyan-50 text-cyan-700" />
+        <StatCard label="Asistidas" value={resumen.asistidas} icon={CheckCircle2} tone="border-emerald-100 bg-emerald-50 text-emerald-700" />
+        <StatCard label="Pendientes" value={resumen.pendientes} icon={Activity} tone="border-amber-100 bg-amber-50 text-amber-700" />
+        <StatCard label="Faltas" value={resumen.faltas} icon={XCircle} tone="border-red-100 bg-red-50 text-red-700" />
+        <StatCard label="Deuda total semanal" value={money(resumen.deuda)} icon={WalletCards} tone="border-red-100 bg-red-50 text-red-700" />
+      </div>
+
+      <div className="rounded-lg border border-white/70 bg-white/90 p-4 shadow-soft backdrop-blur">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+          <div>
+            <h3 className="text-lg font-bold text-ink">Resumen por paciente e historia</h3>
+            <p className="text-sm text-slate-500">Solo pacientes con sesiones registradas entre {formatDate(dateRange.inicio)} y {formatDate(dateRange.fin)}.</p>
+          </div>
+          <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black uppercase text-brand-700">{filteredRegistros.length} resultados</span>
+        </div>
+
+        <div className="hidden xl:block">
           <Table
-          columns={['Paciente', 'Semana', 'Diagnóstico', 'Sesiones sincronizadas', 'Asistencia semanal', 'Fármacos', 'Deuda Bs', 'Estado', 'Acciones']}
-          rows={filteredRegistros.map((registro) => {
-            return [
-              nombrePaciente(registro.paciente),
-              `${formatDate(registro.semana_inicio)} - ${formatDate(registro.semana_fin)}`,
-              registro.diagnostico || 'Sin diagnóstico',
-              registro.sincronizado_sesiones ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-black text-cyan-700">
-                  <CalendarSync size={14} />
-                  {registro.total_sesiones || sesionesSincronizadas(registro).length} sincronizadas
-                </span>
-              ) : 'Sin sesiones',
-              `${sesionesSincronizadas(registro).filter((item) => item.asistencia === 'asistio').length} asistió · ${sesionesSincronizadas(registro).filter((item) => item.asistencia === 'no_asistio').length} faltó`,
-              (() => {
-                const farmacos = resumenFarmacos(registro);
-                return farmacos.aplica ? `${farmacos.cantidad} de ${farmacos.total}` : 'No aplica';
-              })(),
-              Number(registro.debe_bs || 0).toFixed(2),
-              registro.total_sesiones > 0 ? (
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">Con actividad</span>
-              ) : (
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">Sin actividad</span>
-              ),
-              <div className="flex gap-2">
-                <ActionButton label="Ver semana" icon={Eye} tone="view" onClick={() => setSelectedRegistro(registro)} />
-                <ActionButton label="Editar semana" icon={FilePenLine} tone="edit" onClick={() => editRegistro(registro)} />
-                {isAdmin && <ActionButton label="Eliminar semana" icon={Trash2} tone="delete" onClick={() => deleteRegistroSemanal(registro.id).then(load)} />}
-              </div>
-            ];
-          })}
-          empty="No hay sesiones semanales registradas."
+            columns={['Paciente', 'Historia clinica', 'Fecha sesion', 'Sesiones debe', 'Asistio', 'Pendiente', 'Falto', 'Deuda semanal', 'Farmacos', 'Estado', 'Acciones']}
+            rows={filteredRegistros.map((registro) => {
+              const stats = conteos(registro, dateRange);
+              const estado = estadoRegistro(registro, dateRange);
+              return [
+                <PatientCell registro={registro} />,
+                <HistoriaCell registro={registro} />,
+                <span className="max-w-[170px] text-sm font-semibold text-slate-700">{fechasSesion(registro, dateRange)}</span>,
+                <span className="font-semibold text-slate-700">{sesionesRestantes(registro, dateRange)}</span>,
+                <CountBadge value={stats.asistio} tone="bg-emerald-50 text-emerald-700" />,
+                <CountBadge value={stats.pendiente} tone="bg-amber-50 text-amber-700" />,
+                <CountBadge value={stats.falto} tone="bg-red-50 text-red-700" />,
+                <span className={`font-black ${stats.deuda > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{money(stats.deuda)}<br /><small>{stats.deuda > 0 ? 'deuda' : 'sin deuda'}</small></span>,
+                <span className={`rounded-full px-2.5 py-1 text-xs font-black ${stats.farmacos ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>{stats.farmacos ? 'Si' : 'No'}</span>,
+                <span className={`rounded-full px-2.5 py-1 text-xs font-black ${statusClass(estado)}`}>{estado}</span>,
+                <div className="flex gap-2">
+                  <ActionButton label="Ver detalle semanal" icon={Eye} tone="view" onClick={() => setSelectedRegistro(registro)} />
+                  <ActionButton label="Ver historia clinica" icon={ClipboardList} tone="edit" onClick={() => openHistory(registro)} disabled={!registro.historia_clinica_id} />
+                </div>
+              ];
+            })}
+            empty="No hay sesiones registradas en el rango seleccionado."
           />
         </div>
-        <div className="grid gap-3 md:hidden">
-          {filteredRegistros.map((registro) => (
-            <article key={registro.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <strong className="text-sm text-slate-900">{nombrePaciente(registro.paciente)}</strong>
-                  <span className="mt-1 block text-xs text-slate-500">
-                    {formatDate(registro.semana_inicio)} - {formatDate(registro.semana_fin)}
-                  </span>
+
+        <div className="grid gap-3 xl:hidden">
+          {filteredRegistros.map((registro) => {
+            const stats = conteos(registro, dateRange);
+            const estado = estadoRegistro(registro, dateRange);
+            return (
+              <article key={registro.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <PatientCell registro={registro} />
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-black ${statusClass(estado)}`}>{estado}</span>
                 </div>
-                <span className={`rounded-full px-2.5 py-1 text-xs font-black ${
-                  registro.total_sesiones > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                }`}>
-                  {registro.total_sesiones > 0 ? 'Con actividad' : 'Sin actividad'}
-                </span>
-              </div>
-              <p className="mt-3 line-clamp-2 text-xs text-slate-500">{registro.diagnostico || 'Sin diagnóstico registrado'}</p>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-cyan-50 p-2">
-                  <span className="block text-[11px] font-bold text-cyan-600">Sesiones</span>
-                  <strong className="text-lg text-cyan-800">{registro.total_sesiones || 0}</strong>
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <HistoriaCell registro={registro} />
+                  <p className="mt-2 text-xs font-bold text-slate-500">Fecha sesion: {fechasSesion(registro, dateRange)}</p>
                 </div>
-                <div className="rounded-lg bg-blue-50 p-2">
-                  <span className="block text-[11px] font-bold text-blue-600">Fármacos</span>
-                  <strong className="text-sm text-blue-800">
-                    {resumenFarmacos(registro).aplica ? `${resumenFarmacos(registro).cantidad}/${resumenFarmacos(registro).total}` : 'No'}
-                  </strong>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-lg bg-cyan-50 p-2"><span className="block text-[11px] font-bold text-cyan-600">Sesiones</span><strong>{stats.total}</strong></div>
+                  <div className="rounded-lg bg-slate-50 p-2"><span className="block text-[11px] font-bold text-slate-600">Debe</span><strong>{sesionesRestantes(registro, dateRange)}</strong></div>
+                  <div className="rounded-lg bg-emerald-50 p-2"><span className="block text-[11px] font-bold text-emerald-600">Asistio</span><strong>{stats.asistio}</strong></div>
+                  <div className="rounded-lg bg-amber-50 p-2"><span className="block text-[11px] font-bold text-amber-600">Pendiente</span><strong>{stats.pendiente}</strong></div>
+                  <div className="rounded-lg bg-red-50 p-2"><span className="block text-[11px] font-bold text-red-600">Falto</span><strong>{stats.falto}</strong></div>
+                  <div className="rounded-lg bg-red-50 p-2"><span className="block text-[11px] font-bold text-red-600">Deuda</span><strong>{money(stats.deuda)}</strong></div>
+                  <div className="rounded-lg bg-violet-50 p-2"><span className="block text-[11px] font-bold text-violet-600">Farmacos</span><strong>{stats.farmacos ? 'Si' : 'No'}</strong></div>
                 </div>
-                <div className="rounded-lg bg-amber-50 p-2">
-                  <span className="block text-[11px] font-bold text-amber-600">Deuda</span>
-                  <strong className="text-sm text-amber-800">Bs {Number(registro.debe_bs || 0).toFixed(2)}</strong>
+                <div className="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-3">
+                  <ActionButton label="Ver detalle semanal" icon={Eye} tone="view" className="h-9 w-9" onClick={() => setSelectedRegistro(registro)} />
+                  <ActionButton label="Ver historia clinica" icon={ClipboardList} tone="edit" className="h-9 w-9" onClick={() => openHistory(registro)} disabled={!registro.historia_clinica_id} />
                 </div>
-              </div>
-              <div className="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-3">
-                <ActionButton label="Ver semana" icon={Eye} tone="view" className="h-9 w-9" onClick={() => setSelectedRegistro(registro)} />
-                <ActionButton label="Editar semana" icon={FilePenLine} tone="edit" className="h-9 w-9" onClick={() => editRegistro(registro)} />
-                {isAdmin && <ActionButton label="Eliminar semana" icon={Trash2} tone="delete" className="h-9 w-9" onClick={() => deleteRegistroSemanal(registro.id).then(load)} />}
-              </div>
-            </article>
-          ))}
-          {filteredRegistros.length === 0 && <p className="empty-state">No hay sesiones semanales registradas.</p>}
+              </article>
+            );
+          })}
+          {filteredRegistros.length === 0 && <p className="empty-state">No hay sesiones registradas en el rango seleccionado.</p>}
         </div>
       </div>
 
-      <Modal
-        open={showFormModal}
-        title={editing ? 'Editar sesión semanal' : 'Nueva sesión semanal'}
-        subtitle="Completa el resumen clínico y administrativo; las atenciones diarias se sincronizan automáticamente."
-        onClose={closeFormModal}
-        size="sessions"
-      >
-        <SesionSemanalForm
-          form={form}
-          setForm={setForm}
-          pacientes={pacientes}
-          editing={editing}
-          onSubmit={submit}
-          onCancel={closeFormModal}
-          error={error}
-          syncedRegistro={syncedRegistro}
+      {selectedRegistro && (
+        <DetailModal
+          registro={selectedRegistro}
+          dateRange={dateRange}
+          onClose={() => setSelectedRegistro(null)}
+          onHistory={openHistory}
         />
-      </Modal>
-
-      <Modal open={Boolean(selectedRegistro)} title="Detalle de la sesión semanal" subtitle="Resumen del paciente, asistencia, pagos y evolución semanal." onClose={() => setSelectedRegistro(null)} size="sessions">
-        {selectedRegistro && (
-          <div className="grid max-h-[70vh] gap-3 overflow-y-auto pr-1">
-            <div className="grid gap-2 md:grid-cols-3">
-              <Detail label="Paciente" value={nombrePaciente(selectedRegistro.paciente)} />
-              <Detail label="Semana inicio" value={formatDate(selectedRegistro.semana_inicio)} />
-              <Detail label="Semana fin" value={formatDate(selectedRegistro.semana_fin)} />
-              <Detail label="Teléfono" value={selectedRegistro.telefono} />
-              <Detail label="Edad" value={selectedRegistro.edad} />
-              <Detail label="Sexo" value={selectedRegistro.sexo} />
-              <Detail label="Debe Bs" value={Number(selectedRegistro.debe_bs || 0).toFixed(2)} />
-              <Detail label="Fármacos" value={resumenFarmacos(selectedRegistro).aplica ? 'Sí aplica' : 'No aplica'} />
-              <Detail label="Diagnóstico" value={selectedRegistro.diagnostico} />
-            </div>
-            <div className="rounded-lg border border-cyan-100 bg-cyan-50/60 p-3">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-cyan-800">
-                  <CalendarSync size={18} />
-                  <h3 className="font-black">Sesiones diarias sincronizadas</h3>
-                </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-cyan-700 shadow-sm">
-                  {selectedRegistro.total_sesiones || sesionesSincronizadas(selectedRegistro).length} sesiones
-                </span>
-              </div>
-              <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
-                {diasSincronizados.map((dia) => {
-                  const sesionesDia = selectedRegistro.sesiones_resumen?.[dia] || [];
-                  return (
-                    <div key={dia} className="rounded-lg border border-white bg-white/85 p-2.5">
-                      <span className="text-xs font-black capitalize text-slate-500">{dia}</span>
-                      {sesionesDia.length ? (
-                        <div className="mt-2 grid gap-2">
-                          {sesionesDia.map((sesion) => (
-                            <div key={sesion.id} className="flex items-start gap-2 text-sm text-slate-700">
-                              <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-brand-600" />
-                              <span>
-                                <strong>{asistenciaLabel[sesion.asistencia] || sesion.asistencia}</strong>
-                                <small className="block text-xs text-slate-500">
-                                  Pago: {sesion.metodo_pago || 'Pendiente'} · {sesion.estado_pago || 'Pendiente'}
-                                </small>
-                                <small className={`block text-xs font-semibold ${sesion.aplica_farmacos ? 'text-violet-600' : 'text-slate-400'}`}>
-                                  Fármacos: {sesion.aplica_farmacos ? 'Sí' : 'No'}
-                                </small>
-                                {sesion.observacion_farmacos && <small className="mt-1 block line-clamp-2 text-xs text-violet-500">{sesion.observacion_farmacos}</small>}
-                                {sesion.observacion && <small className="mt-1 block line-clamp-2 text-xs text-slate-400">{sesion.observacion}</small>}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : <span className="mt-2 block text-xs text-slate-400">Sin atención registrada</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="rounded-lg border border-violet-100 bg-violet-50/60 p-3">
-              <div className="flex items-center gap-2 text-violet-800">
-                <Pill size={18} />
-                <h3 className="font-black">Resumen semanal de fármacos</h3>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-700">
-                {resumenFarmacos(selectedRegistro).aplica
-                  ? `El paciente registró uso de fármacos en ${resumenFarmacos(selectedRegistro).cantidad} de ${resumenFarmacos(selectedRegistro).total} sesiones.`
-                  : 'No se registró uso de fármacos en las sesiones de esta semana.'}
-              </p>
-              {resumenFarmacos(selectedRegistro).observaciones.length > 0 && (
-                <div className="mt-3 grid gap-2">
-                  {resumenFarmacos(selectedRegistro).observaciones.map((observacion) => (
-                    <p key={observacion} className="rounded-lg border border-white bg-white/85 p-3 text-sm text-slate-600">
-                      {observacion}
-                    </p>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <Detail label="Total sesiones" value={sesionesSincronizadas(selectedRegistro).length} />
-              <Detail label="Total asistencias" value={sesionesSincronizadas(selectedRegistro).filter((item) => item.asistencia === 'asistio').length} />
-              <Detail label="Total faltas" value={sesionesSincronizadas(selectedRegistro).filter((item) => item.asistencia === 'no_asistio').length} />
-              <Detail label="Total pendientes" value={sesionesSincronizadas(selectedRegistro).filter((item) => item.asistencia === 'pendiente').length} />
-            </div>
-            <Detail label="Observación semanal" value={selectedRegistro.observacion} />
-            <div className="flex flex-wrap gap-2">
-              <Button variant="ghost" onClick={() => editRegistro(selectedRegistro)}>
-                <FilePenLine size={17} />
-                Editar
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      )}
     </section>
   );
 }
