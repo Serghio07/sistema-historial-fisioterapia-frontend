@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Activity, Banknote, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, ListChecks, LogOut, Pill, ShieldCheck, UserCog, Users } from 'lucide-react';
+import { Activity, Banknote, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Landmark, ListChecks, LogOut, Pill, ShieldCheck, UserCog, Users, WalletCards } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import icono from '../../assets/images/icono.png';
@@ -12,6 +12,7 @@ const groups = [
     items: [
       { to: '/pacientes', label: 'Pacientes', icon: Users },
       { to: '/historias-clinicas', label: 'Historias Clinicas', icon: ClipboardList },
+      { to: '/evolutivos-clinicos', label: 'Evolutivos clinicos', icon: Activity },
       { to: '/informes-medicos', label: 'Informes Medicos', icon: FileBarChart }
     ]
   },
@@ -42,7 +43,23 @@ const groups = [
     items: [
       { to: '/planillas-atencion', label: 'Planillas', icon: ClipboardCheck },
       { to: '/personal/actividades', label: 'Actividades Diarias', icon: ListChecks },
-      { to: '/personal/planilla', label: 'Planilla del Personal', icon: Banknote, adminOnly: true }
+      { to: '/personal/planilla', label: 'Planillas de sueldos', icon: Banknote, adminOnly: true }
+    ]
+  },
+  {
+    key: 'financiero',
+    label: 'Control financiero',
+    icon: Landmark,
+    items: [
+      { to: '/control-financiero/planilla-pagos', label: 'Planilla de pagos', icon: WalletCards }
+    ]
+  },
+  {
+    key: 'control_diario',
+    label: 'Control diario',
+    icon: CalendarDays,
+    items: [
+      { to: '/control-diario/resumen', label: 'Resumen diario', icon: Activity }
     ]
   },
   {

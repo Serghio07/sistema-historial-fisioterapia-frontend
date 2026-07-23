@@ -17,6 +17,9 @@ import PrivateRoute from './PrivateRoute';
 import ActividadesDiarias from '../pages/personal/ActividadesDiarias';
 import PlanillaPersonal from '../pages/personal/PlanillaPersonal';
 import DocumentosClinicos from '../pages/documentos/DocumentosClinicos';
+import EvolutivosClinicos from '../pages/evolutivosClinicos/EvolutivosClinicos';
+import PlanillaPagos from '../pages/planillaPagos/PlanillaPagos';
+import ResumenDiario from '../pages/resumenDiario/ResumenDiario';
 
 function AppRoutes() {
   return (
@@ -30,6 +33,7 @@ function AppRoutes() {
             <Route path="pacientes/:id" element={<PacienteDetalle />} />
             <Route path="historias-clinicas" element={<HistoriasClinicas />} />
             <Route path="historias-clinicas/:id" element={<HistoriaClinicaDetalle />} />
+            <Route path="evolutivos-clinicos" element={<EvolutivosClinicos />} />
             <Route path="sesiones" element={<Sesiones />} />
             <Route path="citas" element={<Citas />} />
             <Route path="sesiones-semanales" element={<SesionesSemanales />} />
@@ -40,6 +44,14 @@ function AppRoutes() {
             <Route path="documentos/signos-vitales" element={<DocumentosClinicos tipo="signos_vitales" />} />
             <Route path="documentos/administracion-farmacos" element={<DocumentosClinicos tipo="farmacos" />} />
             <Route path="personal/actividades" element={<ActividadesDiarias />} />
+            <Route path="control-financiero/planilla-pagos" element={<PlanillaPagos />} />
+            <Route path="control-financiero/deudores" element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
+            <Route path="control-financiero/arqueos" element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
+            <Route path="control-financiero/recibos" element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
+            <Route path="control-financiero/comprobantes" element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
+            <Route path="control-diario/resumen" element={<ResumenDiario />} />
+            <Route path="control-diario/tareas" element={<Navigate to="/control-diario/resumen" replace />} />
+            <Route path="control-diario/incidencias" element={<Navigate to="/control-diario/resumen" replace />} />
           </Route>
         </Route>
         <Route element={<PrivateRoute adminOnly />}>

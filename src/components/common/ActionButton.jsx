@@ -1,9 +1,9 @@
 const styles = {
-  view: 'border-blue-100 bg-blue-600 text-white hover:bg-blue-700',
-  edit: 'border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
-  delete: 'border-red-100 bg-red-50 text-red-700 hover:bg-red-100',
+  view: 'border-[#14B8A6] bg-[#14B8A6] text-white hover:border-[#0D9488] hover:bg-[#0D9488]',
+  edit: 'border-[#A7F3D0] bg-[#ECFDF5] text-[#059669] hover:bg-[#D1FAE5]',
+  delete: 'border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2]',
   print: 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100',
-  download: 'border-indigo-100 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+  download: 'border-cyan-100 bg-cyan-50 text-cyan-700 hover:bg-cyan-100'
 };
 
 function ActionButton({ label, icon: Icon, tone = 'view', className = '', ...props }) {

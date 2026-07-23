@@ -758,10 +758,7 @@ function HistoriasClinicas() {
     }
   };
 
-  const openEvolutivo = (historia) => {
-    setEvolutivoHistoria(historia);
-    setEvolutivoData(Array.isArray(historia.evolutivo) ? historia.evolutivo : []);
-  };
+  const openEvolutivo = () => navigate('/sesiones');
 
   const saveEvolutivo = async () => {
     try {
@@ -835,15 +832,21 @@ function HistoriasClinicas() {
     <section className="grid gap-4">
       {loading && <Loader />}
 
-      <div className="panel rounded-2xl p-5 md:p-6">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><ClipboardPlus size={23} /></span><div><h2 className="text-xl font-black text-slate-900">Historias clínicas</h2><p className="text-xs text-slate-500">Pacientes agrupados con sus evaluaciones clínicas</p></div></div>
-          <Button onClick={() => openNewHistoria()}>
+      <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
+        <div className="module-hero">
+          <div>
+            <p className="text-sm font-bold text-brand-50">Gestión clínica</p>
+            <h1 className="mt-1 text-2xl font-black md:text-3xl">Historias clínicas</h1>
+            <p className="mt-2 text-sm text-brand-50">Pacientes agrupados con sus evaluaciones y seguimiento clínico.</p>
+          </div>
+          <Button className="self-center border border-white/30 bg-white text-brand-700 hover:bg-brand-50" onClick={() => openNewHistoria()}>
             <ClipboardPlus size={17} />
-            Nueva historia clinica
+            Nueva historia clínica
           </Button>
         </div>
+      </div>
 
+      <div className="panel rounded-2xl p-5 md:p-6">
         <div className="mb-4 grid gap-3">
           <div className="grid gap-3 lg:grid-cols-[minmax(300px,1fr)_auto_auto]">
             <div className="relative"><Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />

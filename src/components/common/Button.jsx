@@ -1,7 +1,7 @@
 const variants = {
-  primary: 'bg-brand-600 text-white shadow-sm shadow-brand-900/15 hover:bg-brand-700 hover:shadow-md',
-  secondary: 'bg-blue-600 text-white shadow-sm shadow-blue-900/15 hover:bg-blue-700 hover:shadow-md',
-  ghost: 'bg-brand-50 text-brand-700 hover:bg-brand-100',
+  primary: 'border border-[#0F766E] bg-[#0F766E] text-white shadow-sm hover:border-[#115E59] hover:bg-[#115E59] focus:ring-4 focus:ring-[#0F766E]/20',
+  secondary: 'border border-[#CBD5E1] bg-white text-[#475569] shadow-sm hover:border-[#94A3B8] hover:bg-[#F8FAFC]',
+  ghost: 'border border-[#CBD5E1] bg-white text-[#475569] hover:border-[#94A3B8] hover:bg-[#F8FAFC]',
   danger: 'bg-red-50 text-red-700 hover:bg-red-100'
 };
 
@@ -9,7 +9,7 @@ function Button({ children, variant = 'primary', className = '', type = 'button'
   return (
     <button
       type={type}
-      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${className}`}
+      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${className}`}
       {...props}
     >
       {children}

@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { useSearchParams } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { ClipboardCheck, Download, Eye, FilePenLine, Plus, Printer, Save, Search, Trash2 } from 'lucide-react';
+import { ClipboardCheck, Download, Eye, FilePenLine, Maximize2, Plus, Printer, Save, Search, Trash2 } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -28,7 +28,7 @@ const initialForm = {
   fecha_fin: today,
   diagnostico: '',
   observacion: '',
-  sesiones: [{ fecha: today, numero_sesion: 1, firma_paciente: '', firma_profesional: '', observacion: '' }]
+  sesiones: [{ sesion_id: '', fecha: today, numero_sesion: 1, firma_paciente: '', firma_profesional: '', observacion: '' }]
 };
 
 function PlanillasAtencion() {
@@ -120,6 +120,7 @@ function PlanillasAtencion() {
       .sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')));
 
     return sesionesPaciente.map((sesion, index) => ({
+      sesion_id: sesion.id,
       fecha: sesion.fecha || today,
       numero_sesion: index + 1,
       firma_paciente: '',
@@ -153,7 +154,7 @@ function PlanillasAtencion() {
       diagnostico: historia?.diagnostico_medico || historia?.evaluacion_final?.diagnostico_kinesico_cif || '',
       fecha_inicio: sesionesHistoria[0]?.fecha || historia?.fecha_evaluacion || form.fecha_inicio,
       fecha_fin: sesionesHistoria.at(-1)?.fecha || form.fecha_fin,
-      sesiones: sesionesHistoria.length ? sesionesHistoria : [{ fecha: historia?.fecha_evaluacion || today, numero_sesion: 1, firma_paciente: '', firma_profesional: '', observacion: '' }]
+      sesiones: sesionesHistoria.length ? sesionesHistoria : [{ sesion_id: '', fecha: historia?.fecha_evaluacion || today, numero_sesion: 1, firma_paciente: '', firma_profesional: '', observacion: '' }]
     });
   };
 
@@ -178,7 +179,7 @@ function PlanillasAtencion() {
     const nextNumber = Math.max(0, ...form.sesiones.map((sesion) => Number(sesion.numero_sesion || 0))) + 1;
     setForm({
       ...form,
-      sesiones: [...form.sesiones, { fecha: last?.fecha || today, numero_sesion: nextNumber, firma_paciente: '', firma_profesional: '', observacion: '' }]
+      sesiones: [...form.sesiones, { sesion_id: '', fecha: last?.fecha || today, numero_sesion: nextNumber, firma_paciente: '', firma_profesional: '', observacion: '' }]
     });
   };
 
@@ -188,6 +189,7 @@ function PlanillasAtencion() {
 
   const validate = () => {
     if (!form.paciente_id) return 'Selecciona un paciente.';
+    if (!form.historia_clinica_id) return 'Selecciona la historia clínica relacionada.';
     const usados = new Set();
     for (const sesion of form.sesiones) {
       if (!sesion.fecha) return 'Cada sesion debe tener fecha.';
@@ -224,11 +226,13 @@ function PlanillasAtencion() {
     setEditing(planilla.id);
     setForm({
       paciente_id: planilla.paciente_id || planilla.paciente?.id || '',
+      historia_clinica_id: planilla.historia_clinica_id || planilla.historia_clinica?.id || '',
       fecha_inicio: planilla.fecha_inicio || today,
       fecha_fin: planilla.fecha_fin || today,
       diagnostico: planilla.diagnostico || '',
       observacion: planilla.observacion || '',
       sesiones: (planilla.sesiones || []).map((sesion) => ({
+        sesion_id: sesion.sesion_id || sesion.sesion_registrada?.id || '',
         fecha: sesion.fecha || today,
         numero_sesion: sesion.numero_sesion || '',
         firma_paciente: sesion.firma_paciente || '',
@@ -285,13 +289,15 @@ function PlanillasAtencion() {
     <section className="grid gap-5">
       {loading && <Loader />}
       <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-        <div className="grid gap-3 bg-gradient-to-r from-brand-900 to-brand-600 p-4 text-white md:grid-cols-[1fr_auto]">
+        <div className="module-hero">
           <div>
-            <p className="text-xs font-black uppercase text-white/90">Control de firmas</p>
-            <h2 className="mt-1 text-2xl font-black text-white md:text-3xl">Planilla de Atencion y Asistencia</h2>
-            <span className="mt-2 block text-sm text-white/90">Crea, edita, imprime y descarga la planilla individual del paciente.</span>
+            <p className="text-xs font-black uppercase tracking-wide text-brand-700">Control de firmas</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-900 md:text-3xl">Planilla de Atención y Asistencia</h2>
+            <span className="mt-2 block text-sm font-medium text-slate-600">Crea, edita, imprime y descarga la planilla individual del paciente.</span>
           </div>
-          <ClipboardCheck size={42} className="self-center text-white/90" />
+          <span className="grid h-14 w-14 place-items-center self-center rounded-xl border border-brand-200 bg-white/75 text-brand-700 shadow-sm">
+            <ClipboardCheck size={30} />
+          </span>
         </div>
       </div>
 
@@ -357,101 +363,88 @@ function PlanillasAtencion() {
           setActivePanel('listado');
           setEditing(null);
         }}
-        size="xl"
+        size="planilla"
       >
-        <div className="grid gap-5 xl:grid-cols-[minmax(340px,500px)_minmax(0,1fr)]">
-          <form onSubmit={submit} className="grid gap-4">
-            <div className="form-grid">
-              <Input
-                label="Paciente"
-                value={form.paciente_id}
-                onChange={(e) => selectPaciente(e.target.value)}
-                options={[{ value: '', label: 'Seleccionar paciente' }, ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))]}
-              />
-              <Input label="Edad" value={pacienteSeleccionado?.edad || ''} disabled />
-              <Input label="Historia clínica" value={form.historia_clinica_id} onChange={(e) => selectHistoria(e.target.value)} options={[{ value: '', label: historiasPaciente.length ? `Seleccionar entre ${historiasPaciente.length} historias` : 'Sin historias clínicas' }, ...historiasPaciente.map((historia) => ({ value: historia.id, label: `${formatDate(historia.fecha_evaluacion)} · ${historia.condicion_actual?.zona_cuerpo || historia.motivo_consulta || historia.diagnostico_medico || 'Historia clínica'}` }))]} disabled={!form.paciente_id || !historiasPaciente.length} />
-              <Input label="Fecha inicio" type="date" value={form.fecha_inicio} onChange={(e) => update('fecha_inicio', e.target.value)} />
-              <Input label="Fecha fin" type="date" value={form.fecha_fin} onChange={(e) => update('fecha_fin', e.target.value)} />
-              <Input label="Diagnostico / Dx" value={form.diagnostico} onChange={(e) => update('diagnostico', e.target.value)} multiline className="md:col-span-2" />
-              <Input label="Observacion" value={form.observacion} onChange={(e) => update('observacion', e.target.value)} multiline className="md:col-span-2" />
+        <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+          <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[55%_45%] lg:overflow-hidden">
+            <div className="grid content-start gap-3 overflow-y-auto border-r border-slate-200 p-3 lg:p-4">
+              <section className="rounded-lg border border-brand-100 bg-brand-50/30 p-3">
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-black text-ink"><ClipboardCheck size={16} className="text-brand-700" />Datos del paciente y planilla</h3>
+                <div className="grid gap-2 md:grid-cols-6">
+                  <Input compact className="md:col-span-3" label="Paciente" value={form.paciente_id} onChange={(e) => selectPaciente(e.target.value)} options={[{ value: '', label: 'Seleccionar paciente' }, ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))]} />
+                  <Input compact className="md:col-span-3" label="Historia clínica" value={form.historia_clinica_id} onChange={(e) => selectHistoria(e.target.value)} options={[{ value: '', label: historiasPaciente.length ? `Seleccionar entre ${historiasPaciente.length} historias` : 'Sin historias clínicas' }, ...historiasPaciente.map((historia) => ({ value: historia.id, label: `${formatDate(historia.fecha_evaluacion)} · ${historia.condicion_actual?.zona_cuerpo || historia.motivo_consulta || historia.diagnostico_medico || 'Historia clínica'}` }))]} disabled={!form.paciente_id || !historiasPaciente.length} />
+                  <Input compact className="md:col-span-2" label="Edad" value={pacienteSeleccionado?.edad || ''} disabled />
+                  <Input compact className="md:col-span-2" label="Fecha inicio" type="date" value={form.fecha_inicio} onChange={(e) => update('fecha_inicio', e.target.value)} />
+                  <Input compact className="md:col-span-2" label="Fecha fin" type="date" value={form.fecha_fin} onChange={(e) => update('fecha_fin', e.target.value)} />
+                  <Input compact className="md:col-span-6" label="Diagnóstico / Dx" value={form.diagnostico} onChange={(e) => update('diagnostico', e.target.value)} />
+                  <Input compact label="Observación" value={form.observacion} onChange={(e) => update('observacion', e.target.value)} multiline className="md:col-span-6" />
+                </div>
+              </section>
+
+              {form.paciente_id && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2 text-xs font-semibold text-slate-600">
+                  <span>Sesiones registradas vinculadas: <strong className="text-ink">{sesionesPacienteSeleccionado.length}</strong></span>
+                  <Button className="min-h-8 px-2 text-xs" variant="ghost" onClick={cargarSesionesPaciente} disabled={sesionesPacienteSeleccionado.length === 0}>Usar fechas registradas</Button>
+                </div>
+              )}
+
+              <section className="min-h-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2">
+                  <h4 className="text-sm font-black text-ink">Sesiones</h4>
+                  <Button className="min-h-8 px-2 text-xs" variant="ghost" onClick={addSesion}><Plus size={15} />Agregar sesión</Button>
+                </div>
+                <div className="max-h-[225px] overflow-y-auto overflow-x-hidden">
+                  <table className="w-full table-fixed border-collapse text-xs">
+                    <thead className="sticky top-0 z-10 bg-slate-100 text-[10px] font-black uppercase text-slate-500">
+                      <tr>
+                        <th className="w-[25%] border-b border-slate-200 px-2 py-2 text-left">Fecha</th>
+                        <th className="w-[14%] border-b border-slate-200 px-2 py-2 text-left">N.º sesión</th>
+                        <th className="w-[25%] border-b border-slate-200 px-2 py-2 text-left">Firma paciente</th>
+                        <th className="w-[28%] border-b border-slate-200 px-2 py-2 text-left">Firma profesional</th>
+                        <th className="w-[8%] border-b border-slate-200 px-1 py-2" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {form.sesiones.map((sesion, index) => (
+                        <tr key={index} className="hover:bg-brand-50/30">
+                          <td className="p-1"><input aria-label={`Fecha sesión ${index + 1}`} className="h-8 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-[11px]" type="date" value={sesion.fecha} onChange={(e) => updateSesion(index, 'fecha', e.target.value)} /></td>
+                          <td className="p-1"><input aria-label={`Número sesión ${index + 1}`} className="h-8 w-full min-w-0 rounded-md border border-slate-200 px-1 text-center" type="number" min="1" value={sesion.numero_sesion} onChange={(e) => updateSesion(index, 'numero_sesion', e.target.value)} /></td>
+                          <td className="p-1"><input aria-label={`Firma paciente sesión ${index + 1}`} className="h-8 w-full min-w-0 rounded-md border border-slate-200 px-1.5" value={sesion.firma_paciente} onChange={(e) => updateSesion(index, 'firma_paciente', e.target.value)} placeholder="________" /></td>
+                          <td className="p-1"><input aria-label={`Firma profesional sesión ${index + 1}`} className="h-8 w-full min-w-0 rounded-md border border-slate-200 px-1.5" value={sesion.firma_profesional} onChange={(e) => updateSesion(index, 'firma_profesional', e.target.value)} placeholder="________" /></td>
+                          <td className="p-1 text-center"><ActionButton label="Eliminar fila" icon={Trash2} tone="delete" className="h-7 w-7" onClick={() => removeSesion(index)} /></td>
+                        </tr>
+                      ))}
+                      {form.sesiones.length === 0 && <tr><td colSpan="5" className="px-3 py-5 text-center font-semibold text-slate-400">Agrega una sesión para comenzar.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <Button className="lg:hidden" variant="secondary" onClick={() => setShowPreview(true)}><Eye size={16} />Ver vista previa</Button>
             </div>
 
-            {form.paciente_id && (
-              <div className="rounded-lg border border-brand-100 bg-brand-50/70 p-3 text-sm text-slate-600">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span>
-                    Sesiones registradas vinculadas: <strong className="text-ink">{sesionesPacienteSeleccionado.length}</strong>
-                  </span>
-                  <Button variant="ghost" onClick={cargarSesionesPaciente} disabled={sesionesPacienteSeleccionado.length === 0}>
-                    Usar fechas registradas
-                  </Button>
+            <aside className="hidden min-h-0 flex-col bg-slate-50 p-3 lg:flex">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div><h3 className="text-sm font-black text-ink">Vista tipo documento</h3><p className="text-xs text-slate-500">Formato listo para imprimir o descargar.</p></div>
+                <Button className="min-h-8 px-2 text-xs" variant="secondary" onClick={() => setShowPreview(true)}><Maximize2 size={14} />Ampliar vista previa</Button>
+              </div>
+              <div className="relative min-h-[420px] max-h-[620px] flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200 bg-slate-200/60 p-2">
+                <div className="relative mx-auto h-[552px] w-full overflow-hidden">
+                  <div ref={printRef} className="absolute left-1/2 top-0 w-[216mm] origin-top -translate-x-1/2 scale-[0.52]">
+                    <PlanillaDocumento planilla={previewPlanilla} paciente={pacienteSeleccionado} />
+                  </div>
                 </div>
               </div>
-            )}
-
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h4 className="font-black text-ink">Sesiones</h4>
-                <Button variant="ghost" onClick={addSesion}>
-                  <Plus size={17} />
-                  Agregar sesion
-                </Button>
-              </div>
-              <div className="grid max-h-[360px] gap-3 overflow-auto pr-1">
-                {form.sesiones.map((sesion, index) => (
-                  <div key={index} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-2">
-                    <Input label="Fecha" type="date" value={sesion.fecha} onChange={(e) => updateSesion(index, 'fecha', e.target.value)} />
-                    <Input label="Sesion" type="number" min="1" value={sesion.numero_sesion} onChange={(e) => updateSesion(index, 'numero_sesion', e.target.value)} />
-                    <Input label="Firma Paciente" value={sesion.firma_paciente} onChange={(e) => updateSesion(index, 'firma_paciente', e.target.value)} placeholder="__________" />
-                    <Input label="Firma Profesional" value={sesion.firma_profesional} onChange={(e) => updateSesion(index, 'firma_profesional', e.target.value)} placeholder="__________" />
-                    <div className="flex items-end sm:col-span-2">
-                      <ActionButton label="Eliminar fila" icon={Trash2} tone="delete" onClick={() => removeSesion(index)} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-              <Button type="submit">
-                <Save size={17} />
-                Guardar planilla
-              </Button>
-              <Button variant="secondary" onClick={() => setShowPreview(true)}>
-                <Eye size={17} />
-                Vista previa
-              </Button>
-              <Button variant="ghost" onClick={() => printPlanilla()}>
-                <Printer size={17} />
-                Imprimir
-              </Button>
-              <Button variant="ghost" onClick={() => downloadPdf()}>
-                <Download size={17} />
-                Descargar PDF
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setEditing(null);
-                  setForm(initialForm);
-                  setActivePanel('listado');
-                }}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </form>
-
-          <div className="min-h-0 overflow-auto rounded-lg border border-slate-200 bg-slate-100 p-3">
-            <div className="mb-3">
-              <h3 className="text-base font-bold text-ink">Vista tipo documento</h3>
-              <p className="text-sm text-slate-500">Formato listo para imprimir o descargar.</p>
-            </div>
-            <div ref={printRef}>
-              <PlanillaDocumento planilla={previewPlanilla} paciente={pacienteSeleccionado} />
-            </div>
+            </aside>
           </div>
-        </div>
+
+          <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-2.5">
+            <Button className="min-h-9" variant="ghost" onClick={() => { setEditing(null); setForm(initialForm); setActivePanel('listado'); }}>Cancelar</Button>
+            <Button className="min-h-9" variant="ghost" onClick={() => printPlanilla()}><Printer size={16} />Imprimir</Button>
+            <Button className="min-h-9" variant="ghost" onClick={() => downloadPdf()}><Download size={16} />Descargar PDF</Button>
+            <Button className="min-h-9" type="submit"><Save size={16} />Guardar planilla</Button>
+          </footer>
+        </form>
       </Modal>
 
       <Modal open={showPreview} title="Vista previa de planilla" onClose={() => setShowPreview(false)} size="lg">
@@ -470,3 +463,4 @@ function PlanillasAtencion() {
 }
 
 export default PlanillasAtencion;
+

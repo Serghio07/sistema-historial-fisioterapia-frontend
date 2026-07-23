@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, IdCard, Phone, UserRound } from 'lucide-react';
+import {
+  Activity, ArrowLeft, BriefcaseBusiness, CalendarDays, Heart, Home, IdCard,
+  MapPin, Navigation, Phone, Ruler, Scale, UserRound, UsersRound
+} from 'lucide-react';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import { Avatar } from '../../components/common/ProfilePhoto';
@@ -10,13 +13,22 @@ import { nombrePaciente } from '../../utils/validators';
 
 const sexoLabel = (value) => ({ M: 'MASCULINO', F: 'FEMENINO' }[value] || value);
 
-function Field({ label, value }) {
+function Field({ label, value, icon: Icon, accent = false }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <span className="block text-xs font-black uppercase text-slate-500">{label}</span>
-      <strong className="mt-1 block text-sm uppercase text-ink">{value || 'SIN DATO'}</strong>
+    <div className={`flex min-h-[72px] items-center gap-3 rounded-xl border p-3 transition hover:-translate-y-0.5 hover:shadow-sm ${accent ? 'border-sky-200 bg-sky-50/70' : 'border-slate-200 bg-slate-50/70'}`}>
+      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${accent ? 'bg-sky-100 text-sky-700' : 'bg-teal-50 text-teal-700'}`}>
+        <Icon size={18} />
+      </span>
+      <div className="min-w-0">
+        <span className="block text-[10px] font-black uppercase tracking-wide text-slate-500">{label}</span>
+        <strong className={`mt-1 block break-words text-sm font-bold uppercase ${accent ? 'text-sky-800' : 'text-slate-800'}`}>{value || 'SIN DATO'}</strong>
+      </div>
     </div>
   );
+}
+
+function SectionTitle({ icon: Icon, title, description }) {
+  return <div className="mb-3 flex items-center gap-2 border-b border-slate-100 pb-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-teal-50 text-teal-700"><Icon size={17} /></span><div><h2 className="text-sm font-black text-slate-800">{title}</h2><p className="text-xs text-slate-500">{description}</p></div></div>;
 }
 
 function PacienteDetalle() {
@@ -38,43 +50,56 @@ function PacienteDetalle() {
       {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
       {paciente && (
         <>
-          <div className="rounded-xl bg-gradient-to-r from-brand-900 to-brand-600 p-6 text-white shadow-sm">
-            <div className="flex flex-wrap items-center gap-4">
-              <Avatar src={paciente.foto} name={nombrePaciente(paciente)} size="lg" className="ring-4 ring-white/20" />
+          <div className="relative overflow-hidden rounded-xl border border-teal-100 bg-gradient-to-r from-teal-50 via-white to-sky-50 p-5 shadow-sm">
+            <UsersRound size={150} strokeWidth={1} className="pointer-events-none absolute -bottom-12 right-[14%] text-teal-700/[0.035]" />
+            <div className="relative flex flex-wrap items-center gap-4">
+              <Avatar src={paciente.foto} name={nombrePaciente(paciente)} size="lg" className="ring-4 ring-white shadow-md" />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-black uppercase text-brand-50">Datos del paciente</p>
-                <h1 className="mt-1 truncate text-2xl font-black uppercase">{nombrePaciente(paciente)}</h1>
-                <div className="mt-2 flex flex-wrap gap-4 text-sm text-brand-50">
-                  <span className="inline-flex items-center gap-1"><IdCard size={15} />CI: {paciente.ci}</span>
-                  <span className="inline-flex items-center gap-1"><Phone size={15} />{paciente.telefono}</span>
-                  <span className="inline-flex items-center gap-1"><UserRound size={15} />{paciente.estado ? 'ACTIVO' : 'INACTIVO'}</span>
+                <p className="text-[11px] font-black uppercase tracking-wide text-teal-700">Ficha del paciente</p>
+                <h1 className="mt-0.5 truncate text-2xl font-black uppercase text-slate-900 md:text-3xl">{nombrePaciente(paciente)}</h1>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1.5"><IdCard size={15} className="text-teal-700" />CI: {paciente.ci || 'Sin dato'}</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1.5"><Phone size={15} className="text-teal-700" />{paciente.telefono || 'Sin teléfono'}</span>
                 </div>
               </div>
+              <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-black ${paciente.estado ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-600'}`}><span className={`h-2 w-2 rounded-full ${paciente.estado ? 'bg-emerald-500' : 'bg-slate-400'}`} />{paciente.estado ? 'ACTIVO' : 'INACTIVO'}</span>
             </div>
           </div>
 
-          <div className="panel grid gap-4">
-            <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
-              <Field label="Fecha de nacimiento" value={formatDate(paciente.fecha_nacimiento)} />
-              <Field label="Lugar de nacimiento" value={paciente.lugar_nacimiento} />
-              <Field label="Edad" value={paciente.edad != null ? `${paciente.edad} AÑOS` : ''} />
-              <Field label="Sexo" value={sexoLabel(paciente.sexo)} />
-              <Field label="Estado civil" value={paciente.estado_civil} />
-              <Field label="Ocupación" value={paciente.ocupacion} />
-              <Field label="Peso" value={paciente.peso ? `${paciente.peso} KG` : ''} />
-              <Field label="Talla" value={paciente.talla ? `${paciente.talla} M` : ''} />
-              <Field label="IMC" value={paciente.imc} />
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Domicilio" value={paciente.domicilio} />
-              <Field label="Punto de referencia" value={paciente.referencia} />
-            </div>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <section className="p-4 md:p-5">
+              <SectionTitle icon={UserRound} title="Información personal" description="Datos generales registrados del paciente." />
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field icon={CalendarDays} label="Fecha de nacimiento" value={formatDate(paciente.fecha_nacimiento)} />
+                <Field icon={MapPin} label="Lugar de nacimiento" value={paciente.lugar_nacimiento} />
+                <Field icon={UserRound} label="Edad" value={paciente.edad != null ? `${paciente.edad} AÑOS` : ''} />
+                <Field icon={UsersRound} label="Sexo" value={sexoLabel(paciente.sexo)} />
+                <Field icon={Heart} label="Estado civil" value={paciente.estado_civil} />
+                <Field icon={BriefcaseBusiness} label="Ocupación" value={paciente.ocupacion} />
+              </div>
+            </section>
+            <section className="border-t border-slate-100 p-4 md:p-5">
+              <SectionTitle icon={Activity} title="Datos físicos" description="Medidas corporales registradas." />
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field icon={Scale} label="Peso" value={paciente.peso ? `${paciente.peso} KG` : ''} />
+                <Field icon={Ruler} label="Talla" value={paciente.talla ? `${paciente.talla} M` : ''} />
+                <Field icon={Activity} label="IMC" value={paciente.imc} accent />
+              </div>
+            </section>
+            <section className="border-t border-slate-100 p-4 md:p-5">
+              <SectionTitle icon={MapPin} title="Ubicación y referencia" description="Información para localizar al paciente." />
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field icon={Home} label="Domicilio" value={paciente.domicilio} />
+                <Field icon={Navigation} label="Punto de referencia" value={paciente.referencia} />
+              </div>
+            </section>
           </div>
         </>
       )}
-      <div><Link to="/pacientes"><Button variant="ghost"><ArrowLeft size={17} />VOLVER A PACIENTES</Button></Link></div>
+      <div><Link to="/pacientes"><Button variant="secondary"><ArrowLeft size={17} />Volver a pacientes</Button></Link></div>
     </section>
   );
 }
 
 export default PacienteDetalle;
+

@@ -1,5 +1,5 @@
 function Input({ label, multiline = false, options, compact = false, className = '', ...props }) {
-  const controlClass = `w-full rounded-lg border-slate-200 bg-white/95 px-3 text-sm text-ink shadow-sm transition placeholder:text-slate-400 hover:border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 ${
+  const controlClass = `w-full rounded-lg border-[#CBD5E1] bg-white px-3 text-sm text-[#334155] shadow-sm transition placeholder:text-[#94A3B8] hover:border-[#94A3B8] focus:border-[#0F766E] focus:ring-4 focus:ring-[#0F766E]/[0.12] ${
     compact ? 'min-h-9 py-1.5' : 'py-2'
   }`;
 

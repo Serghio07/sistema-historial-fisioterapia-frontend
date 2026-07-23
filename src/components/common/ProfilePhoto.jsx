@@ -17,7 +17,8 @@ export function Avatar({ src, name, size = 'md', className = '' }) {
   const sizes = {
     sm: 'h-9 w-9 text-xs rounded-lg',
     md: 'h-14 w-14 text-sm rounded-xl',
-    lg: 'h-20 w-20 text-xl rounded-2xl'
+    lg: 'h-20 w-20 text-xl rounded-2xl',
+    patient: 'h-[72px] w-[72px] text-xl rounded-full'
   };
 
   return (

@@ -1,7 +1,7 @@
 import api from './api';
 
-export const getSesiones = async () => {
-  const { data } = await api.get('/sesiones');
+export const getSesiones = async ({ incluirAnuladas = false } = {}) => {
+  const { data } = await api.get('/sesiones', { params: incluirAnuladas ? { incluir_anuladas: true } : undefined });
   return data;
 };
 

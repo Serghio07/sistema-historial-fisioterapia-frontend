@@ -377,11 +377,11 @@ function Usuarios() {
     <section className="grid gap-5">
       {loading && <Loader />}
 
-      <header className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/70 bg-white/90 p-5 shadow-soft">
+      <header className="module-hero flex flex-wrap items-center justify-between rounded-xl">
         <div>
-          <p className="text-sm font-bold text-brand-600">Administración</p>
-          <h2 className="mt-1 text-3xl font-black text-slate-900">Usuarios</h2>
-          <span className="mt-1 block text-sm text-slate-500">Gestión de accesos, solicitudes y estado del personal.</span>
+          <p className="text-sm font-bold text-brand-700">Administración</p>
+          <h2 className="mt-1 text-3xl font-black text-brand-900">Usuarios</h2>
+          <span className="mt-1 block text-sm text-brand-900/70">Gestión de accesos, solicitudes y estado del personal.</span>
         </div>
         <Button onClick={openCreate} className="min-h-11 px-4">
           <Plus size={18} />

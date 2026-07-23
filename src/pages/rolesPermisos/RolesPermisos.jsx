@@ -139,7 +139,7 @@ function RolesPermisos() {
   return (
     <section className="grid gap-4">
       <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-        <div className="grid gap-3 bg-gradient-to-r from-brand-900 to-brand-600 p-4 text-white md:grid-cols-[1fr_auto]">
+        <div className="module-hero">
           <div>
             <p className="text-xs font-black uppercase text-brand-50">Seguridad y accesos</p>
             <h2 className="mt-1 text-2xl font-black md:text-3xl">Matriz de roles y permisos</h2>
@@ -189,3 +189,4 @@ function RolesPermisos() {
 }
 
 export default RolesPermisos;
+

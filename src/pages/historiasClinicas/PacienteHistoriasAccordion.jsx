@@ -61,22 +61,22 @@ export default function PacienteHistoriasAccordion({
   };
   const runMenuAction = (callback) => { callback(); setShowMenu(false); };
 
-  return <article className="bg-white">
-    <div role="button" tabIndex={0} aria-expanded={expanded} onClick={activateRow} onKeyDown={activateRow} className={`group grid cursor-pointer items-center gap-4 px-4 py-4 outline-none transition md:grid-cols-[minmax(240px,1.55fr)_minmax(175px,.9fr)_minmax(140px,.7fr)_minmax(165px,.8fr)_32px] md:px-5 ${expanded ? 'bg-white' : 'hover:bg-slate-50/70'}`}>
+  return <article className={`border transition-all duration-300 ${expanded ? 'border-teal-200 border-l-4 border-l-teal-500 bg-teal-50/55 shadow-[0_3px_12px_rgba(15,118,110,0.06)]' : 'border-transparent bg-white hover:bg-teal-50/25'}`}>
+    <div role="button" tabIndex={0} aria-expanded={expanded} onClick={activateRow} onKeyDown={activateRow} className={`group grid cursor-pointer items-center gap-4 px-4 py-4 outline-none transition-colors duration-300 md:grid-cols-[minmax(240px,1.55fr)_minmax(175px,.9fr)_minmax(140px,.7fr)_minmax(165px,.8fr)_32px] md:px-5 ${expanded ? 'bg-teal-50/70' : 'bg-white hover:bg-teal-50/30'}`}>
       <span className="flex min-w-0 items-center gap-3">
-        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-black uppercase ring-1 ${tone.avatar} ${tone.text}`}>{initials || 'PA'}</span>
-        <span className="min-w-0"><strong className="block truncate text-sm font-black uppercase text-slate-900">{nombrePaciente(paciente)}</strong><small className="mt-1 block text-xs text-slate-500">CI: {paciente?.ci || 'Sin dato'}</small></span>
+        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-black uppercase ring-1 transition-colors duration-300 ${expanded ? 'bg-teal-100 text-teal-800 ring-teal-300' : `${tone.avatar} ${tone.text}`}`}>{initials || 'PA'}</span>
+        <span className="min-w-0"><strong className={`block truncate text-sm font-black uppercase transition-colors duration-300 ${expanded ? 'text-teal-900' : 'text-slate-900'}`}>{nombrePaciente(paciente)}</strong><small className="mt-1 block text-xs text-slate-500">CI: {paciente?.ci || 'Sin dato'}</small></span>
       </span>
       <span><span className={`inline-flex items-center gap-2 text-xs font-bold ${tone.text}`}><i className={`h-2 w-2 rounded-full ${tone.dot}`} />Historia {tone.label}</span><small className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500"><CalendarDays size={13} />{dateLabel}</small></span>
       <span className="flex items-center gap-2.5"><ClipboardList size={22} className="text-slate-400" /><span><strong className="block text-xs text-slate-700">{allHistorias.length} {allHistorias.length === 1 ? 'historia' : 'historias'}</strong>{allHistorias.length > 1 && <button type="button" onClick={(event) => { event.stopPropagation(); onShowHistory(); }} className="mt-1 text-xs font-bold text-blue-600 hover:text-blue-800">Ver historial</button>}</span></span>
       <span>{contracted > 0 ? <><strong className="text-sm text-slate-900">{completed} de {contracted}</strong><small className="mt-1 block text-xs text-slate-500">{remaining} restantes</small><span className="mt-2 block h-1 overflow-hidden rounded-full bg-slate-200"><i className="block h-full rounded-full bg-emerald-600" style={{ width: `${progress}%` }} /></span></> : <small className="text-xs font-semibold text-slate-500">Sin sesiones</small>}</span>
-      <span className="grid h-8 w-8 place-items-center text-slate-500"><ChevronDown size={18} className={`transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} /></span>
+      <span className={`grid h-8 w-8 place-items-center transition-colors duration-300 ${expanded ? 'text-teal-700' : 'text-slate-500'}`}><ChevronDown size={18} className={`transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} /></span>
     </div>
 
     <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
       <div className="overflow-hidden">
-        <div className="relative mx-2 mb-2 rounded-xl border border-slate-200 bg-slate-50/50 p-4 pl-6 shadow-[0_1px_3px_rgba(15,23,42,.04)] md:mx-4 md:p-5 md:pl-7">
-          <span className="absolute bottom-0 left-0 top-0 w-[3px] rounded-l-xl bg-emerald-500" />
+        <div className="relative mx-2 mb-2 rounded-xl border border-teal-200 bg-teal-50/45 p-4 pl-6 shadow-[0_1px_3px_rgba(15,118,110,.05)] transition-colors duration-300 md:mx-4 md:p-5 md:pl-7">
+          <span className="absolute bottom-0 left-0 top-0 w-1 rounded-l-xl bg-teal-500" />
           <div className="mb-4 flex items-center gap-2 text-[11px] font-black uppercase tracking-[.08em] text-emerald-700"><span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-50"><CalendarDays size={14} /></span>Última historia clínica</div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_285px]">

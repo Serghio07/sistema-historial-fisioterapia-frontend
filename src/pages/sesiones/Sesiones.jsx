@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import {
   Activity,
   CalendarDays,
@@ -24,7 +26,7 @@ import Modal from '../../components/common/Modal';
 import Pagination from '../../components/common/Pagination';
 import Table from '../../components/common/Table';
 import { useAuth } from '../../context/AuthContext';
-import { getHistoriasClinicas, updateHistoriaClinica } from '../../services/historiaClinicaService';
+import { getHistoriasClinicas } from '../../services/historiaClinicaService';
 import { getPacientes } from '../../services/pacienteService';
 import { createSesion, deleteSesion, getSesiones, updateSesion } from '../../services/sesionService';
 import { formatDate } from '../../utils/formatDate';
@@ -47,6 +49,15 @@ const initialForm = {
   saldo_pendiente: 0,
   aplica_farmacos: false,
   observacion_farmacos: '',
+  medios_fisicos: '',
+  tecnicas_manuales: '',
+  descripcion_tratamiento: '',
+  evolucion_observada: '',
+  dolor_antes: '',
+  dolor_despues: '',
+  inyectable_nombre: '',
+  inyectable_dosis: '',
+  profesional_responsable: '',
   observacion: ''
 };
 
@@ -84,12 +95,24 @@ const estadoPagoTone = {
   Debe: 'bg-red-50 text-red-700 ring-red-200'
 };
 
-const isSesionAnulada = (sesion) =>
-  sesion?.anulada === true || String(sesion?.estado || '').toLowerCase() === 'anulada';
+const isSesionAnulada = (sesion) => {
+  const estado = String(sesion?.estado || '').toLowerCase();
+  return sesion?.anulada === true || ['anulada', 'anulado', 'eliminada', 'eliminado', 'inactiva', 'inactivo'].includes(estado);
+};
 
 const isSesionRealizada = (sesion) => {
   const asistencia = String(sesion?.asistencia || '').toLowerCase();
   return !isSesionAnulada(sesion) && (asistencia === 'asistio' || sesion?.descontarSesion === true || sesion?.descontar_sesion === true);
+};
+
+const dolorInicialParaHistoria = (historia, sesionesHistoria) => {
+  const ultimoDolor = [...sesionesHistoria]
+    .filter(isSesionRealizada)
+    .sort((a, b) => Number(a.numero_sesion || 0) - Number(b.numero_sesion || 0) || String(a.fecha || '').localeCompare(String(b.fecha || '')))
+    .map((sesion) => sesion.dolor_despues)
+    .filter((value) => value !== '' && value != null)
+    .at(-1);
+  return ultimoDolor ?? historia?.intervencion_clinica?.escala_dolor ?? '';
 };
 
 const isHistoriaActiva = (historia) => !historia?.anulada && (historia?.estado || 'activa') === 'activa';
@@ -146,11 +169,15 @@ function Detail({ label, value }) {
 }
 
 function Sesiones() {
-  const { isAdmin } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { isAdmin, user } = useAuth();
+  const profesionalActual = user?.nombre_mostrado || user?.ficha_personal?.nombre_mostrado || user?.nombre || '';
   const [pacientes, setPacientes] = useState([]);
   const [historias, setHistorias] = useState([]);
   const [sesiones, setSesiones] = useState([]);
   const [form, setForm] = useState(initialForm);
+  const [formTab, setFormTab] = useState('session');
   const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -162,10 +189,9 @@ function Sesiones() {
   const [annulForm, setAnnulForm] = useState({ motivo_anulacion: '', observacion_anulacion: '' });
   const [viewMode, setViewMode] = useState('accordion');
   const [expandedGroups, setExpandedGroups] = useState({});
-  const [registeredFilters, setRegisteredFilters] = useState({ query: '', orderBy: 'fecha_desc' });
+  const [registeredFilters, setRegisteredFilters] = useState({ query: '', dateFrom: '', dateTo: '', orderBy: 'fecha_desc' });
   const [sessionFilter, setSessionFilter] = useState('todos');
   const [expandedGroupKey, setExpandedGroupKey] = useState(null);
-  const [savedSession, setSavedSession] = useState(null);
   const [evolutionTarget, setEvolutionTarget] = useState(null);
   const [evolutionDetail, setEvolutionDetail] = useState(null);
   const [evolutionForm, setEvolutionForm] = useState({ dolor_inicial: '', dolor_final: '', aplicacion: '', observaciones: '', inyectables: '' });
@@ -202,8 +228,11 @@ function Sesiones() {
     const query = registeredFilters.query.trim().toLowerCase();
     const filtered = sesiones.filter((sesion) => {
       const historia = sesion.historia_clinica || historias.find((item) => String(item.id) === String(sesion.historia_clinica_id));
-      const text = `${nombrePaciente(sesion.paciente)} ${sesion.registrado_por?.nombre || ''} ${sesion.observacion || ''} ${sesion.observacion_farmacos || ''} ${sesion.metodo_pago || ''} ${historia?.condicion_actual?.zona_cuerpo || ''} ${historia?.motivo_consulta || ''}`.toLowerCase();
-      return !query || text.includes(query);
+      const text = `${nombrePaciente(sesion.paciente)} ${sesion.paciente?.ci || ''} ${sesion.paciente?.telefono || sesion.paciente?.celular || ''} ${sesion.registrado_por?.nombre || ''} ${sesion.profesional_responsable || ''} ${sesion.observacion || ''} ${sesion.observacion_farmacos || ''} ${sesion.estado_pago || ''} ${sesion.metodo_pago || ''} ${historia?.condicion_actual?.zona_cuerpo || ''} ${historia?.motivo_consulta || ''} ${historia?.diagnostico_medico || ''}`.toLowerCase();
+      const date = String(sesion.fecha || '');
+      const matchesDate = (!registeredFilters.dateFrom || date >= registeredFilters.dateFrom)
+        && (!registeredFilters.dateTo || date <= registeredFilters.dateTo);
+      return (!query || text.includes(query)) && matchesDate;
     });
 
     return [...filtered].sort((a, b) => {
@@ -300,13 +329,19 @@ function Sesiones() {
     return [...filtered].sort((a, b) => {
       if (registeredFilters.orderBy === 'nombre_asc') return nombrePaciente(a.paciente).localeCompare(nombrePaciente(b.paciente), 'es');
       if (registeredFilters.orderBy === 'nombre_desc') return nombrePaciente(b.paciente).localeCompare(nombrePaciente(a.paciente), 'es');
+      if (registeredFilters.orderBy === 'sesiones_desc') return b.sesiones.length - a.sesiones.length;
+      if (registeredFilters.orderBy === 'sesiones_asc') return a.sesiones.length - b.sesiones.length;
       const comparison = String(b.ultimaSesion?.fecha || '').localeCompare(String(a.ultimaSesion?.fecha || ''));
       return registeredFilters.orderBy === 'fecha_asc' ? -comparison : comparison;
     });
   }, [groupedSesiones, sessionFilter, registeredFilters.orderBy]);
   const paginatedGroups = visibleGroups.slice((page - 1) * pageSize, page * pageSize);
 
-  useEffect(() => { setPage(1); setExpandedGroupKey(null); }, [sessionFilter, registeredFilters.query, registeredFilters.orderBy, pageSize]);
+  useEffect(() => { setPage(1); setExpandedGroupKey(null); }, [sessionFilter, registeredFilters.query, registeredFilters.dateFrom, registeredFilters.dateTo, registeredFilters.orderBy, pageSize]);
+  useEffect(() => {
+    const lastPage = Math.max(1, Math.ceil(visibleGroups.length / pageSize));
+    if (page > lastPage) setPage(lastPage);
+  }, [visibleGroups.length, pageSize, page]);
 
   const validate = () => {
     if (!form.paciente_id) return 'Selecciona un paciente.';
@@ -336,19 +371,19 @@ function Sesiones() {
         monto_pagado: Number(form.monto_pagado || 0),
         saldo_pendiente: Number(form.saldo_pendiente || 0)
       });
-      const wasEditing = Boolean(editing);
-      const saved = editing ? await updateSesion(editing, payload) : await createSesion(payload);
+      if (editing) await updateSesion(editing, payload);
+      else await createSesion(payload);
       setForm(initialForm);
       setEditing(null);
       setShowFormModal(false);
       await load();
-      if (!wasEditing && payload.asistencia === 'asistio') setSavedSession(saved);
     } catch (err) {
       setError(err.message);
     }
   };
 
-  const editSesion = (sesion) => {
+  const editSesion = (sesion, tab = 'session') => {
+    setFormTab(tab);
     setEditing(sesion.id);
     setForm({
       paciente_id: sesion.paciente_id || sesion.paciente?.id || '',
@@ -365,14 +400,36 @@ function Sesiones() {
       saldo_pendiente: sesion.saldo_pendiente || saldoPendiente(sesion),
       aplica_farmacos: Boolean(sesion.aplica_farmacos),
       observacion_farmacos: sesion.observacion_farmacos || '',
+      medios_fisicos: sesion.medios_fisicos || '',
+      tecnicas_manuales: sesion.tecnicas_manuales || '',
+      descripcion_tratamiento: sesion.descripcion_tratamiento || '',
+      evolucion_observada: sesion.evolucion_observada || '',
+      dolor_antes: sesion.dolor_antes ?? '',
+      dolor_despues: sesion.dolor_despues ?? '',
+      inyectable_nombre: sesion.inyectable_nombre || '',
+      inyectable_dosis: sesion.inyectable_dosis || '',
+      profesional_responsable: sesion.profesional_responsable || '',
       observacion: sesion.observacion || ''
     });
     setShowFormModal(true);
   };
 
+  useEffect(() => {
+    const sesionId = location.state?.editarSesionId || location.state?.verSesionId;
+    if (!sesionId || !sesiones.length) return;
+
+    const sesion = sesiones.find((item) => String(item.id) === String(sesionId));
+    if (sesion) {
+      if (location.state?.verSesionId) setSelectedSesion(sesion);
+      else editSesion(sesion, 'evolution');
+    }
+    navigate('/sesiones', { replace: true, state: null });
+  }, [sesiones, location.state, navigate]);
+
   const openNuevaSesion = () => {
+    setFormTab('session');
     setEditing(null);
-    setForm(initialForm);
+    setForm({ ...initialForm, profesional_responsable: profesionalActual });
     setError('');
     setShowFormModal(true);
   };
@@ -384,12 +441,20 @@ function Sesiones() {
     );
     const realizadas = sesionesHistoria.filter(isSesionRealizada).length;
     const contratadas = Number(historia.evaluacion_final?.sesiones_contratadas || 0);
+    if (contratadas > 0 && realizadas >= contratadas) {
+      setMessage(`El paciente ya completó las ${contratadas} sesiones contratadas para esta historia clínica.`);
+      setShowFormModal(false);
+      return;
+    }
+    setFormTab('session');
     setEditing(null);
     setForm({
       ...initialForm,
+      profesional_responsable: profesionalActual,
       paciente_id: group.paciente.id,
       historia_clinica_id: historia.id,
       numero_sesion: realizadas + 1,
+      dolor_antes: dolorInicialParaHistoria(historia, sesionesHistoria),
       sesiones_debe: contratadas,
       sesiones_hizo: realizadas + 1
     });
@@ -399,6 +464,7 @@ function Sesiones() {
 
   const closeFormModal = () => {
     setShowFormModal(false);
+    setFormTab('session');
     setEditing(null);
     setForm(initialForm);
     setError('');
@@ -408,10 +474,26 @@ function Sesiones() {
     setExpandedGroups((current) => ({ ...current, [key]: !current[key] }));
   };
 
-  const openAnnulModal = (sesion) => {
-    setAnnulSesion(sesion);
-    setAnnulForm({ motivo_anulacion: '', observacion_anulacion: '' });
-    setError('');
+  const openAnnulModal = async (sesion) => {
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: '¿Eliminar sesión?',
+      text: 'Esta sesión dejará de mostrarse y no será tomada en cuenta en los contadores ni en el progreso del tratamiento.',
+      showCancelButton: true,
+      reverseButtons: true,
+      confirmButtonText: 'Eliminar sesión',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#DC2626',
+      cancelButtonColor: '#64748B'
+    });
+    if (!result.isConfirmed) return;
+    try {
+      await deleteSesion(sesion.id, { motivo_anulacion: 'Eliminación de sesión', observacion_anulacion: 'Eliminada desde Sesiones registradas' });
+      await load();
+      await Swal.fire({ icon: 'success', title: 'Sesión eliminada correctamente.', confirmButtonColor: '#0F766E' });
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   const closeAnnulModal = () => {
@@ -436,31 +518,38 @@ function Sesiones() {
 
   const openEvolution = (group, session) => {
     const history = session.historia_clinica || group.historias.find((item) => String(item.id) === String(session.historia_clinica_id)) || group.historia;
-    const previous = Array.isArray(history.evolutivo) ? history.evolutivo : [];
-    const lastEvolution = previous[previous.length - 1];
-    const initialPain = lastEvolution?.dolor_final ?? history.intervencion_clinica?.escala_dolor ?? '';
-    setEvolutionTarget({ group, session, history });
-    setEvolutionForm({ dolor_inicial: initialPain, dolor_final: '', aplicacion: '', observaciones: '', inyectables: '' });
+    const currentEvolution = sessionEvolution(history, session);
+    const previous = (Array.isArray(history.evolutivo) ? history.evolutivo : [])
+      .filter((item) => item.estado !== 'anulado' && String(item.sesion_id || '') !== String(session.id) && Number(item.numero_sesion || item.numero || 0) < Number(session.numero_sesion || 0))
+      .sort((a, b) => Number(a.numero_sesion || a.numero || 0) - Number(b.numero_sesion || b.numero || 0));
+    const lastEvolution = previous.at(-1);
+    const initialPain = currentEvolution?.dolor_inicial ?? session.dolor_antes ?? lastEvolution?.dolor_final ?? history.intervencion_clinica?.escala_dolor ?? '';
+    setEvolutionTarget({ group, session, history, evolution: currentEvolution });
+    setEvolutionForm({
+      dolor_inicial: initialPain,
+      dolor_final: currentEvolution?.dolor_final ?? session.dolor_despues ?? '',
+      aplicacion: currentEvolution?.aplicacion || currentEvolution?.procedimiento_realizado || session.descripcion_tratamiento || '',
+      observaciones: currentEvolution?.observaciones || session.evolucion_observada || session.observacion || '',
+      inyectables: currentEvolution?.inyectables || session.inyectable_nombre || ''
+    });
   };
 
   const saveEvolution = async (event) => {
     event.preventDefault();
     if (!evolutionTarget) return;
-    const { group, session } = evolutionTarget;
-    const history = evolutionTarget.history || group.historia;
-    const previous = Array.isArray(history.evolutivo) ? history.evolutivo : [];
-    const next = [...previous, {
-      ...evolutionForm,
-      numero: Number(session.numero_sesion || previous.length + 1),
-      numero_sesion: Number(session.numero_sesion || previous.length + 1),
-      fecha: session.fecha,
-      fecha_sesion: session.fecha,
-      sesion_id: session.id
-    }];
+    const { session } = evolutionTarget;
     try {
-      await updateHistoriaClinica(history.id, { evolutivo: next });
+      await updateSesion(session.id, {
+        dolor_antes: evolutionForm.dolor_inicial,
+        dolor_despues: evolutionForm.dolor_final,
+        descripcion_tratamiento: evolutionForm.aplicacion,
+        evolucion_observada: evolutionForm.observaciones,
+        observacion: evolutionForm.observaciones,
+        aplica_farmacos: Boolean(evolutionForm.inyectables),
+        inyectable_nombre: evolutionForm.inyectables
+      });
       setEvolutionTarget(null);
-      setMessage('Evolutivo registrado correctamente.');
+      setMessage(evolutionTarget.evolution ? 'Evolutivo actualizado correctamente.' : 'Evolutivo registrado correctamente.');
       await load();
     } catch (err) {
       setError(err.message);
@@ -471,7 +560,7 @@ function Sesiones() {
     <section className="grid gap-5">
       {loading && <Loader />}
       <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-        <div className="grid gap-3 bg-gradient-to-r from-brand-900 to-brand-600 p-4 text-white md:grid-cols-[1fr_auto]">
+        <div className="module-hero">
           <div>
             <p className="text-sm font-bold text-brand-50">Atención diaria</p>
             <h2 className="mt-1 text-2xl font-black md:text-3xl">Sesiones</h2>
@@ -498,7 +587,7 @@ function Sesiones() {
             </Button>
           </div>
         </div>
-        <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(280px,1fr)_170px_170px_auto_230px]">
           <label className="grid gap-1 text-sm font-bold text-slate-700">
             <span>Buscar</span>
             <span className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
@@ -511,6 +600,9 @@ function Sesiones() {
               />
             </span>
           </label>
+          <Input compact label="Fecha desde" type="date" value={registeredFilters.dateFrom} onChange={(event) => setRegisteredFilters({ ...registeredFilters, dateFrom: event.target.value, dateTo: registeredFilters.dateTo || event.target.value })} />
+          <Input compact label="Fecha hasta" type="date" min={registeredFilters.dateFrom || undefined} value={registeredFilters.dateTo} onChange={(event) => setRegisteredFilters({ ...registeredFilters, dateTo: event.target.value })} />
+          <Button className="self-end" variant="secondary" onClick={() => setRegisteredFilters({ ...registeredFilters, dateFrom: '', dateTo: '' })}><CalendarDays size={16} />Limpiar fecha</Button>
           <Input
             label="Ordenar"
             value={registeredFilters.orderBy}
@@ -519,7 +611,9 @@ function Sesiones() {
               { value: 'fecha_desc', label: 'Fecha reciente primero' },
               { value: 'fecha_asc', label: 'Fecha antigua primero' },
               { value: 'nombre_asc', label: 'Paciente A-Z' },
-              { value: 'nombre_desc', label: 'Paciente Z-A' }
+              { value: 'nombre_desc', label: 'Paciente Z-A' },
+              { value: 'sesiones_desc', label: 'Mayor número de sesiones' },
+              { value: 'sesiones_asc', label: 'Menor número de sesiones' }
             ]}
           />
         </div>
@@ -642,9 +736,9 @@ function Sesiones() {
                         {expanded ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
                         {expanded ? 'Ocultar sesiones' : 'Ver sesiones'}
                       </Button>
-                      <Button variant="ghost" onClick={() => openNuevaSesionGrupo(group)}>
+                      <Button variant="ghost" disabled={group.contratadas > 0 && group.realizadas >= group.contratadas} onClick={() => openNuevaSesionGrupo(group)}>
                         <PlusCircle size={17} />
-                        Nueva sesión
+                        {group.contratadas > 0 && group.realizadas >= group.contratadas ? 'Plan completado' : 'Nueva sesión'}
                       </Button>
                       <Button variant="ghost" onClick={() => setSelectedHistoria(group.historia)}>
                         <ClipboardList size={17} />
@@ -790,60 +884,50 @@ function Sesiones() {
         onClose={closeFormModal}
         size="sessions"
       >
-        <SesionForm form={form} setForm={setForm} pacientes={pacientes} historias={historias} sesiones={sesiones} editing={editing} onSubmit={submit} onCancel={closeFormModal} error={error} />
+        <SesionForm form={form} setForm={setForm} pacientes={pacientes} historias={historias} sesiones={sesiones} editing={editing} initialTab={formTab} onSubmit={submit} onCancel={closeFormModal} error={error} />
       </Modal>
 
-      <Modal open={Boolean(savedSession)} title="¡Sesión registrada correctamente!" subtitle="La atención diaria quedó guardada y sincronizada." onClose={() => setSavedSession(null)} size="sessions">
-        {savedSession && <div className="grid gap-4"><div className="grid gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 sm:grid-cols-2"><Detail label="Paciente" value={nombrePaciente(savedSession.paciente)} /><Detail label="Sesión N.º" value={savedSession.numero_sesion} /><Detail label="Fecha" value={formatDate(savedSession.fecha)} /><Detail label="Historia" value={savedSession.historia_clinica?.condicion_actual?.zona_cuerpo || savedSession.historia_clinica?.motivo_consulta || 'Historia activa'} /></div><p className="text-center text-sm font-bold text-slate-700">¿Deseas registrar ahora el evolutivo de esta sesión?</p><div className="flex flex-wrap justify-center gap-2 border-t border-slate-200 pt-3"><Button variant="ghost" onClick={() => setSavedSession(null)}>Hacerlo después</Button><Button onClick={() => { const group = groupedSesiones.find((item) => String(item.historia.id) === String(savedSession.historia_clinica_id)); if (group) openEvolution(group, savedSession); setSavedSession(null); }}><FilePenLine size={17} />Registrar evolutivo ahora</Button></div></div>}
-      </Modal>
-
-      <Modal open={Boolean(evolutionTarget)} title="Registrar evolutivo" subtitle={evolutionTarget ? `${nombrePaciente(evolutionTarget.group.paciente)} · Sesión N.º ${evolutionTarget.session.numero_sesion} · ${formatDate(evolutionTarget.session.fecha)}` : ''} onClose={() => setEvolutionTarget(null)} size="sessions">
-        {evolutionTarget && <form onSubmit={saveEvolution} className="grid gap-4"><div className="rounded-lg border border-blue-100 bg-blue-50/60 px-4 py-3 text-xs text-blue-800"><strong>{evolutionTarget.group.historia.condicion_actual?.zona_cuerpo || evolutionTarget.group.historia.motivo_consulta || 'Historia clínica activa'}</strong><span className="ml-2">Paciente, historia, sesión y fecha vinculados automáticamente.</span></div><div className="grid gap-3 sm:grid-cols-2"><Input label="Dolor inicial (desde historia clínica)" type="number" min="0" max="10" value={evolutionForm.dolor_inicial} readOnly /><Input label="Dolor final (0-10)" type="number" min="0" max="10" value={evolutionForm.dolor_final} onChange={(event) => setEvolutionForm({ ...evolutionForm, dolor_final: event.target.value })} required /></div><p className="-mt-2 text-[11px] text-slate-500">El dolor inicial se obtiene automáticamente del último evolutivo o de la evaluación de la historia clínica.</p><Input label="Procedimiento realizado" value={evolutionForm.aplicacion} onChange={(event) => setEvolutionForm({ ...evolutionForm, aplicacion: event.target.value.toLocaleUpperCase('es-BO') })} multiline required /><Input label="Observaciones" value={evolutionForm.observaciones} onChange={(event) => setEvolutionForm({ ...evolutionForm, observaciones: event.target.value.toLocaleUpperCase('es-BO') })} multiline /><Input label="Inyectables (opcional)" value={evolutionForm.inyectables} onChange={(event) => setEvolutionForm({ ...evolutionForm, inyectables: event.target.value.toLocaleUpperCase('es-BO') })} /><div className="flex justify-end gap-2 border-t border-slate-200 pt-3"><Button variant="ghost" onClick={() => setEvolutionTarget(null)}>Cancelar</Button><Button type="submit">Guardar evolutivo</Button></div></form>}
+      <Modal open={Boolean(evolutionTarget)} title={evolutionTarget?.evolution ? 'Editar evolutivo' : 'Registrar evolutivo'} subtitle={evolutionTarget ? `${nombrePaciente(evolutionTarget.group.paciente)} · Sesión N.º ${evolutionTarget.session.numero_sesion} · ${formatDate(evolutionTarget.session.fecha)}` : ''} onClose={() => setEvolutionTarget(null)} size="sessions">
+        {evolutionTarget && <form onSubmit={saveEvolution} className="grid gap-4"><div className="rounded-lg border border-blue-100 bg-blue-50/60 px-4 py-3 text-xs text-blue-800"><strong>{evolutionTarget.history.condicion_actual?.zona_cuerpo || evolutionTarget.history.motivo_consulta || 'Historia clínica activa'}</strong><span className="ml-2">Paciente, historia, sesión y fecha vinculados automáticamente.</span></div><div className="grid gap-3 sm:grid-cols-2"><Input label="Dolor inicial (desde historia clínica)" type="number" min="0" max="10" value={evolutionForm.dolor_inicial} readOnly /><Input label="Dolor final (0-10)" type="number" min="0" max="10" value={evolutionForm.dolor_final} onChange={(event) => setEvolutionForm({ ...evolutionForm, dolor_final: event.target.value })} required /></div><p className="-mt-2 text-[11px] text-slate-500">El dolor inicial se obtiene automáticamente del último evolutivo o de la evaluación de la historia clínica.</p><Input label="Procedimiento realizado" value={evolutionForm.aplicacion} onChange={(event) => setEvolutionForm({ ...evolutionForm, aplicacion: event.target.value.toLocaleUpperCase('es-BO') })} multiline required /><Input label="Observaciones" value={evolutionForm.observaciones} onChange={(event) => setEvolutionForm({ ...evolutionForm, observaciones: event.target.value.toLocaleUpperCase('es-BO') })} multiline /><Input label="Inyectables (opcional)" value={evolutionForm.inyectables} onChange={(event) => setEvolutionForm({ ...evolutionForm, inyectables: event.target.value.toLocaleUpperCase('es-BO') })} /><div className="flex justify-end gap-2 border-t border-slate-200 pt-3"><Button variant="ghost" onClick={() => setEvolutionTarget(null)}>Cancelar</Button><Button type="submit">{evolutionTarget.evolution ? 'Actualizar evolutivo' : 'Guardar evolutivo'}</Button></div></form>}
       </Modal>
 
       <Modal open={Boolean(evolutionDetail)} title="Detalle del evolutivo" subtitle={evolutionDetail ? `${nombrePaciente(evolutionDetail.group.paciente)} · Sesión N.º ${evolutionDetail.session.numero_sesion} · ${formatDate(evolutionDetail.session.fecha)}` : ''} onClose={() => setEvolutionDetail(null)} size="sessions">
-        {evolutionDetail && <div className="grid gap-3"><div className="grid gap-3 sm:grid-cols-2"><Detail label="Dolor inicial" value={`${evolutionDetail.evolution.dolor_inicial ?? '-'} / 10`} /><Detail label="Dolor final" value={`${evolutionDetail.evolution.dolor_final ?? '-'} / 10`} /></div><Detail label="Procedimiento realizado" value={evolutionDetail.evolution.aplicacion || evolutionDetail.evolution.procedimiento_realizado} /><Detail label="Observaciones" value={evolutionDetail.evolution.observaciones} /><Detail label="Inyectables utilizados" value={evolutionDetail.evolution.inyectables} /></div>}
+        {evolutionDetail && <div className="grid gap-3"><div className="grid gap-3 sm:grid-cols-2"><Detail label="Dolor inicial" value={`${evolutionDetail.session.dolor_antes ?? evolutionDetail.evolution.dolor_inicial ?? '-'} / 10`} /><Detail label="Dolor final" value={`${evolutionDetail.session.dolor_despues ?? evolutionDetail.evolution.dolor_final ?? '-'} / 10`} /></div><Detail label="Procedimiento realizado" value={evolutionDetail.session.descripcion_tratamiento || [evolutionDetail.session.medios_fisicos, evolutionDetail.session.tecnicas_manuales].filter(Boolean).join(' · ') || evolutionDetail.evolution.aplicacion || evolutionDetail.evolution.procedimiento_realizado} /><Detail label="Observaciones" value={evolutionDetail.session.evolucion_observada || evolutionDetail.session.observacion || evolutionDetail.evolution.observaciones} /><Detail label="Inyectables utilizados" value={[evolutionDetail.session.inyectable_nombre, evolutionDetail.session.inyectable_dosis].filter(Boolean).join(' · ') || evolutionDetail.evolution.inyectables} /></div>}
       </Modal>
 
-      <Modal open={Boolean(selectedSesion)} title="Detalle de la sesión" subtitle="Información clínica y administrativa de la atención." onClose={() => setSelectedSesion(null)} size="sessions">
-        {selectedSesion && (
-          <div className="grid gap-4">
-            <div className="grid gap-3 md:grid-cols-4">
-              <Detail label="Paciente" value={nombrePaciente(selectedSesion.paciente)} />
-              <Detail label="Fecha" value={formatDate(selectedSesion.fecha)} />
-              <Detail label="Registrado por" value={selectedSesion.registrado_por?.nombre || 'Registro anterior'} />
-              <Detail label="Contratadas" value={selectedSesion.sesiones_debe} />
-              <Detail label="Realizadas" value={selectedSesion.sesiones_hizo} />
-              <Detail label="Restantes" value={Math.max(Number(selectedSesion.sesiones_debe || 0) - Number(selectedSesion.sesiones_hizo || 0), 0)} />
-              <Detail label="Asistencia" value={labelAsistencia(selectedSesion.asistencia)} />
-              <Detail label="Método de pago" value={selectedSesion.metodo_pago} />
-              <Detail label="Estado de pago" value={selectedSesion.estado_pago} />
-              <Detail label="Monto sesión" value={formatMoney(montoSesion(selectedSesion))} />
-              <Detail label="Monto pagado" value={formatMoney(montoPagado(selectedSesion))} />
-              <Detail label="Saldo pendiente" value={formatMoney(saldoPendiente(selectedSesion))} />
-              <Detail label="Fármacos" value={selectedSesion.aplica_farmacos ? 'Sí aplica' : 'No aplica'} />
-              <Detail label="Estado" value={Math.max(Number(selectedSesion.sesiones_debe || 0) - Number(selectedSesion.sesiones_hizo || 0), 0) === 0 ? 'Completado' : 'Pendiente'} />
+      <Modal open={Boolean(selectedSesion)} title="Detalle de la sesión" subtitle={selectedSesion ? `Sesión N.º ${selectedSesion.numero_sesion || 1} · ${formatDate(selectedSesion.fecha)}` : ''} onClose={() => setSelectedSesion(null)} size="lg">
+        {selectedSesion && (() => {
+          const contratadas = Number(selectedSesion.sesiones_debe || 0);
+          const realizadas = Number(selectedSesion.sesiones_hizo || 0);
+          const restantes = Math.max(contratadas - realizadas, 0);
+          const completado = contratadas > 0 && restantes === 0;
+          return <div className="grid gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <section className="session-detail-card">
+                <h3><IdCard size={19} />Paciente</h3>
+                <div className="session-detail-row"><span className="grid h-10 w-10 place-items-center rounded-full bg-teal-50 font-black text-teal-700">{initialsOf(selectedSesion.paciente)}</span><span><small>Nombre completo</small><strong>{nombrePaciente(selectedSesion.paciente)}</strong></span></div>
+                <div className="session-detail-row"><span className="grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-slate-500"><Stethoscope size={18} /></span><span><small>Registrado por</small><strong>{selectedSesion.profesional_responsable || selectedSesion.registrado_por?.nombre || 'Registro anterior'}</strong></span></div>
+              </section>
+              <section className="session-detail-card">
+                <h3><CalendarDays size={19} />Sesiones</h3>
+                <div className="grid grid-cols-3 gap-2">{[['Contratadas', contratadas], ['Realizadas', realizadas], ['Restantes', restantes]].map(([label, value]) => <div key={label} className={`rounded-xl p-3 text-center ${label === 'Realizadas' ? 'border border-teal-300 bg-teal-50' : 'bg-slate-50'}`}><strong className="block text-2xl text-teal-800">{value}</strong><small className="text-[10px] font-bold uppercase text-slate-500">{label}</small></div>)}</div>
+                <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm"><span className="text-slate-500">Asistencia</span><Badge tone={asistenciaTone[selectedSesion.asistencia] || asistenciaTone.pendiente}>{labelAsistencia(selectedSesion.asistencia)}</Badge></div>
+              </section>
+              <section className="session-detail-card">
+                <h3><CreditCard size={19} />Detalle de pago</h3>
+                <div className="grid grid-cols-2 gap-2"><Detail label="Método" value={selectedSesion.metodo_pago} /><Detail label="Estado" value={selectedSesion.estado_pago} /><Detail label="Monto sesión" value={formatMoney(montoSesion(selectedSesion))} /><Detail label="Monto pagado" value={formatMoney(montoPagado(selectedSesion))} /></div>
+                <div className="flex items-center justify-between rounded-lg border border-teal-100 bg-teal-50 p-3"><span className="text-xs font-semibold text-teal-700">Saldo pendiente</span><strong className="text-lg text-emerald-700">{formatMoney(saldoPendiente(selectedSesion))}</strong></div>
+              </section>
+              <section className="session-detail-card">
+                <h3><Activity size={19} />Estado clínico</h3>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3"><span className="text-sm text-slate-500">Fármacos</span><Badge tone={selectedSesion.aplica_farmacos ? 'bg-violet-50 text-violet-700 ring-violet-200' : 'bg-slate-100 text-slate-600 ring-slate-200'}>{selectedSesion.aplica_farmacos ? 'Sí aplica' : 'No aplica'}</Badge></div>
+                <div className="flex items-center justify-between"><span className="text-sm text-slate-500">Estado</span><Badge tone={completado ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200'}>{completado ? 'Completado' : 'En tratamiento'}</Badge></div>
+                <div className="rounded-lg border-l-4 border-l-teal-500 bg-slate-50 p-3"><small className="block text-[10px] font-black uppercase text-slate-500">Observación clínica</small><p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-slate-700">{selectedSesion.observacion || selectedSesion.evolucion_observada || 'Sin observación registrada'}</p></div>
+              </section>
             </div>
-            <div className="flex items-center gap-2 rounded-lg border border-cyan-100 bg-cyan-50 p-3 text-sm font-semibold text-cyan-800">
-              <CalendarSync size={17} />
-              Esta atención está sincronizada con Sesiones Semanales.
-            </div>
-            <Detail label="Observación clínica" value={selectedSesion.observacion} />
-            {selectedSesion.aplica_farmacos && <Detail label="Observación de fármacos" value={selectedSesion.observacion_farmacos} />}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setSelectedSesion(null);
-                  editSesion(selectedSesion);
-                }}
-              >
-                <FilePenLine size={17} />
-                Editar
-              </Button>
-            </div>
-          </div>
-        )}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-100 bg-cyan-50 p-3 text-sm font-semibold text-cyan-800"><span className="flex items-center gap-2"><CalendarSync size={17} />Esta atención está sincronizada con Sesiones Semanales.</span><Button variant="ghost" onClick={() => { setSelectedSesion(null); editSesion(selectedSesion); }}><FilePenLine size={16} />Editar sesión</Button></div>
+          </div>;
+        })()}
       </Modal>
 
       <Modal open={Boolean(selectedHistoria)} title="Historia clínica relacionada" subtitle="Resumen de la historia asociada a estas sesiones." onClose={() => setSelectedHistoria(null)} size="compact">
@@ -915,3 +999,4 @@ function Sesiones() {
 }
 
 export default Sesiones;
+

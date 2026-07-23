@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { Download, Eye, FilePenLine, Plus, Printer, Save, Search, Stethoscope, Trash2 } from 'lucide-react';
+import Swal from 'sweetalert2';
+import { Activity, CalendarDays, ChevronDown, ClipboardList, Download, Eye, FilePenLine, FileText, HeartPulse, Maximize2, MessageSquare, Plus, Printer, Save, Search, Stethoscope, Trash2, UserRound } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -73,6 +74,16 @@ const historiaToInformeFields = (historia) => {
     estado_actual: historia?.evaluacion_final?.diagnostico_kinesico_cif || ''
   };
 };
+
+function ReportSection({ icon: Icon, title, open, onToggle, children }) {
+  return <section className="overflow-hidden rounded-xl border border-brand-100 bg-brand-50/20">
+    <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-3 bg-white px-4 py-3 text-left text-sm font-black text-brand-800">
+      <span className="flex items-center gap-2"><Icon size={17} />{title}</span>
+      <ChevronDown size={17} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+    </button>
+    <div className={`grid transition-[grid-template-rows] duration-200 ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}><div className="overflow-hidden"><div className="grid gap-4 border-t border-brand-100 p-4">{children}</div></div></div>
+  </section>;
+}
 
 function PrintableReport({ informe, pacientes }) {
   const paciente = informe?.paciente || pacientes.find((item) => Number(item.id) === Number(informe?.paciente_id));
@@ -173,6 +184,7 @@ function Reportes() {
   const [error, setError] = useState('');
   const [activePanel, setActivePanel] = useState('generados');
   const [query, setQuery] = useState('');
+  const [reportSections, setReportSections] = useState({ clinical: false, evaluation: true, treatment: true, closing: true });
 
   const pacienteSeleccionado = useMemo(
     () => pacientes.find((item) => Number(item.id) === Number(form.paciente_id)),
@@ -315,12 +327,11 @@ function Reportes() {
     return '';
   };
 
-  const submit = async (event) => {
-    event.preventDefault();
+  const saveInforme = async (mode = 'generado') => {
     setMessage('');
     const validationError = validate();
     setError(validationError);
-    if (validationError) return;
+    if (validationError) return false;
 
     try {
       const payload = cleanPayload({
@@ -332,9 +343,17 @@ function Reportes() {
       setEditing(null);
       setActivePanel('generados');
       await load();
+      await Swal.fire({ icon: 'success', title: mode === 'borrador' ? 'Borrador guardado correctamente' : 'Informe generado correctamente', confirmButtonColor: '#0F766E' });
+      return true;
     } catch (err) {
       setError(err.message);
+      return false;
     }
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    await saveInforme('generado');
   };
 
   const editInforme = (informe) => {
@@ -496,13 +515,13 @@ function Reportes() {
       {loading && <Loader />}
       <div className="page-title">
         <div className="w-full overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-          <div className="grid gap-3 bg-gradient-to-r from-brand-900 to-brand-600 p-4 text-white md:grid-cols-[1fr_auto]">
+          <div className="report-module-hero">
             <div>
-              <p className="!text-xs !font-black !uppercase !text-emerald-100">INFORMES</p>
-              <h2 className="!mt-1 !text-2xl !font-black !text-white md:!text-3xl">Informes Médicos</h2>
-              <span className="!mt-2 !block !text-sm !text-emerald-50">Genera, edita, imprime y descarga informes vinculados a pacientes e historias clínicas.</span>
+              <p className="text-xs font-black uppercase tracking-wide text-teal-700">INFORMES</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-900 md:text-3xl">Informes Médicos</h2>
+              <span className="mt-2 block text-sm text-slate-600">Genera, edita, imprime y descarga informes vinculados a pacientes e historias clínicas.</span>
             </div>
-            <Stethoscope size={46} className="self-center text-white/90" />
+            <Stethoscope size={46} className="self-center text-teal-600/80" />
           </div>
         </div>
       </div>
@@ -570,89 +589,45 @@ function Reportes() {
           setActivePanel('generados');
           setEditing(null);
         }}
-        size="xl"
+        size="report"
       >
-        <div className="grid gap-5 xl:grid-cols-[minmax(340px,500px)_minmax(0,1fr)]">
-          <form onSubmit={submit} className="grid gap-4">
-            <div className="form-grid">
-              <Input
-                label="Paciente"
-                value={form.paciente_id}
-                onChange={(e) => selectPaciente(e.target.value)}
-                className="md:col-span-2"
-                options={[
-                  { value: '', label: 'Seleccionar paciente' },
-                  ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))
-                ]}
-              />
-              <Input
-                label="Historia clínica"
-                value={form.historia_clinica_id}
-                onChange={(e) => selectHistoria(e.target.value)}
-                disabled={!form.paciente_id || historiasPaciente.length === 0}
-                className="md:col-span-2"
-                options={[
-                  { value: '', label: form.paciente_id ? 'Seleccionar historia clinica activa' : 'Selecciona primero un paciente' },
-                  ...historiasPaciente.map((historia) => ({ value: historia.id, label: historiaLabel(historia) }))
-                ]}
-              />
-              <Input label="Fecha" type="date" value={form.fecha} onChange={(e) => update('fecha', e.target.value)} />
-              <Input label="Doctor / Fisioterapeuta" value={profesionalAutenticado} disabled />
-              <Input label="Sesiones realizadas" type="number" min="0" value={sesionesRealizadasHistoria} disabled />
-              <Input label="Diagnostico" value={form.diagnostico} onChange={(e) => update('diagnostico', e.target.value)} multiline className="md:col-span-2" />
-              <Input label="DX CIE / Descripcion clinica" value={form.dx_cie} onChange={(e) => update('dx_cie', e.target.value)} multiline className="md:col-span-2" />
-              <Input label="Antecedentes" value={form.antecedentes} onChange={(e) => update('antecedentes', e.target.value)} multiline className="md:col-span-2" />
-              <Input label="Conclusion diagnostica" value={form.conclusion_diagnostica} onChange={(e) => update('conclusion_diagnostica', e.target.value)} multiline className="md:col-span-2" />
-              <Input label="Tratamiento fisioterapeutico" value={form.tratamiento_fisioterapeutico} onChange={(e) => update('tratamiento_fisioterapeutico', e.target.value)} multiline className="md:col-span-2" />
-              <Input label="Medicamentos / Farmacos" value={form.medicamentos} onChange={(e) => update('medicamentos', e.target.value)} multiline className="md:col-span-2" />
-              <Input label="Estado actual del paciente" value={form.estado_actual} onChange={(e) => update('estado_actual', e.target.value)} multiline className="md:col-span-2" />
-              <Input label="Observacion final" value={form.observacion_final} onChange={(e) => update('observacion_final', e.target.value)} multiline className="md:col-span-2" />
-            </div>
-            {form.paciente_id && (
-              <div className="rounded-lg border border-brand-100 bg-brand-50/70 p-3 text-sm text-slate-600">
-                <strong className="text-ink">Datos vinculados:</strong> {historiasPaciente.length} historias clinicas activas, {sesionesRealizadasHistoria} sesiones realizadas de la historia seleccionada.
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-              <Button type="submit">
-                <Save size={17} />
-                Guardar informe
-              </Button>
-              <Button variant="secondary" onClick={() => setShowPreview(true)}>
-                <Eye size={17} />
-                Vista previa
-              </Button>
-              <Button variant="ghost" onClick={() => printInforme()}>
-                <Printer size={17} />
-                Imprimir
-              </Button>
-              <Button variant="ghost" onClick={() => downloadInformePdf()}>
-                <Download size={17} />
-                Descargar PDF
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setEditing(null);
-                  setForm(initialForm);
-                  setActivePanel('generados');
-                }}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </form>
-
-          <div className="min-h-0 overflow-auto rounded-lg border border-slate-200 bg-slate-100 p-3">
-            <div className="mb-3">
-              <h3 className="text-base font-bold text-ink">Vista previa carta</h3>
-              <p className="text-sm text-slate-500">Asi se vera al imprimir o guardar como PDF.</p>
-            </div>
-            <div id="printable-report" ref={printRef}>
-              <PrintableReport informe={previewInforme} pacientes={pacientes} />
-            </div>
+        <form onSubmit={submit} className="new-report-form grid max-h-[78vh] grid-rows-[auto_minmax(0,1fr)_auto] gap-4 overflow-hidden">
+          <div className="grid gap-3 rounded-xl border border-brand-100 bg-brand-50/40 p-3 sm:grid-cols-2 xl:grid-cols-[minmax(190px,1fr)_minmax(280px,1.45fr)_minmax(150px,.7fr)]">
+            <Input compact label="Paciente" value={form.paciente_id} onChange={(e) => selectPaciente(e.target.value)} options={[{ value: '', label: 'Seleccionar paciente' }, ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))]} />
+            <Input compact label="Historia clínica seleccionada" value={form.historia_clinica_id} onChange={(e) => selectHistoria(e.target.value)} disabled={!form.paciente_id || historiasPaciente.length === 0} options={[{ value: '', label: form.paciente_id ? 'Seleccionar historia activa' : 'Primero selecciona paciente' }, ...historiasPaciente.map((historia) => ({ value: historia.id, label: historiaLabel(historia) }))]} />
+            <Input compact label="Fecha" type="date" value={form.fecha} onChange={(e) => update('fecha', e.target.value)} />
+            <div className="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-3"><div className="linked-report-item min-w-[240px] flex-1"><UserRound size={16} /><span><small>Profesional responsable</small><strong>{profesionalAutenticado || 'Sin registrar'}</strong></span></div><div className="linked-report-item min-w-[180px]"><Activity size={16} /><span><small>Sesiones realizadas</small><strong>{sesionesRealizadasHistoria}</strong></span></div></div>
+            {form.paciente_id && <p className="text-[11px] font-semibold text-slate-500 sm:col-span-2 xl:col-span-3">Datos vinculados: {historiasPaciente.length} historias clínicas activas y {sesionesRealizadasHistoria} sesiones realizadas en la historia seleccionada.</p>}
           </div>
-        </div>
+
+          <div className="grid min-h-0 gap-6 overflow-y-auto overflow-x-hidden pr-1 xl:grid-cols-[minmax(0,52fr)_minmax(420px,48fr)] xl:overflow-hidden">
+            <div className="grid min-w-0 content-start gap-4 xl:overflow-y-auto xl:overflow-x-hidden xl:pr-2">
+              <ReportSection icon={Stethoscope} title="Datos clínicos" open={reportSections.clinical} onToggle={() => setReportSections((current) => ({ ...current, clinical: !current.clinical }))}>
+                <div className="grid gap-4 md:grid-cols-2"><Input compact className="[&_textarea]:min-h-24" label="Diagnóstico" placeholder="Ej.: Tendinopatía de hombro derecho" value={form.diagnostico} onChange={(e) => update('diagnostico', e.target.value)} multiline /><Input compact className="[&_textarea]:min-h-24" label="DX CIE / Descripción clínica" placeholder="Describe el diagnóstico clínico" value={form.dx_cie} onChange={(e) => update('dx_cie', e.target.value)} multiline /><Input compact className="md:col-span-2 [&_textarea]:min-h-24" label="Antecedentes" placeholder="Describe los antecedentes clínicos relevantes" value={form.antecedentes} onChange={(e) => update('antecedentes', e.target.value)} multiline /></div>
+              </ReportSection>
+              <ReportSection icon={HeartPulse} title="Evaluación y conclusión" open={reportSections.evaluation} onToggle={() => setReportSections((current) => ({ ...current, evaluation: !current.evaluation }))}>
+                <div className="grid gap-4 md:grid-cols-2"><Input compact className="[&_textarea]:min-h-24" label="Conclusión diagnóstica" placeholder="Resume el resultado de la evaluación clínica" value={form.conclusion_diagnostica} onChange={(e) => update('conclusion_diagnostica', e.target.value)} multiline /><Input compact className="[&_textarea]:min-h-24" label="Estado actual del paciente" placeholder="Describe la evolución y condición actual del paciente" value={form.estado_actual} onChange={(e) => update('estado_actual', e.target.value)} multiline /></div>
+              </ReportSection>
+              <ReportSection icon={ClipboardList} title="Tratamiento" open={reportSections.treatment} onToggle={() => setReportSections((current) => ({ ...current, treatment: !current.treatment }))}>
+                <div className="grid gap-4 md:grid-cols-2"><Input compact className="[&_textarea]:min-h-24" label="Tratamiento fisioterapéutico" placeholder="Describe las técnicas y sesiones realizadas" value={form.tratamiento_fisioterapeutico} onChange={(e) => update('tratamiento_fisioterapeutico', e.target.value)} multiline /><Input compact className="[&_textarea]:min-h-24" label="Medicamentos / Fármacos" placeholder="Medicamentos o fármacos administrados" value={form.medicamentos} onChange={(e) => update('medicamentos', e.target.value)} multiline /></div>
+              </ReportSection>
+              <ReportSection icon={MessageSquare} title="Cierre" open={reportSections.closing} onToggle={() => setReportSections((current) => ({ ...current, closing: !current.closing }))}>
+                <Input compact className="[&_textarea]:min-h-24" label="Observación final" placeholder="Agrega una observación final para el informe" value={form.observacion_final} onChange={(e) => update('observacion_final', e.target.value)} multiline />
+              </ReportSection>
+            </div>
+
+            <aside className="min-h-0 min-w-0 xl:sticky xl:top-0 xl:self-start xl:border-l xl:border-slate-200 xl:pl-6">
+              <div className="mb-2 flex items-center justify-between gap-2"><div><h3 className="text-sm font-black text-ink">Vista previa carta</h3><p className="text-xs text-slate-500">Formato final del informe.</p></div><Button type="button" variant="secondary" onClick={() => setShowPreview(true)}><Maximize2 size={15} />Ampliar vista previa</Button></div>
+              <div className="report-preview-panel max-h-[58vh] overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200 bg-slate-100 p-3 shadow-inner"><div id="printable-report" ref={printRef}><PrintableReport informe={previewInforme} pacientes={pacientes} /></div></div>
+            </aside>
+          </div>
+
+          <div className="sticky bottom-0 z-10 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white/95 pt-3 backdrop-blur">
+            <Button type="button" variant="ghost" onClick={() => { setEditing(null); setForm(initialForm); setActivePanel('generados'); }}>Cancelar</Button>
+            <Button type="button" variant="secondary" onClick={() => saveInforme('borrador')}><Save size={16} />Guardar borrador</Button>
+            <Button type="submit"><FileText size={17} />{editing ? 'Actualizar informe' : 'Generar informe'}</Button>
+          </div>
+        </form>
       </Modal>
 
       <Modal open={showPreview} title="Vista previa del informe" onClose={() => setShowPreview(false)} size="lg">
@@ -671,3 +646,4 @@ function Reportes() {
 }
 
 export default Reportes;
+

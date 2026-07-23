@@ -7,7 +7,7 @@
   }
 
   .sidebar {
-    @apply fixed inset-y-0 left-0 z-40 flex h-screen w-[292px] -translate-x-full flex-col gap-6 overflow-y-auto overscroll-contain border-r border-white/10 bg-[#103f3f] p-5 text-white shadow-2xl transition-all lg:sticky lg:top-0 lg:translate-x-0;
+    @apply fixed inset-y-0 left-0 z-40 flex h-screen w-[292px] -translate-x-full flex-col gap-6 overflow-y-auto overscroll-contain border-r border-white/20 bg-[#0f766e] p-5 text-white shadow-2xl transition-all lg:sticky lg:top-0 lg:translate-x-0;
   }
 
   .sidebar-collapsed {
@@ -39,11 +39,19 @@
   }
 
   .nav-link {
-    @apply flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 text-sm font-bold text-brand-50 transition hover:bg-white/10 hover:text-white hover:shadow-sm;
+    @apply flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 text-sm font-bold text-[#F8FAFC] transition hover:bg-white/10 hover:text-white hover:shadow-sm;
+  }
+
+  .nav-link svg {
+    @apply text-[#CCFBF1];
   }
 
   .nav-link-active {
     @apply border border-white/35 bg-white/15 text-white shadow-sm;
+  }
+
+  .nav-link-active svg {
+    @apply text-white;
   }
 
   .workspace {
@@ -51,7 +59,7 @@
   }
 
   .navbar {
-    @apply flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/70 bg-white/90 p-3 shadow-soft backdrop-blur;
+    @apply flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#DCE5EC] bg-white p-3 shadow-soft;
   }
 
   .page-title {
@@ -71,12 +79,35 @@
   }
 
   .panel {
-    @apply rounded-lg border border-white/70 bg-white/90 p-4 shadow-soft backdrop-blur;
+    @apply rounded-lg border border-[#DCE5EC] bg-white p-4 shadow-soft;
   }
 
   .dashboard-hero {
-    background: radial-gradient(circle at 88% 12%, rgba(94, 234, 212, .28), transparent 18rem), linear-gradient(120deg, #0f3d3e 0%, #126459 58%, #168578 100%);
-    box-shadow: 0 24px 55px rgba(15, 61, 62, .18);
+    background: linear-gradient(90deg, #ecfdf5 0%, #eff6ff 100%);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .06);
+    color: #1e293b;
+  }
+
+  .module-hero {
+    @apply grid gap-3 border border-[#DCE5EC] p-5 text-[#1E293B] shadow-sm md:grid-cols-[1fr_auto];
+    background: linear-gradient(90deg, #ecfdf5 0%, #eff6ff 100%);
+  }
+
+  .module-hero .text-brand-50,
+  .module-hero .text-brand-100 {
+    @apply text-[#64748B];
+  }
+
+  .module-hero h1,
+  .module-hero h2 {
+    @apply font-bold text-[#1E293B];
+    letter-spacing: -0.02em;
+  }
+
+  .evolutivos-clinicos button[title="Imprimir"],
+  .evolutivos-clinicos .menu-action:has(.lucide-file-text),
+  .evolutivos-clinicos [data-evolutivo-print] > .flex.justify-end {
+    display: none;
   }
 
   .dashboard-hero::after {
@@ -91,7 +122,7 @@
   }
 
   .dashboard-panel {
-    @apply rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:p-6;
+    @apply rounded-2xl border border-[#DCE5EC] bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:p-6;
   }
 
   .panel-heading { @apply flex flex-wrap items-start justify-between gap-3; }
@@ -105,7 +136,7 @@
   .clinical-action { @apply inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border px-3 text-xs font-black transition; }
 
   .list-row {
-    @apply flex min-h-16 flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white/80 p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-md;
+    @apply flex min-h-16 flex-wrap items-center justify-between gap-3 rounded-lg border border-[#DCE5EC] bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-[#99F6E4] hover:shadow-[0_4px_14px_rgba(15,23,42,0.06)];
   }
 
   .list-row strong {
@@ -142,6 +173,81 @@
 
   .toggle-pill {
     @apply flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700;
+  }
+
+  .detail-chip {
+    @apply inline-flex items-center gap-2 rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs font-bold text-slate-600 shadow-sm;
+  }
+
+  .detail-clinical-card {
+    @apply flex min-h-20 items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 text-teal-600 shadow-[0_3px_12px_rgba(15,23,42,0.03)];
+  }
+
+  .detail-clinical-card span {
+    @apply block text-xs font-bold text-slate-600;
+  }
+
+  .detail-clinical-card strong {
+    @apply mt-2 block whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-800;
+  }
+
+  .detail-clinical-card .pain-circle {
+    @apply m-0 grid h-20 w-20 shrink-0 place-items-center rounded-full border-[3px] border-teal-500 text-center text-2xl font-black leading-none text-slate-900;
+  }
+
+  .detail-footer-item {
+    @apply flex min-h-12 items-center justify-center gap-2 border-b border-teal-100 px-3 text-center text-xs font-bold text-teal-700 sm:border-b-0 sm:border-r;
+  }
+
+  .linked-report-item {
+    @apply flex min-h-12 items-center gap-2 rounded-lg border border-brand-100 bg-white px-3 text-brand-700 shadow-sm;
+  }
+
+  .report-module-hero {
+    @apply flex min-h-36 items-center justify-between gap-5 px-6 py-5;
+    background: linear-gradient(110deg, #ecfdf8 0%, #f7fffd 48%, #eff6ff 100%);
+  }
+
+  .linked-report-item small {
+    @apply block text-[10px] font-bold uppercase text-slate-500;
+  }
+
+  .linked-report-item strong {
+    @apply mt-0.5 block truncate text-xs font-black text-slate-800;
+  }
+
+  .new-report-form label > span {
+    @apply mb-1;
+  }
+
+  .report-preview-panel #printable-report,
+  .report-preview-panel #printable-report > article {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .history-sessions-detail > .overflow-x-auto:not(.sessions-clinical-table) {
+    display: none;
+  }
+
+  .session-detail-card {
+    @apply grid content-start gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)];
+  }
+
+  .session-detail-card h3 {
+    @apply flex items-center gap-2 text-base font-black text-teal-700;
+  }
+
+  .session-detail-row {
+    @apply flex items-center gap-3 rounded-lg bg-slate-50 p-3;
+  }
+
+  .session-detail-row small {
+    @apply block text-[10px] font-bold uppercase text-slate-500;
+  }
+
+  .session-detail-row strong {
+    @apply mt-0.5 block text-sm font-black text-slate-800;
   }
 
 .sticky-actions {

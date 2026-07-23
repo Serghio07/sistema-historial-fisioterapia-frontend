@@ -1,4 +1,5 @@
-import { Activity, CalendarDays, CalendarSync, CreditCard, Pill, Save } from 'lucide-react';
+import { Activity, CalendarDays, CalendarSync, CreditCard, Pill, Save, UserRound } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 
@@ -33,30 +34,47 @@ const historiaDx = (historia) =>
 const historiaOptionLabel = (historia) =>
   `${historia?.fecha_evaluacion || 'Sin fecha'} - ${historiaZona(historia)} - Activa`;
 
-function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, onSubmit, onCancel, error }) {
+function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, onSubmit, onCancel, error, initialTab = 'session' }) {
+  const [tab, setTab] = useState(initialTab);
+  useEffect(() => setTab(initialTab), [initialTab, editing]);
   const update = (key, value) => setForm({ ...form, [key]: value });
   const historiasActivas = historias
     .filter((historia) => historia.estado === 'activa' && !historia.anulada && String(historia.paciente_id || historia.paciente?.id) === String(form.paciente_id))
     .sort((a, b) => String(b.fecha_evaluacion || '').localeCompare(String(a.fecha_evaluacion || '')) || Number(b.id || 0) - Number(a.id || 0));
   const selectedHistoria = historias.find((historia) => String(historia.id) === String(form.historia_clinica_id));
+  const selectedPaciente = pacientes.find((paciente) => String(paciente.id) === String(form.paciente_id));
+  const nombreSeleccionado = selectedPaciente
+    ? `${selectedPaciente.nombres || ''} ${selectedPaciente.apellidos || selectedPaciente.apellido_paterno || ''}`.trim()
+    : 'Paciente sin seleccionar';
   const sesionesContratadas = Number(selectedHistoria?.evaluacion_final?.sesiones_contratadas || 0);
   const sesionesRealizadasPrevias = sesiones.filter((sesion) =>
     String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(form.historia_clinica_id)
     && isSesionActivaRealizada(sesion)
     && (!editing || String(sesion.id) !== String(editing))
   ).length;
-  const cuentaEstaSesion = form.asistencia === 'asistio' ? 1 : 0;
   // La historia clínica seleccionada es la fuente de verdad. Evita reutilizar
   // el total acumulado del paciente o un valor anterior conservado en el formulario.
   const contratadas = selectedHistoria
     ? sesionesContratadas
     : Number(form.sesiones_debe || 0);
+  const planCompleto = !editing && contratadas > 0 && sesionesRealizadasPrevias >= contratadas;
+  const cuentaEstaSesion = form.asistencia === 'asistio' && !planCompleto ? 1 : 0;
   const realizadas = form.historia_clinica_id ? sesionesRealizadasPrevias + cuentaEstaSesion : Number(form.sesiones_hizo || 0);
   const restantes = Math.max(contratadas - realizadas, 0);
   const progress = contratadas > 0 ? Math.min((realizadas / contratadas) * 100, 100) : 0;
   const montoSesion = toMoney(form.monto_sesion);
   const montoPagado = form.estado_pago === 'Debe' ? 0 : toMoney(form.monto_pagado);
   const saldoPendiente = Math.max(montoSesion - montoPagado, 0);
+
+  const dolorInicialParaHistoria = (historia, historySessions) => {
+    const previousPain = [...historySessions]
+      .filter((sesion) => isSesionActivaRealizada(sesion) && (!editing || String(sesion.id) !== String(editing)))
+      .sort((a, b) => Number(a.numero_sesion || 0) - Number(b.numero_sesion || 0) || String(a.fecha || '').localeCompare(String(b.fecha || '')))
+      .map((sesion) => sesion.dolor_despues)
+      .filter((value) => value !== '' && value != null)
+      .at(-1);
+    return previousPain ?? historia?.intervencion_clinica?.escala_dolor ?? '';
+  };
 
   const selectPaciente = (pacienteId) => {
     const activeHistories = historias
@@ -71,12 +89,17 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
         && (!editing || String(sesion.id) !== String(editing))
       ).length
       : 0;
+    const autoSesiones = autoHistoria
+      ? sesiones.filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(autoHistoria.id))
+      : [];
 
     setForm({
       ...form,
       paciente_id: pacienteId,
       historia_clinica_id: autoHistoria?.id || '',
       numero_sesion: autoHistoria ? autoRealizadas + 1 : 1,
+      dolor_antes: autoHistoria ? dolorInicialParaHistoria(autoHistoria, autoSesiones) : '',
+      dolor_despues: '',
       sesiones_debe: autoContratadas,
       sesiones_hizo: autoHistoria ? autoRealizadas + 1 : 0
     });
@@ -91,13 +114,18 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
       && (!editing || String(sesion.id) !== String(editing))
     ).length;
     const siguiente = historiaId ? realizadasHistoria + 1 : 1;
+    const sesionesHistoria = sesiones.filter((sesion) =>
+      String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historiaId)
+    );
 
     setForm({
       ...form,
       historia_clinica_id: historiaId,
       sesiones_debe: historiaId ? contratadasHistoria : 0,
       sesiones_hizo: historiaId ? siguiente : 0,
-      numero_sesion: siguiente
+      numero_sesion: siguiente,
+      dolor_antes: historiaId ? dolorInicialParaHistoria(historia, sesionesHistoria) : '',
+      dolor_despues: ''
     });
   };
 
@@ -133,11 +161,19 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
   return (
     <form onSubmit={onSubmit} className="grid max-h-[72vh] min-w-0 gap-3 overflow-x-hidden overflow-y-auto pr-1">
       {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
+      {planCompleto && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">El paciente ya completó las {contratadas} sesiones contratadas para esta historia clínica. No se pueden registrar más sesiones.</p>}
 
       <div className="flex items-start gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800">
         <CalendarSync className="mt-0.5 shrink-0" size={18} />
         Al guardar esta atencion, se reflejara automaticamente en Sesiones Semanales.
       </div>
+
+      <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1" role="tablist">
+        <button type="button" role="tab" aria-selected={tab === 'session'} onClick={() => setTab('session')} className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-bold transition ${tab === 'session' ? 'bg-white text-brand-700 shadow-sm ring-1 ring-brand-200' : 'text-slate-500 hover:text-slate-700'}`}><CalendarDays size={15} />Datos de la sesión</button>
+        <button type="button" role="tab" aria-selected={tab === 'evolution'} onClick={() => setTab('evolution')} className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-bold transition ${tab === 'evolution' ? 'bg-white text-brand-700 shadow-sm ring-1 ring-brand-500' : 'text-slate-500 hover:text-slate-700'}`}><Activity size={15} />Evolutivo clínico</button>
+      </div>
+
+      {tab === 'session' && <>
 
       <Section title="Datos de la sesion" icon={CalendarDays}>
         <div className="grid min-w-0 gap-2.5 sm:grid-cols-2">
@@ -271,7 +307,9 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
               onChange={(event) => setForm({
                 ...form,
                 aplica_farmacos: event.target.checked,
-                observacion_farmacos: event.target.checked ? form.observacion_farmacos : ''
+                observacion_farmacos: event.target.checked ? form.observacion_farmacos : '',
+                inyectable_nombre: event.target.checked ? form.inyectable_nombre : '',
+                inyectable_dosis: event.target.checked ? form.inyectable_dosis : ''
               })}
             />
             Aplica farmacos
@@ -284,14 +322,41 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
             disabled={!form.aplica_farmacos}
             placeholder={form.aplica_farmacos ? 'Ej. Se aplico antiinflamatorio topico...' : 'Activa la opcion para registrar una observacion'}
           />
+          <Input compact label="Inyectable aplicado" value={form.inyectable_nombre} onChange={(event) => update('inyectable_nombre', event.target.value.toLocaleUpperCase('es-BO'))} disabled={!form.aplica_farmacos} />
+          <Input compact label="Dosis o presentación" value={form.inyectable_dosis} onChange={(event) => update('inyectable_dosis', event.target.value.toLocaleUpperCase('es-BO'))} disabled={!form.aplica_farmacos} />
         </div>
       </Section>
+      </>}
+
+      {tab === 'evolution' && <div className="grid gap-3">
+        <div className="rounded-lg border border-brand-100 bg-brand-50/45 px-4 py-3 text-xs text-slate-600">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <UserRound size={18} className="text-brand-700" />
+            <strong className="text-brand-800">Paciente: {nombreSeleccionado}</strong>
+            <span>Sesión N.º {form.numero_sesion || 1}</span>
+            <span>•</span>
+            <span>{form.fecha || 'Sin fecha'}</span>
+            <span>•</span>
+            <span>{historiaZona(selectedHistoria)}</span>
+            <span>• Activa</span>
+          </div>
+          <p className="mt-1 pl-7">Dx: {historiaDx(selectedHistoria)} | Zona: {historiaZona(selectedHistoria)}</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Input label="Dolor inicial (desde historia clínica)" type="number" min="0" max="10" value={form.dolor_antes} readOnly />
+          <Input label="Dolor final (0-10)" type="number" min="0" max="10" value={form.dolor_despues} onChange={(event) => update('dolor_despues', event.target.value)} required />
+        </div>
+        <p className="-mt-2 text-[11px] text-slate-500">El dolor inicial se obtiene automáticamente del último evolutivo o de la evaluación de la historia clínica.</p>
+        <Input label="Procedimiento realizado" value={form.descripcion_tratamiento} onChange={(event) => update('descripcion_tratamiento', event.target.value.toLocaleUpperCase('es-BO'))} multiline required />
+        <Input label="Observaciones" value={form.evolucion_observada || form.observacion} onChange={(event) => setForm({ ...form, evolucion_observada: event.target.value.toLocaleUpperCase('es-BO'), observacion: event.target.value.toLocaleUpperCase('es-BO') })} multiline />
+        <Input label="Inyectables (opcional)" value={form.inyectable_nombre} onChange={(event) => setForm({ ...form, aplica_farmacos: Boolean(event.target.value), inyectable_nombre: event.target.value.toLocaleUpperCase('es-BO') })} />
+      </div>}
 
       <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white/95 pt-2.5 backdrop-blur">
         <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit">
+        <Button type="submit" disabled={planCompleto}>
           <Save size={17} />
-          {editing ? 'Actualizar sesion' : 'Guardar sesion'}
+          {tab === 'evolution' ? (editing ? 'Actualizar evolutivo' : 'Guardar evolutivo') : (editing ? 'Actualizar sesion' : 'Guardar sesion')}
         </Button>
       </div>
     </form>

@@ -24,3 +24,23 @@ export const updatePlanillaPersonal = async (id, payload) => {
   const { data } = await api.put(`/planillas-personal/${id}`, payload);
   return data;
 };
+
+export const deletePlanillaPersonal = async (id) => {
+  const { data } = await api.delete(`/planillas-personal/${id}`);
+  return data;
+};
+
+export const cerrarPlanillaPersonal = async (id) => {
+  const { data } = await api.patch(`/planillas-personal/${id}/cerrar`);
+  return data;
+};
+
+export const reabrirPlanillaPersonal = async (id) => {
+  const { data } = await api.patch(`/planillas-personal/${id}/reabrir`);
+  return data;
+};
+
+export const anularPlanillaPersonal = async (id, motivo) => {
+  const { data } = await api.patch(`/planillas-personal/${id}/anular`, { motivo });
+  return data;
+};

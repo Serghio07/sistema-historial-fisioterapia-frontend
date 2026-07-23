@@ -19,7 +19,7 @@ function Navbar({ onMenuClick }) {
           <h1 className="text-xl font-bold text-ink">Sistema de historial clinico</h1>
         </div>
       </div>
-      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+      <div className="flex items-center gap-2 rounded-lg border border-[#DCE5EC] bg-white px-3 py-2 text-sm text-[#475569]">
         <Avatar src={user?.foto} name={nombreMostrado} size="sm" />
         <ShieldCheck size={15} className="text-brand-600" />
         <span>{nombreMostrado}</span>

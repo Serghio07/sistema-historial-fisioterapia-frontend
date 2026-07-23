@@ -3,13 +3,13 @@ import PagoForm from './PagoForm';
 function Pagos() {
   return (
     <section className="grid gap-5">
-      <div className="page-title">
+      <header className="module-hero rounded-xl">
         <div>
-          <p>Administracion</p>
-          <h2>Pagos</h2>
-          <span>Modulo visual preparado para QR, efectivo y deudas.</span>
+          <p className="text-sm font-bold text-brand-700">Administración</p>
+          <h2 className="mt-1 text-3xl font-black text-brand-900">Pagos</h2>
+          <span className="mt-1 block text-sm text-brand-900/70">Módulo preparado para QR, efectivo y control de deudas.</span>
         </div>
-      </div>
+      </header>
       <div className="panel">
         <PagoForm />
       </div>

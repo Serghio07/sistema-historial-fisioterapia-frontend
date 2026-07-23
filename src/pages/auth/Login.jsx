@@ -161,7 +161,7 @@ function Login() {
 
       <section className={`auth-card relative mx-auto my-auto w-full ${view === 'login' ? 'max-w-md' : 'max-w-2xl'}`}>
         <div className="overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-[0_24px_70px_rgba(14,116,144,0.16)] backdrop-blur">
-          <div className="h-2 bg-gradient-to-r from-blue-600 via-sky-500 to-cyan-400" />
+          <div className="h-2 bg-gradient-to-r from-teal-400 via-cyan-400 to-brand-200" />
           <div className="p-6 sm:p-8">
             <header className="text-center">
               <img src={logo} alt="Physio Active" className="mx-auto h-20 w-full max-w-64 object-contain" />
@@ -223,7 +223,7 @@ function Login() {
                     <Button
                       type="submit"
                       disabled={loading}
-                      className="min-h-12 rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 shadow-lg shadow-sky-900/20 hover:from-blue-700 hover:to-sky-600"
+                      className="min-h-12 rounded-xl border-[#0F766E] bg-[#0F766E] text-white shadow-lg shadow-brand-900/10 hover:border-[#115E59] hover:bg-[#115E59]"
                     >
                       <LogIn size={18} />
                       {loading ? 'Validando acceso...' : 'Iniciar sesión'}
@@ -360,7 +360,7 @@ function Login() {
                       <Button
                         type="submit"
                         disabled={sending}
-                        className="min-h-12 w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 shadow-lg shadow-sky-900/20 hover:from-blue-700 hover:to-cyan-600"
+                        className="min-h-12 w-full rounded-xl border-[#0F766E] bg-[#0F766E] text-white shadow-lg shadow-brand-900/10 hover:border-[#115E59] hover:bg-[#115E59]"
                       >
                         <Send size={18} />
                         {sending ? 'Enviando solicitud...' : 'Enviar solicitud'}
