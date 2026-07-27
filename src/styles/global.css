@@ -190,6 +190,43 @@
     inset: 0;
     width: 100%;
     page: historia-clinica;
+    background: white;
+  }
+
+  body:has([data-historia-print]) [data-historia-print] > article {
+    width: 216mm;
+    max-width: 216mm;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    padding: 8mm 10mm !important;
+    box-shadow: none !important;
+    font-size: 9px !important;
+    line-height: 1.18 !important;
+    break-after: auto;
+  }
+
+  body:has([data-historia-print]) [data-historia-print] > article + article {
+    break-before: page;
+  }
+
+  body:has([data-historia-print]) [data-historia-print] section,
+  body:has([data-historia-print]) [data-historia-print] tr,
+  body:has([data-historia-print]) [data-historia-print] img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body:has([data-historia-print]) [data-historia-print] section {
+    margin-top: 3mm !important;
+  }
+
+  body:has([data-historia-print]) [data-historia-print] header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  body:has([data-historia-print]) [data-historia-print] img[alt*="Mapa corporal"] {
+    max-height: 52mm !important;
   }
 
   body:has(#planilla-personal-print) * {

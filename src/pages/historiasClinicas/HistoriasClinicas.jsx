@@ -13,6 +13,7 @@ import { getSesiones } from '../../services/sesionService';
 import { getProfesionalesActivos } from '../../services/usuarioService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
+import { matchesSearch } from '../../utils/search';
 import HistoriaClinicaForm, { initialHistoria } from './HistoriaClinicaForm';
 import EvolutivoSection from './sections/EvolutivoSection';
 import PacienteHistoriasAccordion from './PacienteHistoriasAccordion';
@@ -128,7 +129,7 @@ function HistoriaDetalleModalLegacy({ historia, onClose }) {
           <TextBlock label="Evaluacion final" value={historia.evaluacion_final ? `Postura: ${historia.evaluacion_final.evaluacion_postura || '-'}\nMarcha: ${historia.evaluacion_final.evaluacion_marcha || '-'}\nDiagnostico CIF: ${historia.evaluacion_final.diagnostico_kinesico_cif || '-'}\nPlan: ${historia.evaluacion_final.plan_tratamiento || '-'}\nSesiones indicadas: ${historia.evaluacion_final.sesiones_contratadas || '-'}` : ''} />
         </div>
         <section className="rounded-lg border border-slate-200 bg-white p-3">
-          <h3 className="text-sm font-black uppercase text-brand-700">Evolutivo y plan de tratamiento</h3>
+          <h3 className="text-sm font-black uppercase text-brand-700">Evolución y plan de tratamiento</h3>
           <div className="mt-3 grid gap-2">
             {(historia.evolutivo || []).map((session, index) => (
               <div key={index} className="grid gap-2 rounded-lg bg-slate-50 p-3 md:grid-cols-[70px_110px_1fr_180px]">
@@ -461,7 +462,7 @@ function HistoriaCard({ historia, onView, onPrint, onEdit, onEvolutivo, onAnular
             <>
               <ActionButton className="h-10 w-10" label="Editar" icon={FilePenLine} tone="edit" onClick={onEdit} />
               <ActionButton className="h-10 w-10" label="Imprimir" icon={Printer} tone="print" onClick={onPrint} />
-              <ActionButton className="h-10 w-10" label="Evolutivo" icon={ClipboardPlus} tone="edit" onClick={onEvolutivo} />
+              <ActionButton className="h-10 w-10" label="Evolución" icon={ClipboardPlus} tone="edit" onClick={onEvolutivo} />
             </>
           )}
           {estado === 'borrador' && <ActionButton className="h-10 w-10" label="Continuar historia" icon={FilePenLine} tone="edit" onClick={onEdit} />}
@@ -510,7 +511,7 @@ function PacienteHistoriasCard({ group, sesiones, onShowHistory, onNew, onViewPa
         {draft && draft.id !== latest.id && <button type="button" onClick={() => onEdit(draft)} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-black text-amber-700"><FilePenLine size={15} />Borrador pendiente · Continuar borrador</button>}
       </div>
       <div>{sesionesContratadas > 0 ? <div className="rounded-xl border border-slate-200 p-4"><strong className="text-sm text-slate-800">{sesionesRealizadas} de {sesionesContratadas}</strong><span className="mt-1 block text-[11px] font-bold text-slate-500">realizadas</span><div className="my-3 h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-brand-600" style={{ width: `${Math.min(100, (sesionesRealizadas / sesionesContratadas) * 100)}%` }} /></div><span className="text-xs text-slate-500"><strong className="text-slate-700">{sesionesRestantes}</strong> restantes</span></div> : <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">Sin sesiones contratadas</div>}</div>
-      <div className="grid content-start gap-2"><button className="clinical-action border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => onView(latest)}><Eye size={16} />Ver historia</button>{latest.estado === 'activa' && <button className="clinical-action border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => onEvolutivo(latest)}><FilePenLine size={16} />Registrar evolutivo</button>}<button className="clinical-action border-slate-200 text-slate-600 hover:bg-slate-50" onClick={() => onPreview(latest)}><FileText size={16} />Vista previa PDF</button>{allHistorias.length > 1 && <button className="clinical-action border-slate-200 bg-slate-50 text-slate-600" onClick={onShowHistory}><List size={16} />Ver historial completo ({allHistorias.length})</button>}
+      <div className="grid content-start gap-2"><button className="clinical-action border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => onView(latest)}><Eye size={16} />Ver historia</button>{latest.estado === 'activa' && <button className="clinical-action border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => onEvolutivo(latest)}><FilePenLine size={16} />Registrar evolución</button>}<button className="clinical-action border-slate-200 text-slate-600 hover:bg-slate-50" onClick={() => onPreview(latest)}><FileText size={16} />Vista previa PDF</button>{allHistorias.length > 1 && <button className="clinical-action border-slate-200 bg-slate-50 text-slate-600" onClick={onShowHistory}><List size={16} />Ver historial completo ({allHistorias.length})</button>}
         <div className="relative"><button type="button" onClick={() => setShowMenu((value) => !value)} className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"><MoreVertical size={16} />Más acciones</button>{showMenu && <div className="absolute right-0 z-20 mt-1 grid w-full min-w-48 rounded-xl border border-slate-200 bg-white p-1 shadow-xl">{latest.estado !== 'anulada' && <button className="menu-action" onClick={() => { onEdit(latest); setShowMenu(false); }}><FilePenLine size={15} />Editar historia</button>}<button className="menu-action" onClick={() => { onNew(); setShowMenu(false); }}><ClipboardPlus size={15} />Nueva evaluación</button><button className="menu-action" onClick={() => { onPrint(latest); setShowMenu(false); }}><Printer size={15} />Imprimir historia</button>{isAdmin && latest.estado !== 'anulada' && <button className="menu-action text-red-600 hover:bg-red-50" onClick={() => { onAnular(latest); setShowMenu(false); }}><Ban size={15} />Anular historia</button>}</div>}</div>
       </div>
     </div>
@@ -561,9 +562,9 @@ function PatientHistoryModal({ group, onClose, onView, onEdit, onEvolutivo, onPr
             <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
               <HistoryAction icon={Eye} label="Ver" tone="blue" onClick={() => onView(historia)} />
               {historia.estado !== 'anulada' && <HistoryAction icon={FilePenLine} label="Editar" tone="blue" onClick={() => onEdit(historia)} />}
-              {historia.estado === 'activa' && <HistoryAction icon={FilePenLine} label="Registrar evolutivo" tone="green" onClick={() => onEvolutivo(historia)} />}
+              {historia.estado === 'activa' && <HistoryAction icon={FilePenLine} label="Registrar evolución" tone="green" onClick={() => onEvolutivo(historia)} />}
               <HistoryAction icon={Printer} label="Imprimir" onClick={() => onPrint(historia)} />
-              {historia.estado !== 'anulada' && <HistoryAction icon={ClipboardPlus} label="Evolutivo y plan de tratamiento" tone="green" onClick={() => onEvolutivo(historia)} />}
+              {historia.estado !== 'anulada' && <HistoryAction icon={ClipboardPlus} label="Evolución y plan de tratamiento" tone="green" onClick={() => onEvolutivo(historia)} />}
               {isAdmin && historia.estado !== 'anulada' && <HistoryAction icon={Ban} label="Anular historia" tone="red" onClick={() => onAnular(historia)} />}
             </div>
           </article>;
@@ -642,7 +643,6 @@ function HistoriasClinicas() {
   }, { todos: 0, activa: 0, borrador: 0, anulada: 0 }), [historias]);
 
   const filteredHistorias = useMemo(() => {
-    const term = query.trim().toLocaleLowerCase('es-BO');
     return [...historias]
       .filter((historia) => {
         const searchable = [
@@ -658,7 +658,7 @@ function HistoriasClinicas() {
           historia.anulada_por,
           historia.motivo_anulacion,
           historia.observacion_anulacion
-        ].filter(Boolean).join(' ').toLocaleLowerCase('es-BO');
+        ].filter(Boolean).join(' ');
         const pain = Number(historia.intervencion_clinica?.escala_dolor);
         const matchesPain = !painFilter
           || (painFilter === 'none' && pain === 0)
@@ -666,7 +666,7 @@ function HistoriasClinicas() {
           || (painFilter === 'moderate' && pain >= 4 && pain <= 6)
           || (painFilter === 'strong' && pain >= 7 && pain <= 10);
 
-        return (!term || searchable.includes(term))
+        return matchesSearch(searchable, query)
           && (statusFilter === 'todos' ? historia.estado !== 'anulada' : historia.estado === statusFilter)
           && (!dateFrom || historia.fecha_evaluacion >= dateFrom)
           && (!dateTo || historia.fecha_evaluacion <= dateTo)
@@ -962,7 +962,7 @@ function HistoriasClinicas() {
         {existingPatientStories.length > 0 && (
           <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
             <strong className="block font-black uppercase">Este paciente ya tiene {existingPatientStories.length} {existingPatientStories.length === 1 ? 'historia clínica registrada' : 'historias clínicas registradas'}.</strong>
-            <p className="mt-1">Se creará una nueva historia independiente. Si continúa el mismo tratamiento, use EVOLUTIVO en la historia correspondiente.</p>
+            <p className="mt-1">Se creará una nueva historia independiente. Si continúa el mismo tratamiento, registre una EVOLUCIÓN en la historia correspondiente.</p>
             <div className="mt-3 grid gap-1 rounded-lg bg-white/70 p-3 text-xs uppercase sm:grid-cols-4">
               <span><strong>Última fecha:</strong> {formatDate(existingPatientStories[0].fecha_evaluacion)}</span>
               <span><strong>Motivo:</strong> {existingPatientStories[0].motivo_consulta || 'SIN REGISTRAR'}</span>
@@ -1044,7 +1044,7 @@ function HistoriasClinicas() {
 
       <Modal
         open={Boolean(evolutivoHistoria)}
-        title="Evolutivo y plan de tratamiento"
+        title="Evolución y plan de tratamiento"
         subtitle={`${nombrePaciente(evolutivoHistoria?.paciente)} · Registro independiente de sesiones realizadas.`}
         onClose={() => setEvolutivoHistoria(null)}
         size="lg"
@@ -1055,7 +1055,7 @@ function HistoriasClinicas() {
           </div>
           <div className="flex justify-end gap-2 border-t border-slate-200 bg-white pt-3">
             <Button variant="ghost" onClick={() => setEvolutivoHistoria(null)}>Cancelar</Button>
-            <Button onClick={saveEvolutivo}>Guardar evolutivo</Button>
+            <Button onClick={saveEvolutivo}>Guardar evolución</Button>
           </div>
         </div>
       </Modal>

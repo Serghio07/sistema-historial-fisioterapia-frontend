@@ -9,11 +9,12 @@ import DatosPacienteSection from './sections/DatosPacienteSection';
 import EvaluacionFinalSection from './sections/EvaluacionFinalSection';
 import ExamenKinesicoSection from './sections/ExamenKinesicoSection';
 import IntervencionClinicaSection from './sections/IntervencionClinicaSection';
+import { boliviaDate } from '../../utils/boliviaDateTime';
 
 export const initialHistoria = {
   paciente_id: '',
   usuario_id: '',
-  fecha_evaluacion: new Date().toISOString().slice(0, 10),
+  fecha_evaluacion: boliviaDate(),
   lugar_fecha_nacimiento: '',
   peso: '',
   talla: '',

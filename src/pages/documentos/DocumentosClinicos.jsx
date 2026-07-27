@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Ban, CalendarDays, ChevronLeft, ChevronRight, Coins, Download, Eye, FilePenLine, FileText, Pill, Plus, Printer, Save, Search, Syringe, Trash2, Users } from 'lucide-react';
@@ -10,12 +10,15 @@ import Input from '../../components/common/Input';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
 import Table from '../../components/common/Table';
+import { PatientIdentity } from '../../components/common/ProfilePhoto';
 import { useAuth } from '../../context/AuthContext';
 import { getPacientes } from '../../services/pacienteService';
 import { getSesiones } from '../../services/sesionService';
 import { getHistoriasClinicas } from '../../services/historiaClinicaService';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import { formatDate } from '../../utils/formatDate';
+import { matchesSearch } from '../../utils/search';
+import { boliviaDate } from '../../utils/boliviaDateTime';
 import {
   createDocumentoClinico,
   deleteDocumentoClinico,
@@ -25,7 +28,7 @@ import {
 } from '../../services/documentoClinicoService';
 import DocumentoPreview from './DocumentoPreview';
 
-const today = new Date().toISOString().slice(0, 10);
+const today = boliviaDate();
 
 const upperText = (value) => (typeof value === 'string' ? value.toLocaleUpperCase('es-BO') : value);
 const isSesionActiva = (sesion) => !sesion?.anulada && String(sesion?.estado || '').toLowerCase() !== 'anulada';
@@ -47,8 +50,8 @@ const config = {
   },
   farmacos: {
     title: 'Administración de fármacos',
-    description: 'Control y registro de fármacos e insumos administrados a pacientes.',
-    action: 'Nuevo registro',
+    description: 'Consulta y seguimiento de los fármacos administrados según la evolución clínica de cada paciente.',
+    action: 'Registrar administración externa',
     iconLabel: 'Planilla',
     empty: 'No hay registros de farmacos.'
   }
@@ -112,7 +115,7 @@ const normalizeConsentimientoDatos = (datos = {}) => ({
 });
 
 const newFarmacoRow = (paciente = null) => ({
-  origen: 'sesion',
+  origen: 'externa',
   fecha: today,
   paciente_id: paciente?.id || '',
   paciente_nombre: paciente ? nombrePaciente(paciente) : '',
@@ -157,7 +160,7 @@ const makeInitialForm = (tipo, user) => ({
   datos: {
     ...initialDatos[tipo],
     responsable_nombre: user?.nombre_mostrado || user?.ficha_personal?.nombre_mostrado || user?.nombre || '',
-    filas: tipo === 'farmacos' ? [newFarmacoRow()] : undefined
+    filas: tipo === 'farmacos' ? [{ ...newFarmacoRow(), profesional: user?.nombre_mostrado || user?.ficha_personal?.nombre_mostrado || user?.nombre || '' }] : undefined
   }
 });
 
@@ -247,6 +250,8 @@ function StageFields({ title, data = {}, onChange }) {
 }
 
 function DocumentosClinicos({ tipo }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const meta = config[tipo];
   const { user, isAdmin } = useAuth();
   const previewRef = useRef(null);
@@ -263,8 +268,7 @@ function DocumentosClinicos({ tipo }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [filters, setFilters] = useState({ q: '', desde: '', hasta: '', estado: '' });
-  const [farmacoFilters, setFarmacoFilters] = useState({ semana: startOfWeek(today), q: '', estado: '', paciente_id: '', farmaco: '' });
-  const [farmacoDia, setFarmacoDia] = useState(today);
+  const [farmacoFilters, setFarmacoFilters] = useState({ semana: startOfWeek(today), q: '', estado: '', paciente_id: '', farmaco: '', profesional: '', via: '' });
   const [farmacoDetail, setFarmacoDetail] = useState(null);
   const [annulTarget, setAnnulTarget] = useState(null);
   const [annulReason, setAnnulReason] = useState('');
@@ -299,7 +303,7 @@ function DocumentosClinicos({ tipo }) {
     try {
       const [pacientesData, documentosData, sesionesData, historiasData] = await Promise.all([
         getPacientes(),
-        getDocumentosClinicos({ tipo, paciente_id: pacienteInicialId || undefined }),
+        getDocumentosClinicos({ tipo, paciente_id: pacienteInicialId || undefined, incluir_anulados: tipo === 'farmacos' || undefined }),
         getSesiones(),
         getHistoriasClinicas()
       ]);
@@ -325,6 +329,13 @@ function DocumentosClinicos({ tipo }) {
     setShowForm(false);
     load();
   }, [tipo]);
+
+  useEffect(() => {
+    const documentoId = location.state?.documentoId;
+    if (!documentoId || !documentos.length) return;
+    const documento = documentos.find((item) => Number(item.id) === Number(documentoId));
+    if (documento) setPreview(documento);
+  }, [documentos, location.state?.documentoId]);
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const updateDatos = (key, value) => setForm((current) => ({
@@ -371,7 +382,7 @@ function DocumentosClinicos({ tipo }) {
             paciente_id: pacienteId,
             datos: {
               ...current.datos,
-              filas: rows.map((row, index) => index === 0 ? { ...row, ...newFarmacoRow(data.paciente), diagnostico: sugeridos.diagnostico } : row)
+              filas: rows.map((row, index) => index === 0 ? { ...row, ...newFarmacoRow(data.paciente), profesional: row.profesional || user?.nombre_mostrado || user?.ficha_personal?.nombre_mostrado || user?.nombre || '', diagnostico: sugeridos.diagnostico } : row)
             }
           };
         }
@@ -412,8 +423,13 @@ function DocumentosClinicos({ tipo }) {
       const fila = form.datos.filas?.[0];
       if (!fila?.paciente_id) return 'Selecciona un paciente o una sesión diaria.';
       if (!fila?.historia_clinica_id) return 'Selecciona la historia clínica.';
-      if (fila.origen !== 'manual' && !fila.sesion_id) return 'Selecciona la sesión diaria vinculada.';
-      if (!legacyProductos(fila).some((producto) => producto.producto)) return 'Agrega al menos un fármaco o insumo.';
+      if (fila.origen === 'sesion' && !fila.sesion_id) return 'Selecciona la sesión diaria vinculada.';
+      const productos = legacyProductos(fila).filter((producto) => producto.producto);
+      if (!productos.length) return 'Agrega al menos un fármaco o insumo.';
+      if (productos.some((producto) => producto.producto === 'Otro' && !String(producto.nombre_otro || '').trim())) return 'Especifica el nombre del fármaco.';
+      if (productos.some((producto) => !String(producto.dosis || producto.volumen || producto.presentacion || '').trim())) return 'Registra la presentación o dosis de cada fármaco.';
+      if (productos.some((producto) => !producto.via || !(Number(producto.cantidad) > 0))) return 'Cada fármaco debe tener vía y cantidad mayor a cero.';
+      if (!String(fila.motivo || '').trim()) return 'Registra el motivo clínico.';
     }
     return '';
   };
@@ -475,10 +491,9 @@ function DocumentosClinicos({ tipo }) {
   };
 
   const filtered = useMemo(() => {
-    const term = filters.q.trim().toLowerCase();
     return documentos.filter((documento) => {
-      const text = `${nombrePaciente(documento.paciente)} ${documento.datos?.ci || ''} ${documento.datos?.diagnostico || ''} ${documento.estado || ''}`.toLowerCase();
-      if (term && !text.includes(term)) return false;
+      const text = `${nombrePaciente(documento.paciente)} ${documento.datos?.ci || ''} ${documento.datos?.diagnostico || ''} ${documento.estado || ''}`;
+      if (!matchesSearch(text, filters.q)) return false;
       if (filters.desde && documento.fecha < filters.desde) return false;
       if (filters.hasta && documento.fecha > filters.hasta) return false;
       if (filters.estado && documento.estado !== filters.estado) return false;
@@ -522,7 +537,7 @@ function DocumentosClinicos({ tipo }) {
             fila.metodo_pago,
             fila.estado,
             documento.estado
-          ].filter(Boolean).join(' ').toLowerCase()
+          ].filter(Boolean).join(' ')
         });
       });
     });
@@ -532,12 +547,13 @@ function DocumentosClinicos({ tipo }) {
   const farmacoVisibleRows = useMemo(() => {
     const weekStart = farmacoFilters.semana;
     const weekEnd = addDays(weekStart, 6);
-    const term = farmacoFilters.q.trim().toLowerCase();
     return farmacoRows.filter((row) => {
       if (row.fecha < weekStart || row.fecha > weekEnd) return false;
-      if (term && !row.searchText.includes(term)) return false;
+      if (!matchesSearch(row.searchText, farmacoFilters.q)) return false;
       if (farmacoFilters.paciente_id && Number(row.data.paciente_id || row.documento.paciente_id) !== Number(farmacoFilters.paciente_id)) return false;
       if (farmacoFilters.farmaco && !row.labels.some((label) => label.toLowerCase().includes(farmacoFilters.farmaco.toLowerCase()))) return false;
+      if (farmacoFilters.profesional && !String(row.data.profesional || row.documento.creado_por?.nombre || '').toLowerCase().includes(farmacoFilters.profesional.toLowerCase())) return false;
+      if (farmacoFilters.via && !String(row.data.via_administracion || row.data.productos?.[0]?.via || '').toLowerCase().includes(farmacoFilters.via.toLowerCase())) return false;
       if (farmacoFilters.estado === 'Anulado') return row.anulado;
       if (farmacoFilters.estado && String(row.data.estado || row.documento.estado || '').toLowerCase() !== farmacoFilters.estado.toLowerCase()) return false;
       return !row.anulado;
@@ -549,7 +565,8 @@ function DocumentosClinicos({ tipo }) {
     farmacoVisibleRows.forEach((row) => {
       const pacienteId = row.data.paciente_id || row.documento.paciente_id || 'sin-paciente';
       const historiaId = row.data.historia_clinica_id || 'sin-historia';
-      const key = `${pacienteId}-${historiaId}`;
+      const atencionId = row.data.sesion_id || row.documento.sesion_id || `externa-${row.documento.id}`;
+      const key = `${pacienteId}-${historiaId}-${atencionId}`;
       if (!map.has(key)) {
         map.set(key, {
           key,
@@ -850,7 +867,7 @@ function DocumentosClinicos({ tipo }) {
               {farmacoGroups.map((group) => (
                 <tr key={group.key} className="align-top">
                   <td className="px-3 py-3">
-                    <div className="font-black text-ink">{nombrePaciente(group.paciente)}</div>
+                    <PatientIdentity paciente={group.paciente} secondary={`CI: ${group.paciente?.ci || '-'}`} />
                     <div className="text-xs text-slate-500">CI: {group.paciente?.ci || group.rows[0]?.data.ci || '-'} · Tel: {group.paciente?.telefono || group.rows[0]?.data.telefono || '-'}</div>
                   </td>
                   <td className="px-3 py-3">
@@ -892,29 +909,80 @@ function DocumentosClinicos({ tipo }) {
 
   const renderFarmacosPanelModern = () => {
     const days = farmacoWeekDays(farmacoFilters.semana);
-    const selectedDay = days.some((day) => day.fecha === farmacoDia) ? farmacoDia : days[0].fecha;
-    const dayGroups = farmacoGroups.map((group) => ({ ...group, rows: group.rows.filter((row) => row.fecha === selectedDay) })).filter((group) => group.rows.length);
+    const dayGroups = farmacoGroups;
     const dayRows = dayGroups.flatMap((group) => group.rows);
     const productCount = dayRows.reduce((sum, row) => sum + Math.max(row.labels.length, 1), 0);
+    const patientCount = new Set(dayRows.map((row) => row.data.paciente_id || row.documento.paciente_id)).size;
+    const weekAdministrationCount = new Set(farmacoVisibleRows.map((row) => row.documento.id)).size;
     const supplyCount = dayRows.reduce((sum, row) => sum + row.labels.filter((label) => /jeringa|insumo|aguja/i.test(label)).length, 0);
     const total = dayRows.reduce((sum, row) => sum + Number(row.data.monto_bs || 0), 0);
     const changeWeek = (offset) => {
       const semana = addDays(farmacoFilters.semana, offset * 7);
       setFarmacoFilters((current) => ({ ...current, semana }));
-      setFarmacoDia(semana);
     };
     return <div className="grid gap-4">
       <section className="rounded-xl border border-slate-200 bg-white p-3">
         <div className="grid items-end gap-3 lg:grid-cols-[150px_minmax(260px,1fr)_minmax(230px,360px)]">
-          <Input label="Semana" type="date" value={farmacoFilters.semana} onChange={(e) => { const semana = startOfWeek(e.target.value); setFarmacoFilters((current) => ({ ...current, semana })); setFarmacoDia(semana); }} compact />
+          <Input label="Semana" type="date" value={farmacoFilters.semana} onChange={(e) => setFarmacoFilters((current) => ({ ...current, semana: startOfWeek(e.target.value) }))} compact />
           <div className="flex items-center justify-center gap-2 pb-0.5"><button type="button" className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50" onClick={() => changeWeek(-1)}><ChevronLeft size={17} /></button><strong className="min-w-48 text-center text-sm text-slate-700">{formatDate(farmacoFilters.semana)} - {formatDate(addDays(farmacoFilters.semana, 6))}</strong><button type="button" className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50" onClick={() => changeWeek(1)}><ChevronRight size={17} /></button></div>
           <label className="flex min-h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 shadow-sm"><Search size={16} className="text-slate-400" /><input className="w-full border-0 p-0 text-sm focus:ring-0" value={farmacoFilters.q} onChange={(e) => setFarmacoFilters((current) => ({ ...current, q: e.target.value }))} placeholder="Buscar paciente, CI, historia o fármaco..." /></label>
         </div>
-        <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-7">{days.map((day) => <button key={day.fecha} type="button" onClick={() => setFarmacoDia(day.fecha)} className={`rounded-lg border px-2 py-2 text-center transition ${selectedDay === day.fecha ? 'border-emerald-400 bg-emerald-50 text-emerald-800 shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-emerald-200'}`}><span className="block text-[9px] font-black tracking-wide">{day.label}</span><strong className="block text-lg leading-5">{day.day}</strong><small>{parseLocalDate(day.fecha).toLocaleDateString('es-BO', { month: 'short' }).replace('.', '')}</small></button>)}</div>
-        <details className="mt-3"><summary className="cursor-pointer text-xs font-bold text-slate-500">Filtros adicionales</summary><div className="mt-3 grid gap-3 md:grid-cols-3"><Input label="Paciente" value={farmacoFilters.paciente_id} onChange={(e) => setFarmacoFilters((current) => ({ ...current, paciente_id: e.target.value }))} compact options={[{ value: '', label: 'Todos' }, ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))]} /><Input label="Estado" value={farmacoFilters.estado} onChange={(e) => setFarmacoFilters((current) => ({ ...current, estado: e.target.value }))} compact options={[{ value: '', label: 'Todos' }, { value: 'Guardado', label: 'Guardado' }, { value: 'Pendiente', label: 'Pendiente' }, { value: 'Anulado', label: 'Anulado' }]} /><Input label="Fármaco" value={farmacoFilters.farmaco} onChange={(e) => setFarmacoFilters((current) => ({ ...current, farmaco: e.target.value }))} compact options={[{ value: '', label: 'Todos' }, { value: 'Diclofenaco', label: 'Diclofenaco' }, { value: 'Dexametasona', label: 'Dexametasona' }, { value: 'Complejo B', label: 'Complejo B' }, { value: 'Otro', label: 'Otro' }]} /></div></details>
+        <details className="mt-3"><summary className="cursor-pointer text-xs font-bold text-slate-500">Filtros adicionales</summary><div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5"><Input label="Paciente" value={farmacoFilters.paciente_id} onChange={(e) => setFarmacoFilters((current) => ({ ...current, paciente_id: e.target.value }))} compact options={[{ value: '', label: 'Todos' }, ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))]} /><Input label="Estado" value={farmacoFilters.estado} onChange={(e) => setFarmacoFilters((current) => ({ ...current, estado: e.target.value }))} compact options={[{ value: '', label: 'Activos' }, { value: 'Guardado', label: 'Activo' }, { value: 'Anulado', label: 'Anulado' }]} /><Input label="Fármaco" value={farmacoFilters.farmaco} onChange={(e) => setFarmacoFilters((current) => ({ ...current, farmaco: e.target.value }))} compact options={[{ value: '', label: 'Todos' }, { value: 'Diclofenaco', label: 'Diclofenaco' }, { value: 'Dexametasona', label: 'Dexametasona' }, { value: 'Complejo B', label: 'Complejo B' }, { value: 'Otro', label: 'Otro' }]} /><Input label="Profesional" value={farmacoFilters.profesional} onChange={(e) => setFarmacoFilters((current) => ({ ...current, profesional: e.target.value }))} compact placeholder="Buscar profesional" /><Input label="Vía" value={farmacoFilters.via} onChange={(e) => setFarmacoFilters((current) => ({ ...current, via: e.target.value }))} compact options={[{ value: '', label: 'Todas' }, { value: 'Intramuscular', label: 'IM – Intramuscular' }, { value: 'Intravenosa', label: 'IV – Intravenosa' }, { value: 'Vía oral', label: 'VO – Vía oral' }, { value: 'Subcutánea', label: 'SC – Subcutánea' }, { value: 'Tópica', label: 'Tópica' }, { value: 'Otra', label: 'Otra' }]} /></div></details>
       </section>
-      <section className="grid overflow-hidden rounded-xl border border-slate-200 bg-white sm:grid-cols-2 lg:grid-cols-4">{[[Users, 'Pacientes atendidos', dayGroups.length], [Pill, 'Fármacos administrados', productCount], [Syringe, 'Inyecciones / insumos', supplyCount], [Coins, 'Total registrado', `Bs. ${money(total)}`]].map(([Icon, label, value], index) => <div key={label} className={`flex items-center gap-3 px-4 py-3 ${index ? 'border-t border-slate-100 sm:border-l sm:border-t-0' : ''}`}><span className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-50 text-emerald-700"><Icon size={17} /></span><div><small className="block text-[10px] font-bold text-slate-500">{label}</small><strong className="text-base text-slate-800">{value}</strong></div></div>)}</section>
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white"><div className="overflow-x-auto"><table className="w-full min-w-[780px] text-left text-xs"><thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Paciente</th><th className="px-4 py-3">Historia clínica</th><th className="px-4 py-3">Fármacos administrados</th><th className="px-4 py-3 text-center">Cantidad total</th><th className="px-4 py-3 text-center">Acciones</th></tr></thead><tbody className="divide-y divide-slate-100">{dayGroups.map((group) => { const labels = [...new Set(group.rows.flatMap((row) => row.labels))]; const first = group.rows[0]; const initials = nombrePaciente(group.paciente).split(/\s+/).slice(0, 2).map((word) => word[0]).join('').toUpperCase(); return <tr key={group.key} className="hover:bg-emerald-50/30"><td className="px-4 py-3"><div className="flex items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-50 font-black text-emerald-700">{initials}</span><div><strong className="block text-slate-900">{nombrePaciente(group.paciente)}</strong><small className="text-slate-500">CI: {group.paciente?.ci || first.data.ci || '-'}</small></div></div></td><td className="px-4 py-3"><strong className="block text-slate-700">{group.historia?.condicion_actual?.zona_cuerpo || group.historiaLabel}</strong><small className="text-slate-500">{formatDate(first.fecha)}</small></td><td className="px-4 py-3"><strong className="block text-slate-700">{labels.join(', ') || 'Sin fármacos registrados'}</strong><small className="text-slate-500">{first.data.via_administracion || ''}</small></td><td className="px-4 py-3 text-center"><span className="inline-flex min-w-8 justify-center rounded-full bg-emerald-50 px-2.5 py-1 font-black text-emerald-700">{group.rows.reduce((sum, row) => sum + Math.max(row.labels.length, 1), 0)}</span></td><td className="px-4 py-3"><div className="flex justify-center gap-1.5"><ActionButton label="Ver detalle" icon={Eye} tone="view" onClick={() => setFarmacoDetail({ ...group, rows: group.rows })} /><ActionButton label="Editar" icon={FilePenLine} tone="edit" onClick={() => editDocumento(first.documento)} />{isAdmin && <ActionButton label="Anular" icon={Ban} tone="delete" onClick={() => setAnnulTarget({ ...group, rows: group.rows })} />}</div></td></tr>; })}{!dayGroups.length && <tr><td colSpan="5" className="px-4 py-10 text-center text-sm text-slate-500">No hay administraciones registradas para este día.</td></tr>}</tbody></table></div><div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">Mostrando {dayGroups.length} pacientes · {formatDate(selectedDay)}</div></section>
+      <section className="grid overflow-hidden rounded-xl border border-slate-200 bg-white sm:grid-cols-2 lg:grid-cols-4">{[[Syringe, 'Administraciones de la semana', weekAdministrationCount], [Users, 'Pacientes atendidos', patientCount], [Pill, 'Medicamentos aplicados', productCount], [CalendarDays, 'Registros de la semana', weekAdministrationCount]].map(([Icon, label, value], index) => <div key={label} className={`flex items-center gap-3 px-4 py-3 ${index ? 'border-t border-slate-100 sm:border-l sm:border-t-0' : ''}`}><span className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-50 text-emerald-700"><Icon size={17} /></span><div><small className="block text-[10px] font-bold text-slate-500">{label}</small><strong className="text-base text-slate-800">{value}</strong></div></div>)}</section>
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[780px] text-left text-xs">
+            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Paciente</th>
+                <th className="px-4 py-3">Historia clínica</th>
+                <th className="px-4 py-3">Fármacos administrados</th>
+                <th className="px-4 py-3 text-center">Cantidad total</th>
+                <th className="px-4 py-3 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {dayGroups.map((group) => {
+                const labels = [...new Set(group.rows.flatMap((row) => row.labels))];
+                const first = group.rows[0];
+                const fromSession = first.data.origen === 'sesion' && first.data.sesion_id;
+                return (
+                  <tr key={group.key} className="hover:bg-emerald-50/30">
+                    <td className="px-4 py-3">
+                      <PatientIdentity paciente={group.paciente} secondary={`CI: ${group.paciente?.ci || first.data.ci || '-'}`} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <strong className="block text-slate-700">{group.historia?.condicion_actual?.zona_cuerpo || group.historiaLabel}</strong>
+                      <small className="text-slate-500">{formatDate(first.fecha)}{first.data.numero_sesion ? ` · Sesión ${first.data.numero_sesion}` : ''}</small>
+                    </td>
+                    <td className="px-4 py-3">
+                      <strong className="block text-slate-700">{labels.join(', ') || 'Sin fármacos registrados'}</strong>
+                      <small className="text-slate-500">{first.data.via_administracion || first.data.productos?.[0]?.via || ''}</small>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex min-w-8 justify-center rounded-full bg-emerald-50 px-2.5 py-1 font-black text-emerald-700">{group.rows.reduce((sum, row) => sum + Math.max(row.labels.length, 1), 0)}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-center gap-1.5">
+                        <ActionButton label="Ver detalle" icon={Eye} tone="view" onClick={() => setFarmacoDetail({ ...group, rows: group.rows })} />
+                        {fromSession
+                          ? <ActionButton label="Ver sesión" icon={CalendarDays} tone="edit" onClick={() => navigate('/sesiones', { state: { verSesionId: first.data.sesion_id } })} />
+                          : <ActionButton label="Editar" icon={FilePenLine} tone="edit" onClick={() => editDocumento(first.documento)} />}
+                        {isAdmin && <ActionButton label="Anular" icon={Ban} tone="delete" onClick={() => setAnnulTarget({ ...group, rows: group.rows })} />}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!dayGroups.length && <tr><td colSpan="5" className="px-4 py-10 text-center text-sm text-slate-500">No hay administraciones registradas para esta semana.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
+          Mostrando {dayGroups.length} pacientes · Semana del {formatDate(days[0]?.fecha)} al {formatDate(days.at(-1)?.fecha)}
+        </div>
+      </section>
     </div>;
   };
 
@@ -984,7 +1052,7 @@ function DocumentosClinicos({ tipo }) {
                     {isAdmin && <ActionButton label="Eliminar" icon={Trash2} tone="delete" onClick={() => deleteDocumentoClinico(documento.id).then(load)} />}
                   </div>
                 );
-                return [formatDate(documento.fecha), nombrePaciente(documento.paciente), documento.datos?.ci || documento.paciente?.ci || '-', documento.datos?.diagnostico || '-', documento.creado_por?.nombre || '-', documento.estado, commonActions];
+                return [formatDate(documento.fecha), <PatientIdentity paciente={documento.paciente} secondary={`CI: ${documento.datos?.ci || documento.paciente?.ci || '-'}`} />, documento.datos?.ci || documento.paciente?.ci || '-', documento.datos?.diagnostico || '-', documento.creado_por?.nombre || '-', documento.estado, commonActions];
               })}
               empty={meta.empty}
             />
@@ -992,7 +1060,7 @@ function DocumentosClinicos({ tipo }) {
         )}
       </div>
 
-      <Modal open={showForm} title={tipo === 'farmacos' ? (editing ? 'Editar registro de administración' : 'Nuevo registro de administración') : (editing ? `Editar ${meta.title}` : meta.action)} subtitle={tipo === 'farmacos' ? 'Registra los fármacos e insumos administrados al paciente.' : undefined} onClose={() => setShowForm(false)} size={tipo === 'farmacos' ? 'compact' : 'lg'}>
+      <Modal open={showForm} title={tipo === 'farmacos' ? (editing ? 'Editar administración externa' : 'Registrar administración externa') : (editing ? `Editar ${meta.title}` : meta.action)} subtitle={tipo === 'farmacos' ? 'Uso excepcional para medicamentos administrados fuera de una sesión fisioterapéutica.' : undefined} onClose={() => setShowForm(false)} size={tipo === 'farmacos' ? 'compact' : 'lg'}>
         <form onSubmit={submit} className="grid max-h-[74vh] gap-4 overflow-y-auto pr-1">
           {tipo === 'consentimiento' ? (
             <div className="form-grid">
@@ -1006,7 +1074,7 @@ function DocumentosClinicos({ tipo }) {
               )}
               <Input label="Fecha" type="date" value={form.fecha} onChange={(e) => update('fecha', e.target.value)} />
               <Input label="Estado" value={form.estado} onChange={(e) => update('estado', e.target.value)} options={[{ value: 'Borrador', label: 'Borrador' }, { value: 'Guardado', label: 'Guardado' }, { value: 'Finalizado', label: 'Finalizado' }, { value: 'Anulado', label: 'Anulado' }]} />
-              <Input label="Sesion diaria vinculada" value={form.sesion_id || ''} onChange={(e) => update('sesion_id', e.target.value)} options={[{ value: '', label: 'Sin sesion' }, ...sesiones.filter((sesion) => isSesionActiva(sesion) && (!form.paciente_id || Number(sesion.paciente_id) === Number(form.paciente_id)) && (!form.historia_clinica_id || Number(sesion.historia_clinica_id || sesion.historia_clinica?.id) === Number(form.historia_clinica_id))).map((sesion) => ({ value: sesion.id, label: `${formatDate(sesion.fecha)} - ${nombrePaciente(sesion.paciente)}` }))]} />
+              {tipo !== 'farmacos' && <Input label="Sesion diaria vinculada" value={form.sesion_id || ''} onChange={(e) => update('sesion_id', e.target.value)} options={[{ value: '', label: 'Sin sesion' }, ...sesiones.filter((sesion) => isSesionActiva(sesion) && (!form.paciente_id || Number(sesion.paciente_id) === Number(form.paciente_id)) && (!form.historia_clinica_id || Number(sesion.historia_clinica_id || sesion.historia_clinica?.id) === Number(form.historia_clinica_id))).map((sesion) => ({ value: sesion.id, label: `${formatDate(sesion.fecha)} - ${nombrePaciente(sesion.paciente)}` }))]} />}
             </div>
           )}
 
@@ -1082,10 +1150,9 @@ function DocumentosClinicos({ tipo }) {
             const sesion = sesiones.find((item) => Number(item.id) === Number(fila.sesion_id));
             return <div className="grid gap-5 overflow-x-hidden pb-3">
               <section className="grid gap-3">
-                <div><h3 className="text-sm font-black text-slate-800">Origen del registro</h3><p className="text-xs text-slate-500">Vincula una sesión o registra una aplicación manual.</p></div>
-                <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1"><button type="button" onClick={() => updateFarmacoRow(0, 'origen', 'sesion')} className={`rounded-md px-3 py-2 text-sm font-black ${fila.origen !== 'manual' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500'}`}>Vincular a sesión diaria</button><button type="button" onClick={() => { updateDatos('filas', [{ ...fila, origen: 'manual', sesion_id: '' }]); }} className={`rounded-md px-3 py-2 text-sm font-black ${fila.origen === 'manual' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500'}`}>Registro manual</button></div>
-                {fila.origen !== 'manual' ? <Input label="Sesión diaria vinculada" value={fila.sesion_id || ''} onChange={(e) => selectSesionFila(0, e.target.value)} options={[{ value: '', label: 'Seleccionar sesión diaria' }, ...sesionesActivas.map((item) => ({ value: item.id, label: `${formatDate(item.fecha)} · ${nombrePaciente(item.paciente)} · Sesión N.º ${item.numero_sesion || '-'}` }))]} /> : <div className="grid gap-3 md:grid-cols-2"><Input label="Fecha" type="date" value={fila.fecha || today} onChange={(e) => updateFarmacoRow(0, 'fecha', e.target.value)} /><Input label="Paciente" value={fila.paciente_id || ''} onChange={(e) => selectPacienteFila(0, e.target.value)} options={[{ value: '', label: 'Seleccionar paciente' }, ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))]} /><Input label="Historia clínica" value={fila.historia_clinica_id || ''} onChange={(e) => selectHistoriaFila(0, e.target.value)} options={[{ value: '', label: 'Seleccionar historia' }, ...(historiasPorPaciente.get(Number(fila.paciente_id)) || []).map((item) => ({ value: item.id, label: historiaLabel(item) }))]} /><Input label="Profesional" value={fila.profesional || ''} onChange={(e) => updateFarmacoRow(0, 'profesional', e.target.value)} /></div>}
-                {fila.origen !== 'manual' && fila.sesion_id && <div className="grid overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:grid-cols-2 lg:grid-cols-4">{[['Paciente', nombrePaciente(sesion?.paciente)], ['Historia clínica', historia?.condicion_actual?.zona_cuerpo || fila.historia_label || '-'], ['Profesional', fila.profesional || sesion?.usuario?.nombre || '-'], ['Fecha / sesión', `${formatDate(fila.fecha)} · N.º ${sesion?.numero_sesion || '-'}`]].map(([label, value]) => <div key={label} className="border-b border-slate-200 px-3 py-3 last:border-b-0 sm:border-r"><small className="block font-bold text-slate-500">{label}</small><strong className="mt-1 block text-sm text-slate-800">{value}</strong></div>)}</div>}
+                <div><h3 className="text-sm font-black text-slate-800">Administración externa</h3><p className="text-xs text-slate-500">Utiliza este registro únicamente cuando el medicamento fue administrado fuera de una sesión fisioterapéutica.</p></div>
+                <div className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-black text-teal-700">Este registro no incrementará las sesiones realizadas.</div>
+                <div className="grid gap-3 md:grid-cols-2"><Input label="Fecha" type="date" value={fila.fecha || today} onChange={(e) => updateFarmacoRow(0, 'fecha', e.target.value)} /><Input label="Paciente" value={fila.paciente_id || ''} onChange={(e) => selectPacienteFila(0, e.target.value)} options={[{ value: '', label: 'Seleccionar paciente' }, ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))]} /><Input label="Historia clínica" value={fila.historia_clinica_id || ''} onChange={(e) => selectHistoriaFila(0, e.target.value)} options={[{ value: '', label: 'Seleccionar historia' }, ...(historiasPorPaciente.get(Number(fila.paciente_id)) || []).map((item) => ({ value: item.id, label: historiaLabel(item) }))]} /><Input label="Profesional responsable" value={fila.profesional || form.datos.responsable_nombre || ''} onChange={(e) => updateFarmacoRow(0, 'profesional', e.target.value)} /></div>
               </section>
               <section className="grid gap-3 border-t border-slate-100 pt-4"><div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-black text-slate-800">Fármacos e insumos</h3><p className="text-xs text-slate-500">Agrega uno o varios productos administrados.</p></div><Button type="button" variant="ghost" onClick={() => setProductos([...productos, emptyProducto()])}><Plus size={16} />Agregar producto</Button></div>{productos.map((producto, index) => <article key={index} className="rounded-lg border border-slate-200 p-3"><div className="mb-3 flex items-center justify-between"><strong className="text-xs text-emerald-700">Producto {index + 1}</strong><button type="button" title="Eliminar producto" onClick={() => productos.length > 1 && setProductos(productos.filter((_, current) => current !== index))} disabled={productos.length === 1} className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"><Trash2 size={15} /></button></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Input label="Fármaco o insumo" value={producto.producto} onChange={(e) => updateProducto(index, 'producto', e.target.value)} options={['', 'Diclofenaco', 'Dexametasona', 'Complejo B', 'Jeringa 3 ml', 'Jeringa 5 ml', 'Jeringa 10 ml', 'Otro'].map((value) => ({ value, label: value || 'Seleccionar producto' }))} />{producto.producto === 'Otro' && <Input label="Nombre del producto" value={producto.nombre_otro} onChange={(e) => updateProducto(index, 'nombre_otro', e.target.value)} />}<Input label="Presentación" value={producto.presentacion} onChange={(e) => updateProducto(index, 'presentacion', e.target.value)} placeholder="Ej. Ampolla" /><Input label="Dosis" value={producto.dosis} onChange={(e) => updateProducto(index, 'dosis', e.target.value)} placeholder="Ej. 75 mg" /><Input label="Volumen" value={producto.volumen} onChange={(e) => updateProducto(index, 'volumen', e.target.value)} placeholder="Ej. 3 ml" /><Input label="Cantidad" type="number" min="1" value={producto.cantidad} onChange={(e) => updateProducto(index, 'cantidad', e.target.value)} /><Input label="Vía" value={producto.via} onChange={(e) => updateProducto(index, 'via', e.target.value)} options={['Intramuscular', 'Tópica', 'Oral', 'Intravenosa', 'Otra'].map((value) => ({ value, label: value }))} /><Input label="Costo unitario Bs." type="number" min="0" step="0.01" value={producto.costo} onChange={(e) => updateProducto(index, 'costo', e.target.value)} /></div></article>)}</section>
               <section className="grid gap-3 border-t border-slate-100 pt-4"><Input label="Motivo de aplicación" value={fila.motivo || ''} onChange={(e) => updateFarmacoRow(0, 'motivo', e.target.value)} placeholder="Aplicación posterior a terapia manual" /><Input label="Observaciones clínicas" value={fila.observaciones || ''} onChange={(e) => updateFarmacoRow(0, 'observaciones', e.target.value)} multiline /><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-red-600" checked={Boolean(fila.reaccion_adversa)} onChange={(e) => updateFarmacoRow(0, 'reaccion_adversa', e.target.checked)} />Se presentó una reacción adversa</label>{fila.reaccion_adversa && <Input label="Detalle de la reacción" value={fila.detalle_reaccion || ''} onChange={(e) => updateFarmacoRow(0, 'detalle_reaccion', e.target.value)} multiline />}</section>
@@ -1117,7 +1184,7 @@ function DocumentosClinicos({ tipo }) {
                       <Input label="Fecha" type="date" value={fila.fecha || today} onChange={(e) => updateFarmacoRow(index, 'fecha', e.target.value)} />
                       <Input label="Paciente" value={fila.paciente_id || ''} onChange={(e) => selectPacienteFila(index, e.target.value)} options={[{ value: '', label: 'Seleccionar paciente' }, ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))]} />
                       <Input label="Historia clinica" value={fila.historia_clinica_id || ''} onChange={(e) => selectHistoriaFila(index, e.target.value)} options={[{ value: '', label: 'Sin historia' }, ...(historiasPorPaciente.get(Number(fila.paciente_id)) || []).map((historia) => ({ value: historia.id, label: historiaLabel(historia) }))]} />
-                      <Input label="Sesion diaria vinculada" value={fila.sesion_id || ''} onChange={(e) => selectSesionFila(index, e.target.value)} options={[{ value: '', label: 'Sin sesion' }, ...sesionesActivas.filter((sesion) => !fila.paciente_id || Number(sesion.paciente_id) === Number(fila.paciente_id)).map((sesion) => ({ value: sesion.id, label: `${formatDate(sesion.fecha)} - ${nombrePaciente(sesion.paciente)}` }))]} />
+                      <div className="flex min-h-11 items-center rounded-lg border border-teal-100 bg-teal-50 px-3 text-xs font-black text-teal-700">Administración externa</div>
                       <Input label="Profesional" value={fila.profesional || form.datos.responsable_nombre || ''} onChange={(e) => updateFarmacoRow(index, 'profesional', e.target.value)} />
                       <Input label="Estado" value={fila.estado || 'Guardado'} onChange={(e) => updateFarmacoRow(index, 'estado', e.target.value)} options={[{ value: 'Guardado', label: 'Guardado' }, { value: 'Pendiente', label: 'Pendiente' }, { value: 'Anulado', label: 'Anulado' }]} />
                     </div>
@@ -1239,6 +1306,7 @@ function DocumentosClinicos({ tipo }) {
               <div className="rounded-lg bg-amber-50 p-3"><span className="block text-xs font-black text-amber-700">Pendiente</span><strong>{money(farmacoDetail.pendiente)} Bs</strong></div>
               <div className="rounded-lg bg-slate-50 p-3"><span className="block text-xs font-black text-slate-600">Profesional</span><strong>{farmacoDetail.rows[0]?.data.profesional || farmacoDetail.rows[0]?.documento.creado_por?.nombre || '-'}</strong></div>
             </div>
+            {farmacoDetail.rows[0]?.data.origen === 'sesion' && <div className="grid gap-2 rounded-lg border border-teal-100 bg-teal-50 p-3 text-sm text-slate-700"><strong className="text-teal-800">Evolución clínica · Sesión N.º {farmacoDetail.rows[0].data.numero_sesion}</strong><span>Dolor: {farmacoDetail.rows[0].data.dolor_inicial ?? '-'} → {farmacoDetail.rows[0].data.dolor_final ?? '-'}</span><span><b>Procedimiento:</b> {farmacoDetail.rows[0].data.procedimiento_realizado || '-'}</span><span><b>Respuesta:</b> {farmacoDetail.rows[0].data.resumen_evolucion || '-'}</span></div>}
             <div className="grid gap-3 md:grid-cols-2">
               {farmacoDetail.rows.map((row) => (
                 <div key={row.id} className="rounded-lg border border-slate-200 p-3">
@@ -1250,7 +1318,8 @@ function DocumentosClinicos({ tipo }) {
                     <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">{row.data.estado_pago || row.data.estado || row.documento.estado}</span>
                   </div>
                   <div className="mt-3"><FarmacoBadge row={row} /></div>
-                  <p className="mt-3 text-sm text-slate-600">Via: {row.data.via_administracion || '-'}</p>
+                  <p className="mt-3 text-sm text-slate-600">Vía: {row.data.via_administracion || row.data.productos?.[0]?.via || '-'}</p>
+                  <p className="text-sm text-slate-600">Cantidad: {row.data.productos?.[0]?.cantidad || 1} · Motivo: {row.data.motivo || row.data.productos?.[0]?.motivo_clinico || '-'}</p>
                   <p className="text-sm text-slate-600">Pago: {money(row.data.monto_bs)} Bs · {row.data.metodo_pago || '-'}</p>
                   {row.data.observaciones && <p className="mt-2 rounded bg-slate-50 p-2 text-sm text-slate-600">{row.data.observaciones}</p>}
                   {row.data.reaccion_adversa && <p className="mt-2 rounded bg-red-50 p-2 text-sm font-semibold text-red-700">Reaccion adversa: {row.data.detalle_reaccion || 'Sin detalle'}</p>}

@@ -28,6 +28,19 @@ export function Avatar({ src, name, size = 'md', className = '' }) {
   );
 }
 
+export function PatientIdentity({ paciente, secondary, className = '' }) {
+  const name = `${paciente?.nombres || ''} ${paciente?.apellidos || ''}`.trim() || 'Paciente';
+  return (
+    <span className={`flex min-w-0 items-center gap-2.5 ${className}`}>
+      <Avatar src={paciente?.foto} name={name} size="sm" className="rounded-full" />
+      <span className="min-w-0">
+        <strong className="block truncate text-sm text-slate-900">{name}</strong>
+        {secondary && <small className="block truncate text-xs text-slate-500">{secondary}</small>}
+      </span>
+    </span>
+  );
+}
+
 const compressImage = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();

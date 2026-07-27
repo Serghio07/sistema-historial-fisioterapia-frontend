@@ -1,11 +1,12 @@
 import {
   Activity, Ban, CalendarDays, ChevronDown, ClipboardList, ClipboardPlus,
-  FilePenLine, FileText, FolderOpen, MoreHorizontal, Printer, Stethoscope,
+  FilePenLine, FileText, FolderOpen, MoreHorizontal, Stethoscope,
   UserRound
 } from 'lucide-react';
 import { useState } from 'react';
 import { formatDate } from '../../utils/formatDate';
 import { nombrePaciente } from '../../utils/validators';
+import { Avatar } from '../../components/common/ProfilePhoto';
 
 const isCompleted = (session) => !session?.anulada
   && String(session?.estado || '').toLowerCase() !== 'anulada'
@@ -40,7 +41,7 @@ function Action({ icon: Icon, children, tone = 'slate', onClick }) {
 
 export default function PacienteHistoriasAccordion({
   group, sesiones, expanded, onToggle, onShowHistory, onNew, onViewPatient,
-  onView, onEdit, onPreview, onPrint, onEvolutivo, onViewEvolutions, onAnular, isAdmin
+  onView, onEdit, onPreview, onViewEvolutions, onAnular, isAdmin
 }) {
   const { paciente, allHistorias } = group;
   const latest = group.historias[0] || allHistorias[0];
@@ -64,7 +65,7 @@ export default function PacienteHistoriasAccordion({
   return <article className={`border transition-all duration-300 ${expanded ? 'border-teal-200 border-l-4 border-l-teal-500 bg-teal-50/55 shadow-[0_3px_12px_rgba(15,118,110,0.06)]' : 'border-transparent bg-white hover:bg-teal-50/25'}`}>
     <div role="button" tabIndex={0} aria-expanded={expanded} onClick={activateRow} onKeyDown={activateRow} className={`group grid cursor-pointer items-center gap-4 px-4 py-4 outline-none transition-colors duration-300 md:grid-cols-[minmax(240px,1.55fr)_minmax(175px,.9fr)_minmax(140px,.7fr)_minmax(165px,.8fr)_32px] md:px-5 ${expanded ? 'bg-teal-50/70' : 'bg-white hover:bg-teal-50/30'}`}>
       <span className="flex min-w-0 items-center gap-3">
-        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-black uppercase ring-1 transition-colors duration-300 ${expanded ? 'bg-teal-100 text-teal-800 ring-teal-300' : `${tone.avatar} ${tone.text}`}`}>{initials || 'PA'}</span>
+        <Avatar src={paciente?.foto} name={nombrePaciente(paciente)} size="sm" className="rounded-full" />
         <span className="min-w-0"><strong className={`block truncate text-sm font-black uppercase transition-colors duration-300 ${expanded ? 'text-teal-900' : 'text-slate-900'}`}>{nombrePaciente(paciente)}</strong><small className="mt-1 block text-xs text-slate-500">CI: {paciente?.ci || 'Sin dato'}</small></span>
       </span>
       <span><span className={`inline-flex items-center gap-2 text-xs font-bold ${tone.text}`}><i className={`h-2 w-2 rounded-full ${tone.dot}`} />Historia {tone.label}</span><small className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500"><CalendarDays size={13} />{dateLabel}</small></span>
@@ -99,14 +100,13 @@ export default function PacienteHistoriasAccordion({
             </aside>
           </div>
 
-          <div className={`mt-4 grid gap-2 border-t border-slate-200 pt-4 ${allHistorias.length > 1 ? 'sm:grid-cols-2 xl:grid-cols-7' : 'sm:grid-cols-2 xl:grid-cols-6'}`}>
+          <div className={`mt-4 grid gap-2 border-t border-slate-200 pt-4 ${allHistorias.length > 1 ? 'sm:grid-cols-2 xl:grid-cols-6' : 'sm:grid-cols-2 xl:grid-cols-5'}`}>
             <Action icon={FilePenLine} tone="blue" onClick={() => onView(latest)}>Ver historia</Action>
-            {latest.estado === 'activa' && <Action icon={FilePenLine} tone="green" onClick={() => onEvolutivo(latest)}>Registrar evolutivo</Action>}
             <Action icon={FileText} tone="violet" onClick={() => onPreview(latest)}>Vista previa PDF</Action>
-            <Action icon={ClipboardList} tone="green" onClick={() => onViewEvolutions(latest)}>Ver evolutivos</Action>
+            <Action icon={ClipboardList} tone="green" onClick={() => onViewEvolutions(latest)}>Ver evolucións</Action>
             <Action icon={UserRound} onClick={onViewPatient}>Datos del paciente</Action>
             {allHistorias.length > 1 && <Action icon={FolderOpen} onClick={onShowHistory}>Ver historial completo ({allHistorias.length})</Action>}
-            <div className="relative"><Action icon={MoreHorizontal} onClick={() => setShowMenu(!showMenu)}>Más acciones</Action>{showMenu && <div className="absolute bottom-full right-0 z-20 mb-1 grid min-w-48 rounded-xl border border-slate-200 bg-white p-1 shadow-xl">{latest.estado !== 'anulada' && <button className="menu-action" onClick={() => runMenuAction(() => onEdit(latest))}><FilePenLine size={15} />Editar historia</button>}<button className="menu-action" onClick={() => runMenuAction(onNew)}><ClipboardPlus size={15} />Nueva evaluación</button><button className="menu-action" onClick={() => runMenuAction(() => onPrint(latest))}><Printer size={15} />Imprimir historia</button>{isAdmin && latest.estado !== 'anulada' && <button className="menu-action text-red-600 hover:bg-red-50" onClick={() => runMenuAction(() => onAnular(latest))}><Ban size={15} />Anular historia</button>}</div>}</div>
+            <div className="relative"><Action icon={MoreHorizontal} onClick={() => setShowMenu(!showMenu)}>Más acciones</Action>{showMenu && <div className="absolute bottom-full right-0 z-20 mb-1 grid min-w-48 rounded-xl border border-slate-200 bg-white p-1 shadow-xl">{latest.estado !== 'anulada' && <button className="menu-action" onClick={() => runMenuAction(() => onEdit(latest))}><FilePenLine size={15} />Editar historia</button>}<button className="menu-action" onClick={() => runMenuAction(onNew)}><ClipboardPlus size={15} />Nueva evaluación</button>{isAdmin && latest.estado !== 'anulada' && <button className="menu-action text-red-600 hover:bg-red-50" onClick={() => runMenuAction(() => onAnular(latest))}><Ban size={15} />Anular historia</button>}</div>}</div>
           </div>
         </div>
       </div>

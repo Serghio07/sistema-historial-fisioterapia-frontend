@@ -25,7 +25,9 @@ import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
 import Table from '../../components/common/Table';
+import { Avatar } from '../../components/common/ProfilePhoto';
 import { useAuth } from '../../context/AuthContext';
+import { matchesSearch } from '../../utils/search';
 import {
   getRegistrosSemanales,
   recalcularRegistrosSemanales
@@ -33,16 +35,12 @@ import {
 import { formatDate } from '../../utils/formatDate';
 import { exportSesionesSemanalesExcel } from '../../utils/exportSesionesSemanalesExcel';
 import { nombrePaciente } from '../../utils/validators';
+import { boliviaDate, formatBoliviaDateTime } from '../../utils/boliviaDateTime';
 
-const localDate = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+const localDate = (date) => boliviaDate(date);
 
-const getWeekRange = (value = new Date()) => {
-  const date = typeof value === 'string' ? new Date(`${value}T00:00:00`) : new Date(value);
+const getWeekRange = (value = boliviaDate()) => {
+  const date = typeof value === 'string' ? new Date(`${value}T12:00:00-04:00`) : new Date(value);
   const day = date.getDay();
   const fromMonday = day === 0 ? 6 : day - 1;
   const start = new Date(date);
@@ -161,8 +159,7 @@ const PainBadge = ({ value }) => (
 
 const longDate = (value) => {
   if (!value) return 'Fecha sin registrar';
-  const text = new Intl.DateTimeFormat('es-BO', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' })
-    .format(new Date(`${value}T00:00:00`));
+  const text = formatBoliviaDateTime(`${value}T12:00:00-04:00`, { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
@@ -190,9 +187,7 @@ function PatientCell({ registro }) {
   const paciente = registro.paciente || {};
   return (
     <div className="flex min-w-[220px] items-center gap-3">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-50 text-sm font-black text-brand-700">
-        {initials(paciente)}
-      </span>
+      <Avatar src={paciente.foto} name={nombrePaciente(paciente)} size="sm" className="rounded-full" />
       <div>
         <strong className="block text-sm text-ink">{nombrePaciente(paciente)}</strong>
         <span className="block text-xs text-slate-500">CI: {paciente.ci || 'Sin dato'}</span>
@@ -313,7 +308,7 @@ function DetailModal({ registro, dateRange, onClose, onHistory, onSession, onWee
                       <span>Fármacos: <b>{sesion.aplica_farmacos || sesion.inyectable_nombre ? 'Sí' : 'No'}</b></span>
                     </div>
                     <div className="min-w-0 text-xs text-slate-600">
-                      <p><b className="text-slate-700">Evolutivo:</b> {sessionHasEvolution(sesion) ? 'Registrado' : 'Pendiente'}</p>
+                      <p><b className="text-slate-700">Evolución:</b> {sessionHasEvolution(sesion) ? 'Registrado' : 'Pendiente'}</p>
                       <p className="mt-1 line-clamp-2"><b className="text-slate-700">Observación:</b> {sesion.evolucion_observada || sesion.observacion || 'Sin registrar'}</p>
                       <p className="mt-1 truncate"><b className="text-slate-700">Profesional:</b> {sesion.profesional_responsable || 'Sin registrar'}</p>
                     </div>
@@ -428,7 +423,6 @@ function SesionesSemanales() {
   }, new Map()).values()], [registros, dateRange]);
 
   const filteredRegistros = useMemo(() => {
-    const term = filters.query.trim().toLowerCase();
     return groupedRegistros.filter((registro) => {
       const stats = conteos(registro, dateRange);
       const estado = estadoRegistro(registro, dateRange);
@@ -440,11 +434,11 @@ function SesionesSemanales() {
         registro.telefono,
         registro.diagnostico,
         registro.historia_clinica?.motivo_consulta
-      ].filter(Boolean).join(' ').toLowerCase();
+      ].filter(Boolean).join(' ');
 
       if (stats.total === 0) return false;
       if (registro.historia_clinica?.anulada || ['anulada', 'inactiva'].includes(estadoHistoria)) return false;
-      if (term && !text.includes(term)) return false;
+      if (!matchesSearch(text, filters.query)) return false;
       if (filters.estado !== 'Todos' && estado !== filters.estado) return false;
       if (filters.deuda === 'Con deuda' && stats.deuda <= 0) return false;
       if (filters.deuda === 'Sin deuda' && stats.deuda > 0) return false;

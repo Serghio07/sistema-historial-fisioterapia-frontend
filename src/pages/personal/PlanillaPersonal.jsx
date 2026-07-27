@@ -15,10 +15,10 @@ import { getPersonal } from '../../services/personalService';
 import { anularPlanillaPersonal, cerrarPlanillaPersonal, createPlanillaPersonal, deletePlanillaPersonal, getPlanillasPersonal, reabrirPlanillaPersonal, updatePlanillaPersonal } from '../../services/planillaPersonalService';
 import { exportPlanillaExcel, exportPlanillasGeneralExcel, MESES } from '../../utils/exportPlanillaExcel';
 import { formatDate } from '../../utils/formatDate';
+import { boliviaDate } from '../../utils/boliviaDateTime';
 import PlanillaSueldoDocumento from './PlanillaSueldoDocumento';
 
-const now = new Date();
-const today = now.toISOString().slice(0, 10);
+const today = boliviaDate();
 const money = (value) => `${Number(value || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs`;
 const amount = (item) => item.tipo_pago === 'por_servicio' ? Number(item.monto_servicio || 0) : Number(item.sueldo_base || 0);
 const horario = (persona) => {
@@ -26,8 +26,16 @@ const horario = (persona) => {
   const horas = persona.hora_entrada && persona.hora_salida ? `${String(persona.hora_entrada).slice(0, 5)}-${String(persona.hora_salida).slice(0, 5)}` : '';
   return [dias, horas].filter(Boolean).join(' ');
 };
-const snapshot = (persona) => ({ personal_id: persona.id, apellido_paterno: persona.apellido_paterno, apellido_materno: persona.apellido_materno || '', nombres: persona.nombres, ci: persona.ci, cargo: persona.cargo, horario: horario(persona), tipo_pago: persona.tipo_pago, sueldo_base: persona.tipo_pago === 'por_servicio' ? '' : persona.sueldo_base || '', monto_servicio: '', estado_laboral: persona.estado, firma: '' });
-const initialForm = { mes: now.getMonth() + 1, anio: now.getFullYear(), fecha_planilla: today, observaciones: '', estado: 'borrador', detalles: [] };
+const cargoCompleto = (persona) => {
+  const titulo = String(persona?.titulo_profesional || '').trim();
+  const cargo = String(persona?.cargo || '').trim();
+  return titulo && !cargo.toLocaleLowerCase('es-BO').startsWith(titulo.toLocaleLowerCase('es-BO'))
+    ? `${titulo} ${cargo}`.trim()
+    : cargo || titulo;
+};
+const snapshot = (persona) => ({ personal_id: persona.id, apellido_paterno: persona.apellido_paterno, apellido_materno: persona.apellido_materno || '', nombres: persona.nombres, ci: persona.ci, cargo: cargoCompleto(persona), horario: horario(persona), tipo_pago: persona.tipo_pago, sueldo_base: persona.tipo_pago === 'por_servicio' ? '' : persona.sueldo_base || '', monto_servicio: '', estado_laboral: persona.estado, firma: '' });
+const [currentYear, currentMonth] = today.split('-').map(Number);
+const initialForm = { mes: currentMonth, anio: currentYear, fecha_planilla: today, observaciones: '', estado: 'borrador', detalles: [] };
 const stateTone = { borrador: 'bg-violet-50 text-violet-700', cerrada: 'bg-emerald-50 text-emerald-700', anulada: 'bg-red-50 text-red-700' };
 
 function PlanillaPersonal() {
@@ -47,6 +55,13 @@ function PlanillaPersonal() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const printRef = useRef(null);
+  const planillaConCargosActuales = (planilla) => ({
+    ...planilla,
+    detalles: (planilla?.detalles || []).map((detalle) => {
+      const persona = personal.find((item) => Number(item.id) === Number(detalle.personal_id));
+      return persona ? { ...detalle, cargo: cargoCompleto(persona) } : detalle;
+    })
+  });
 
   const load = async () => { setLoading(true); try { const [plans, staff] = await Promise.all([getPlanillasPersonal(), getPersonal()]); setPlanillas(plans); setPersonal(staff); } finally { setLoading(false); } };
   useEffect(() => { load(); }, []);
@@ -104,8 +119,8 @@ function PlanillaPersonal() {
 
   const deletePlan = async (plan) => { const result = await Swal.fire({ icon: 'warning', title: '¿Eliminar planilla?', text: `${MESES[plan.mes]} ${plan.anio}. Esta acción eliminará únicamente el borrador.`, showCancelButton: true, reverseButtons: true, confirmButtonText: 'Eliminar', cancelButtonText: 'Cancelar', confirmButtonColor: '#DC2626' }); if (!result.isConfirmed) return; try { await deletePlanillaPersonal(plan.id); await load(); await Swal.fire({ icon: 'success', title: 'Planilla eliminada correctamente.', confirmButtonColor: '#0F766E' }); } catch (errorDelete) { await Swal.fire({ icon: 'error', title: 'No se pudo eliminar la planilla.', text: errorDelete.message, confirmButtonColor: '#0F766E' }); } };
 
-  const downloadPdf = async (plan) => { const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1054px;background:white'; document.body.appendChild(host); const root = createRoot(host); root.render(<PlanillaSueldoDocumento planilla={plan} />); await new Promise((resolve) => setTimeout(resolve, 250)); const canvas = await html2canvas(host.firstElementChild, { scale: 2, backgroundColor: '#fff', useCORS: true }); const pdf = new jsPDF('l', 'mm', [279, 216]); const height = canvas.height * 279 / canvas.width; pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 279, height); pdf.save(`Planilla_Sueldos_${MESES[plan.mes]}_${plan.anio}.pdf`); root.unmount(); host.remove(); };
-  const printPlan = (plan) => { setPreview(plan); setTimeout(() => window.print(), 150); };
+  const downloadPdf = async (plan) => { const planActual = planillaConCargosActuales(plan); const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1054px;background:white'; document.body.appendChild(host); const root = createRoot(host); root.render(<PlanillaSueldoDocumento planilla={planActual} />); await new Promise((resolve) => setTimeout(resolve, 250)); const canvas = await html2canvas(host.firstElementChild, { scale: 2, backgroundColor: '#fff', useCORS: true }); const pdf = new jsPDF('l', 'mm', [279, 216]); const height = canvas.height * 279 / canvas.width; pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 279, height); pdf.save(`Planilla_Sueldos_${MESES[plan.mes]}_${plan.anio}.pdf`); root.unmount(); host.remove(); };
+  const printPlan = (plan) => { setPreview(planillaConCargosActuales(plan)); setTimeout(() => window.print(), 150); };
 
   return <section className="grid gap-5">
     {loading && <Loader />}
@@ -113,7 +128,7 @@ function PlanillaPersonal() {
     <section className="panel grid gap-3 md:grid-cols-3 xl:grid-cols-7"><Input compact label="Mes" value={filters.mes} onChange={(e) => setFilters({ ...filters, mes: e.target.value })} options={[{ value: '', label: 'Todos' }, ...MESES.slice(1).map((label, i) => ({ value: i + 1, label }))]}/><Input compact label="Año" type="number" value={filters.anio} onChange={(e) => setFilters({ ...filters, anio: e.target.value })}/><Input compact label="Estado" value={filters.estado} onChange={(e) => setFilters({ ...filters, estado: e.target.value })} options={['todos','borrador','cerrada','anulada'].map((value) => ({ value, label: value.charAt(0).toUpperCase()+value.slice(1) }))}/><Input compact label="Personal" value={filters.personal} onChange={(e) => setFilters({ ...filters, personal: e.target.value })} options={[{value:'',label:'Todos'},...personal.map((p)=>({value:p.id,label:`${p.apellido_paterno} ${p.nombres}`}))]}/><Input compact label="Cargo" value={filters.cargo} onChange={(e) => setFilters({ ...filters, cargo: e.target.value })} options={[{value:'',label:'Todos'},...cargos.map((c)=>({value:c,label:c}))]}/><Button className="self-end" onClick={load}>Actualizar</Button><Button className="self-end" variant="ghost" onClick={()=>setFilters({mes:'',anio:'',estado:'todos',personal:'',cargo:''})}>Limpiar filtros</Button></section>
     <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">{[[Banknote,'Planillas registradas',stats.plans],[Users,'Personal incluido',stats.staff],[Banknote,'Total de sueldos',money(stats.total)],[LockKeyhole,'Planillas cerradas',stats.closed],[FilePenLine,'Borradores',stats.drafts],[Trash2,'Planillas anuladas',stats.annulled]].map(([Icon,label,value])=><article key={label} className="rounded-lg border border-brand-100 bg-white p-3 shadow-sm"><div className="flex justify-between text-xs font-black uppercase text-slate-500"><span>{label}</span><Icon size={17} className="text-brand-700"/></div><strong className="mt-2 block text-xl text-slate-900">{value}</strong></article>)}</section>
     <section className="panel"><div className="mb-3 flex items-center justify-between"><div><h3 className="text-lg font-black">Listado de planillas</h3><p className="text-sm text-slate-500">Planillas mensuales registradas y conservadas para auditoría.</p></div><span className="badge">{filtered.length} registros</span></div><Table columns={['N.º de planilla','Mes','Personal','Total sueldos','Estado','Fecha creación','Creado por','Acciones']} rows={pageRows.map((plan)=>[
-      `PLA-${String(plan.id).padStart(4,'0')}`,`${MESES[plan.mes]} ${plan.anio}`,plan.detalles?.length||0,money((plan.detalles||[]).reduce((s,d)=>s+amount(d),0)),<span className={`rounded-full px-2 py-1 text-xs font-black ${stateTone[plan.estado]}`}>{plan.estado}</span>,formatDate(plan.fecha_planilla||plan.created_at),plan.creado_por?.nombre||'Administrador',<div className="flex gap-1"><ActionButton label="Ver" icon={Eye} tone="view" onClick={()=>setPreview(plan)}/><ActionButton label="Descargar PDF" icon={Download} tone="download" onClick={()=>downloadPdf(plan)}/><ActionButton label="Exportar Excel" icon={FileSpreadsheet} tone="edit" onClick={()=>exportPlanillaExcel(plan,user?.nombre)}/>{isAdmin&&plan.estado==='borrador'&&<ActionButton label="Eliminar planilla" icon={Trash2} tone="delete" onClick={()=>deletePlan(plan)}/>}<div className="group relative"><ActionButton label="Más acciones" icon={MoreHorizontal} tone="print"/><div className="invisible absolute right-0 z-20 w-44 rounded-lg border bg-white p-1 opacity-0 shadow-xl group-hover:visible group-hover:opacity-100">{plan.estado==='borrador'&&<button className="menu-item" onClick={()=>openEdit(plan)}>Editar</button>}<button className="menu-item" onClick={()=>printPlan(plan)}>Imprimir</button>{plan.estado==='borrador'&&<button className="menu-item" onClick={()=>changeState(plan,'close')}>Cerrar planilla</button>}{isAdmin&&plan.estado==='cerrada'&&<button className="menu-item" onClick={()=>changeState(plan,'reopen')}>Reabrir</button>}{plan.estado!=='anulada'&&<button className="menu-item text-red-600" onClick={()=>changeState(plan,'annul')}>Anular</button>}</div></div></div>
+      `PLA-${String(plan.id).padStart(4,'0')}`,`${MESES[plan.mes]} ${plan.anio}`,plan.detalles?.length||0,money((plan.detalles||[]).reduce((s,d)=>s+amount(d),0)),<span className={`rounded-full px-2 py-1 text-xs font-black ${stateTone[plan.estado]}`}>{plan.estado}</span>,formatDate(plan.fecha_planilla||plan.created_at),plan.creado_por?.nombre||'Administrador',<div className="flex gap-1"><ActionButton label="Ver" icon={Eye} tone="view" onClick={()=>setPreview(planillaConCargosActuales(plan))}/><ActionButton label="Descargar PDF" icon={Download} tone="download" onClick={()=>downloadPdf(plan)}/><ActionButton label="Exportar Excel" icon={FileSpreadsheet} tone="edit" onClick={()=>exportPlanillaExcel(planillaConCargosActuales(plan),user?.nombre)}/>{isAdmin&&plan.estado==='borrador'&&<ActionButton label="Eliminar planilla" icon={Trash2} tone="delete" onClick={()=>deletePlan(plan)}/>}<div className="group relative"><ActionButton label="Más acciones" icon={MoreHorizontal} tone="print"/><div className="invisible absolute right-0 z-20 w-44 rounded-lg border bg-white p-1 opacity-0 shadow-xl group-hover:visible group-hover:opacity-100">{plan.estado==='borrador'&&<button className="menu-item" onClick={()=>openEdit(plan)}>Editar</button>}<button className="menu-item" onClick={()=>printPlan(plan)}>Imprimir</button>{plan.estado==='borrador'&&<button className="menu-item" onClick={()=>changeState(plan,'close')}>Cerrar planilla</button>}{isAdmin&&plan.estado==='cerrada'&&<button className="menu-item" onClick={()=>changeState(plan,'reopen')}>Reabrir</button>}{plan.estado!=='anulada'&&<button className="menu-item text-red-600" onClick={()=>changeState(plan,'annul')}>Anular</button>}</div></div></div>
     ])} empty="No existen planillas para los filtros seleccionados."/><div className="mt-3 flex items-center justify-between"><select className="rounded border px-2 py-1 text-sm" value={pageSize} onChange={(e)=>{setPageSize(Number(e.target.value));setPage(1)}}>{[5,10,20].map(n=><option key={n}>{n}</option>)}</select><div className="flex items-center gap-2"><Button variant="ghost" disabled={page<=1} onClick={()=>setPage(page-1)}>Anterior</Button><span className="text-sm">{page} / {totalPages}</span><Button variant="ghost" disabled={page>=totalPages} onClick={()=>setPage(page+1)}>Siguiente</Button></div></div></section>
 
     <Modal open={showForm} title={editingId?'Editar planilla de sueldos':'Nueva planilla de sueldos'} subtitle="Selecciona el personal del mes y revisa el documento antes de guardar." onClose={()=>setShowForm(false)} size="planilla">

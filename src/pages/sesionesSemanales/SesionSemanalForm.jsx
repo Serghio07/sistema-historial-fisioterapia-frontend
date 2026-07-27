@@ -14,7 +14,11 @@ const labels = {
 const addDays = (value, days) => {
   const [year, month, day] = String(value).split('-').map(Number);
   const date = new Date(Date.UTC(year, month - 1, day + days));
-  return date.toISOString().slice(0, 10);
+  return [
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, '0'),
+    String(date.getUTCDate()).padStart(2, '0')
+  ].join('-');
 };
 
 function SesionSemanalForm({ form, setForm, pacientes, editing, onSubmit, onCancel, error, syncedRegistro }) {

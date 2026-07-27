@@ -29,6 +29,8 @@ import { Avatar } from '../../components/common/ProfilePhoto';
 import UsuarioForm from './UsuarioForm';
 import { createUsuario, getUsuarios, reviewAccessRequest, updateUsuario, updateUsuarioEstado } from '../../services/usuarioService';
 import { formatDate } from '../../utils/formatDate';
+import { matchesSearch } from '../../utils/search';
+import { BOLIVIA_TIME_ZONE, boliviaDate } from '../../utils/boliviaDateTime';
 
 const initialForm = {
   nombre: '',
@@ -44,7 +46,7 @@ const initialForm = {
   sueldo_base: '',
   tipo_pago: 'mensual',
   direccion: '',
-  fecha_ingreso: new Date().toISOString().slice(0, 10),
+  fecha_ingreso: boliviaDate(),
   observaciones: '',
   usuario: '',
   email: '',
@@ -78,7 +80,7 @@ const statusLabel = {
   rechazado: 'Rechazado'
 };
 
-const SYSTEM_TIME_ZONE = 'America/La_Paz';
+const SYSTEM_TIME_ZONE = BOLIVIA_TIME_ZONE;
 const dayLabels = {
   lunes: 'Lunes',
   martes: 'Martes',
@@ -161,7 +163,7 @@ function formatRequestDate(value) {
   if (!value) return 'Sin fecha';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Sin fecha';
-  return new Intl.DateTimeFormat('es-BO', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+  return new Intl.DateTimeFormat('es-BO', { timeZone: SYSTEM_TIME_ZONE, day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 }
 
 function UsuarioIdentity({ usuario, compact = false }) {
@@ -227,12 +229,11 @@ function Usuarios() {
       if (activeTab === 'bloqueados') return item.estado === 'bloqueado';
       return !['pendiente', 'bloqueado', 'inactivo', 'rechazado'].includes(item.estado);
     });
-    const term = query.trim().toLowerCase();
     return tabUsers.filter((item) => {
-      const matchesSearch = !term || `${item.nombre} ${item.usuario} ${item.email || ''}`.toLowerCase().includes(term);
+      const matchesText = matchesSearch(`${item.nombre} ${item.usuario} ${item.email || ''}`, query);
       const matchesRole = !rolFilter || item.rol === rolFilter;
       const matchesStatus = !estadoFilter || item.estado === estadoFilter;
-      return matchesSearch && matchesRole && matchesStatus;
+      return matchesText && matchesRole && matchesStatus;
     });
   }, [usuarios, activeTab, query, rolFilter, estadoFilter]);
   const paginatedUsers = visibleUsers.slice((page - 1) * pageSize, page * pageSize);

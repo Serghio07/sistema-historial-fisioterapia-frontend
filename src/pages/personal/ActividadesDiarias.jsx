@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, CalendarClock, CalendarDays, CheckCircle2, Eye, FilePenLine, ListTodo, Plus, Search, Trash2 } from 'lucide-react';
+import { Activity, CalendarClock, CalendarDays, CheckCircle2, Eye, FilePenLine, ListTodo, Plus, Search, Trash2, UserRound } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
-import Table from '../../components/common/Table';
 import { getCitas } from '../../services/citaService';
 import { getPacientes } from '../../services/pacienteService';
 import { getSesiones } from '../../services/sesionService';
@@ -14,10 +13,43 @@ import { getActividades } from '../../services/actividadService';
 import { getProfesionalesActivos } from '../../services/usuarioService';
 import { nombrePaciente } from '../../utils/validators';
 import { useAuth } from '../../context/AuthContext';
+import { matchesSearch } from '../../utils/search';
+import { boliviaDate, formatBoliviaDateTime } from '../../utils/boliviaDateTime';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => boliviaDate();
 const initialTask = { paciente_id: '', titulo: '', descripcion: '', fecha: today(), hora: '08:00', prioridad: 'media', estado: 'pendiente' };
 const stateLabel = { pendiente: 'Pendiente', en_progreso: 'En progreso', completada: 'Completada', cancelada: 'Cancelada' };
+const activityKind = (item) => {
+  if (item.source === 'task') return 'tarea';
+  if (item.source === 'audit') return 'cambio';
+  return item.tipo.toLowerCase().includes('cita') ? 'cita' : 'sesion';
+};
+const activityStyles = {
+  tarea: {
+    label: 'Tareas extra',
+    icon: ListTodo,
+    iconClass: 'bg-brand-50 text-brand-700 ring-brand-100',
+    badgeClass: 'bg-brand-50 text-brand-700 ring-brand-100'
+  },
+  cambio: {
+    label: 'Cambios',
+    icon: FilePenLine,
+    iconClass: 'bg-brand-50 text-brand-700 ring-brand-100',
+    badgeClass: 'bg-brand-50 text-brand-700 ring-brand-100'
+  },
+  sesion: {
+    label: 'Sesiones',
+    icon: Activity,
+    iconClass: 'bg-brand-50 text-brand-700 ring-brand-100',
+    badgeClass: 'bg-brand-50 text-brand-700 ring-brand-100'
+  },
+  cita: {
+    label: 'Citas',
+    icon: CalendarClock,
+    iconClass: 'bg-brand-50 text-brand-700 ring-brand-100',
+    badgeClass: 'bg-brand-50 text-brand-700 ring-brand-100'
+  }
+};
 const fieldLabels = {
   titulo: 'Título', descripcion: 'Descripción', diagnostico: 'Diagnóstico',
   diagnostico_medico: 'Diagnóstico médico', motivo: 'Motivo',
@@ -129,6 +161,7 @@ function ActividadesDiarias() {
   const { user, isAdmin } = useAuth();
   const [fecha, setFecha] = useState(today());
   const [query, setQuery] = useState('');
+  const [activityFilter, setActivityFilter] = useState('todas');
   const [pacientes, setPacientes] = useState([]);
   const [sesiones, setSesiones] = useState([]);
   const [citas, setCitas] = useState([]);
@@ -166,7 +199,6 @@ function ActividadesDiarias() {
   useEffect(() => { load(); }, [fecha]);
 
   const actividades = useMemo(() => {
-    const term = query.trim().toLowerCase();
     const responsibleName = (actorId, fallback) => {
       const profesional = profesionales.find((item) => String(item.id) === String(actorId));
       return profesional ? (profesional.nombre_mostrado || shownName(profesional)) : shownName(fallback);
@@ -213,10 +245,21 @@ function ActividadesDiarias() {
       .filter((item) =>
         (isAdmin || String(item.actorId) === String(user?.id))
         && (!fecha || item.fecha === fecha)
-        && (!term || `${item.responsable} ${item.paciente} ${item.tipo} ${item.detalle}`.toLowerCase().includes(term))
+        && matchesSearch(`${item.responsable} ${item.paciente} ${item.tipo} ${item.detalle}`, query)
       )
       .sort((a, b) => String(a.hora).localeCompare(String(b.hora)));
   }, [tareas, citas, sesiones, bitacora, profesionales, fecha, query, isAdmin, user?.id]);
+  const visibleActivities = useMemo(
+    () => activityFilter === 'todas'
+      ? actividades
+      : actividades.filter((item) => activityKind(item) === activityFilter),
+    [actividades, activityFilter]
+  );
+  const activityCounts = useMemo(() => actividades.reduce((counts, item) => {
+    const kind = activityKind(item);
+    counts[kind] += 1;
+    return counts;
+  }, { tarea: 0, cambio: 0, sesion: 0, cita: 0 }), [actividades]);
 
   const openNew = () => { setEditing(null); setForm({ ...initialTask, fecha }); setShowForm(true); };
   const openEdit = (task) => { setEditing(task.id); setForm({ ...initialTask, ...task, hora: task.hora?.slice(0, 5) || '' }); setShowForm(true); };
@@ -232,70 +275,143 @@ function ActividadesDiarias() {
   };
 
   return (
-    <section className="grid gap-5">
+    <section className="grid gap-4">
       {loading && <Loader />}
-      <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-        <div className="module-hero">
-          <div>
-            <p className="text-sm font-bold text-brand-50">Bitácora clínica</p>
-            <h2 className="mt-1 text-2xl font-black md:text-3xl">Actividades Diarias</h2>
-            <span className="mt-2 block text-sm text-brand-50">
+      <header className="rounded-xl border border-brand-100 bg-gradient-to-r from-brand-50 via-white to-sky-50/60 p-5 shadow-sm">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div className="flex items-start gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-brand-100 bg-white text-brand-700 shadow-sm">
+              <Activity size={22} />
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-brand-700">Bitácora clínica</p>
+              <h1 className="mt-0.5 text-2xl font-black tracking-tight text-slate-900">Actividades diarias</h1>
+              <p className="mt-1 max-w-2xl text-sm text-slate-600">
               {isAdmin
                 ? 'Resumen de creaciones, ediciones, cambios y eliminaciones realizadas por todo el equipo.'
                 : 'Resumen de las creaciones, ediciones, cambios y eliminaciones realizadas por tu cuenta.'}
-            </span>
+              </p>
+            </div>
           </div>
-          <Activity size={42} className="self-center text-brand-50" />
+          <div className="flex shrink-0 items-center gap-3 rounded-lg border border-brand-100 bg-white px-4 py-2.5 shadow-sm">
+            <CalendarDays size={19} className="text-brand-700" />
+            <div>
+              <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Fecha seleccionada</span>
+              <strong className="text-sm capitalize text-slate-800">{formatBoliviaDateTime(`${fecha}T12:00:00-04:00`, { weekday: 'long', day: '2-digit', month: 'long' })}</strong>
+            </div>
+          </div>
         </div>
-      </div>
+      </header>
       {message && <p className="notice">{message}</p>}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          [Activity, actividades.length, 'Actividades', 'text-brand-600'],
-          [ListTodo, actividades.filter((i) => i.source === 'task').length, 'Tareas extra', 'text-violet-600'],
-          [CalendarDays, actividades.filter((i) => i.tipo.toLowerCase().includes('sesión')).length, 'Sesiones', 'text-emerald-600'],
-          [CalendarClock, actividades.filter((i) => i.tipo.toLowerCase().includes('cita')).length, 'Citas', 'text-sky-600']
-        ].map(([Icon, value, label, color]) => (
-          <article key={label} className="rounded-xl border border-white bg-white p-4 shadow-sm">
-            <Icon className={color} /><strong className="mt-3 block text-3xl">{value}</strong><span className="text-sm text-slate-500">{label}</span>
+          [Activity, actividades.length, 'Actividad total'],
+          [ListTodo, activityCounts.tarea, 'Tareas extra'],
+          [CalendarDays, activityCounts.sesion, 'Sesiones'],
+          [CalendarClock, activityCounts.cita, 'Citas']
+        ].map(([Icon, value, label]) => (
+          <article key={label} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700 ring-1 ring-brand-100"><Icon size={19} /></span>
+            <div><strong className="block text-2xl font-black leading-none text-slate-900">{value}</strong><span className="mt-1 block text-xs font-bold text-slate-500">{label}</span></div>
           </article>
         ))}
       </div>
 
-      <div className="rounded-xl border border-white bg-white p-4 shadow-sm">
-        <div className="mb-4 grid gap-3 md:grid-cols-[240px_1fr_auto]">
-          <Input label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-          <label className="grid gap-1 text-sm font-bold text-slate-700">
-            <span>Buscar</span>
-            <span className="flex min-h-11 items-center rounded-lg border border-slate-200 px-3">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 bg-slate-50/70 p-4">
+          <div className="grid gap-3 lg:grid-cols-[210px_1fr_auto]">
+            <Input label="Fecha de actividad" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            <label className="grid gap-1 text-sm font-bold text-slate-700">
+              <span>Buscar en la bitácora</span>
+              <span className="flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-3 shadow-sm focus-within:border-teal-500 focus-within:ring-4 focus-within:ring-teal-500/10">
               <Search size={17} className="mr-2 text-slate-400" />
-              <input className="w-full border-0 p-0 text-sm focus:ring-0" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Paciente, actividad o usuario" />
-            </span>
-          </label>
-          <div className="flex items-end"><Button onClick={openNew}><Plus size={17} />Añadir tarea extra</Button></div>
+                <input className="w-full border-0 bg-transparent p-0 text-sm focus:ring-0" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Paciente, profesional o detalle de la actividad" />
+              </span>
+            </label>
+            <div className="flex items-end"><Button onClick={openNew} className="w-full lg:w-auto"><Plus size={17} />Nueva tarea extra</Button></div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {[
+              ['todas', 'Todas', actividades.length],
+              ['cambio', 'Cambios', activityCounts.cambio],
+              ['sesion', 'Sesiones', activityCounts.sesion],
+              ['cita', 'Citas', activityCounts.cita],
+              ['tarea', 'Tareas extra', activityCounts.tarea]
+            ].map(([value, label, count]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setActivityFilter(value)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${activityFilter === value ? 'border-teal-600 bg-teal-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-teal-300 hover:text-teal-700'}`}
+              >
+                {label} <span className="ml-1 opacity-75">{count}</span>
+              </button>
+            ))}
+          </div>
         </div>
-        <Table
-          columns={['Hora', 'Registrado por', 'Actividad', 'Paciente', 'Detalle', 'Acciones']}
-          rows={actividades.map((item) => [
-            item.hora || '—',
-            item.responsable,
-            <span className={`rounded-full px-2.5 py-1 text-xs font-black ${item.source === 'task' ? 'bg-violet-50 text-violet-700' : item.source === 'audit' ? 'bg-amber-50 text-amber-700' : item.tipo.toLowerCase().includes('cita') ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700'}`}>{item.tipo}</span>,
-            item.paciente,
-            item.detalle,
-            <div className="flex gap-2">
-              <ActionButton label={item.source === 'task' ? 'Ver tarea' : 'Ver actividad'} icon={Eye} tone="view" onClick={() => setSelectedActivity(item)} />
-              {item.source === 'task' && (isAdmin || String(item.raw.usuario_id) === String(user?.id)) && (
-                <>
-                  {item.raw.estado !== 'completada' && <ActionButton label="Completar" icon={CheckCircle2} tone="edit" onClick={() => updateTareaEstado(item.raw.id, 'completada').then(load)} />}
-                  <ActionButton label="Editar" icon={FilePenLine} tone="edit" onClick={() => openEdit(item.raw)} />
-                  <ActionButton label="Eliminar" icon={Trash2} tone="delete" onClick={() => deleteTareaPersonal(item.raw.id).then(load)} />
-                </>
-              )}
+
+        <div className="p-3 sm:p-4">
+          <div className="mb-3 flex items-center justify-between gap-3 px-1">
+            <div>
+              <h2 className="font-black text-slate-900">Registro de actividades</h2>
+              <p className="text-xs text-slate-500">{visibleActivities.length} registros encontrados</p>
             </div>
-          ])}
-          empty="No hay actividades registradas para la fecha seleccionada."
-        />
+            <span className="hidden text-xs font-bold text-slate-400 sm:inline-flex">Orden cronológico</span>
+          </div>
+
+          {visibleActivities.length ? (
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <div className="hidden grid-cols-[72px_190px_minmax(260px,1fr)_250px_118px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-[11px] font-black uppercase tracking-wide text-slate-500 lg:grid">
+                <span>Hora</span>
+                <span>Actividad</span>
+                <span>Paciente y detalle</span>
+                <span>Registrado por</span>
+                <span className="text-right">Acciones</span>
+              </div>
+              {visibleActivities.map((item) => {
+                const kind = activityKind(item);
+                const style = activityStyles[kind];
+                const Icon = style.icon;
+                return (
+                  <article key={item.id} className="grid gap-3 border-b border-slate-100 bg-white px-4 py-3 last:border-b-0 hover:bg-brand-50/25 lg:grid-cols-[72px_190px_minmax(260px,1fr)_250px_118px] lg:items-center">
+                    <time className="text-xs font-black text-slate-700">{item.hora || '—'}</time>
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ring-1 ${style.iconClass}`}><Icon size={15} /></span>
+                      <div className="min-w-0">
+                        <span className={`inline-flex max-w-full truncate rounded-md px-2 py-1 text-[11px] font-black ring-1 ${style.badgeClass}`}>{item.tipo}</span>
+                        {item.estado && <span className="mt-1 block text-[11px] font-bold text-slate-500">{stateLabel[item.estado] || item.estado}</span>}
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-slate-900">{item.paciente}</p>
+                      <p className="mt-0.5 truncate text-xs text-slate-600">{item.detalle}</p>
+                    </div>
+                    <p className="flex min-w-0 items-center gap-2 truncate text-xs font-semibold text-slate-600"><UserRound size={14} className="shrink-0 text-brand-600" /><span className="truncate">{item.responsable}</span></p>
+                    <div className="flex items-center justify-end gap-1.5 border-t border-slate-100 pt-2 lg:border-0 lg:pt-0">
+                      <ActionButton label={item.source === 'task' ? 'Ver tarea' : 'Ver actividad'} icon={Eye} tone="view" onClick={() => setSelectedActivity(item)} />
+                      {item.source === 'task' && (isAdmin || String(item.raw.usuario_id) === String(user?.id)) && (
+                        <>
+                          {item.raw.estado !== 'completada' && <ActionButton label="Completar" icon={CheckCircle2} tone="edit" onClick={() => updateTareaEstado(item.raw.id, 'completada').then(load)} />}
+                          <ActionButton label="Editar" icon={FilePenLine} tone="edit" onClick={() => openEdit(item.raw)} />
+                          <ActionButton label="Eliminar" icon={Trash2} tone="delete" onClick={() => deleteTareaPersonal(item.raw.id).then(load)} />
+                        </>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="grid min-h-48 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
+              <div>
+                <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white text-slate-400 shadow-sm"><Activity size={22} /></span>
+                <h3 className="mt-3 font-black text-slate-700">No hay actividades para mostrar</h3>
+                <p className="mt-1 text-sm text-slate-500">Prueba otra fecha, búsqueda o categoría.</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <Modal open={showForm} title={editing ? 'Editar tarea extra' : 'Nueva tarea extra'} subtitle="Registra una actividad adicional vinculada al paciente." onClose={() => setShowForm(false)} size="md">

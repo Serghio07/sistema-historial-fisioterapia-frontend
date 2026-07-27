@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { ClipboardCheck, Download, Eye, FilePenLine, Maximize2, Plus, Printer, Save, Search, Trash2 } from 'lucide-react';
@@ -10,16 +10,19 @@ import Input from '../../components/common/Input';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
 import Table from '../../components/common/Table';
+import { PatientIdentity } from '../../components/common/ProfilePhoto';
 import { useAuth } from '../../context/AuthContext';
 import { getHistoriasClinicas } from '../../services/historiaClinicaService';
 import { getPacientes } from '../../services/pacienteService';
 import { createPlanillaAtencion, deletePlanillaAtencion, getPlanillasAtencion, updatePlanillaAtencion } from '../../services/planillaAtencionService';
 import { getSesiones } from '../../services/sesionService';
 import { formatDate } from '../../utils/formatDate';
+import { matchesSearch } from '../../utils/search';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import PlanillaDocumento from './PlanillaDocumento';
+import { boliviaDate } from '../../utils/boliviaDateTime';
 
-const today = new Date().toISOString().slice(0, 10);
+const today = boliviaDate();
 
 const initialForm = {
   paciente_id: '',
@@ -33,6 +36,7 @@ const initialForm = {
 
 function PlanillasAtencion() {
   const { isAdmin } = useAuth();
+  const location = useLocation();
   const printRef = useRef(null);
   const [searchParams] = useSearchParams();
   const [pacientes, setPacientes] = useState([]);
@@ -63,12 +67,10 @@ function PlanillasAtencion() {
   const previewPlanilla = useMemo(() => ({ ...form, paciente: pacienteSeleccionado }), [form, pacienteSeleccionado]);
 
   const filteredPlanillas = useMemo(() => {
-    const term = query.trim().toLowerCase();
     return planillas
       .filter((planilla) => !pacienteInicialId || Number(planilla.paciente_id || planilla.paciente?.id) === Number(pacienteInicialId))
       .filter((planilla) => {
-        if (!term) return true;
-        return `${nombrePaciente(planilla.paciente)} ${planilla.diagnostico || ''} ${planilla.fecha_inicio || ''} ${planilla.fecha_fin || ''}`.toLowerCase().includes(term);
+        return matchesSearch(`${nombrePaciente(planilla.paciente)} ${planilla.diagnostico || ''} ${planilla.fecha_inicio || ''} ${planilla.fecha_fin || ''}`, query);
       });
   }, [planillas, pacienteInicialId, query]);
 
@@ -110,6 +112,16 @@ function PlanillasAtencion() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    const planillaId = location.state?.planillaId;
+    if (!planillaId || !planillas.length) return;
+    const planilla = planillas.find((item) => Number(item.id) === Number(planillaId));
+    if (planilla) {
+      setSelectedPlanilla(planilla);
+      setActivePanel('listado');
+    }
+  }, [planillas, location.state?.planillaId]);
 
   const update = (key, value) => setForm({ ...form, [key]: value });
 
@@ -336,7 +348,7 @@ function PlanillasAtencion() {
             <Table
               columns={['Paciente', 'Inicio', 'Fin', 'Dx', 'Sesiones', 'Acciones']}
               rows={filteredPlanillas.map((planilla) => [
-                nombrePaciente(planilla.paciente),
+                <PatientIdentity paciente={planilla.paciente} secondary={`CI: ${planilla.paciente?.ci || 'Sin dato'}`} />,
                 formatDate(planilla.fecha_inicio),
                 formatDate(planilla.fecha_fin),
                 planilla.diagnostico || 'Sin diagnostico',

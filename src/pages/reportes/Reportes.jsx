@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import Swal from 'sweetalert2';
@@ -9,19 +10,22 @@ import Input from '../../components/common/Input';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
 import Table from '../../components/common/Table';
+import { PatientIdentity } from '../../components/common/ProfilePhoto';
 import { useAuth } from '../../context/AuthContext';
 import { createInformeMedico, deleteInformeMedico, getInformesMedicos, updateInformeMedico } from '../../services/informeMedicoService';
 import { getPacientes } from '../../services/pacienteService';
 import { getHistoriasClinicas } from '../../services/historiaClinicaService';
 import { getSesiones } from '../../services/sesionService';
 import { formatDate } from '../../utils/formatDate';
+import { matchesSearch } from '../../utils/search';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import logo from '../../assets/logos/logo.png';
+import { boliviaDate } from '../../utils/boliviaDateTime';
 
 const initialForm = {
   paciente_id: '',
   historia_clinica_id: '',
-  fecha: new Date().toISOString().slice(0, 10),
+  fecha: boliviaDate(),
   doctor: '',
   diagnostico: '',
   dx_cie: '',
@@ -169,6 +173,7 @@ function PrintableReport({ informe, pacientes }) {
 
 function Reportes() {
   const { isAdmin, user } = useAuth();
+  const location = useLocation();
   const profesionalAutenticado = user?.nombre_mostrado || user?.ficha_personal?.nombre_mostrado || user?.nombre || '';
   const printRef = useRef(null);
   const [pacientes, setPacientes] = useState([]);
@@ -237,10 +242,8 @@ function Reportes() {
   };
 
   const filteredInformes = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return informes;
     return informes.filter((informe) =>
-      `${nombrePaciente(informe.paciente)} ${informe.fecha || ''} ${informe.diagnostico || ''} ${informe.doctor || ''}`.toLowerCase().includes(term)
+      matchesSearch(`${nombrePaciente(informe.paciente)} ${informe.fecha || ''} ${informe.diagnostico || ''} ${informe.doctor || ''}`, query)
     );
   }, [informes, query]);
 
@@ -267,6 +270,16 @@ function Reportes() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    const informeId = location.state?.informeId;
+    if (!informeId || !informes.length) return;
+    const informe = informes.find((item) => Number(item.id) === Number(informeId));
+    if (informe) {
+      setSelectedInforme(informeConSesionesRealizadas(informe));
+      setActivePanel('generados');
+    }
+  }, [informes, location.state?.informeId]);
 
   useEffect(() => {
     setForm((current) => ({ ...current, doctor: profesionalAutenticado }));
@@ -365,7 +378,7 @@ function Reportes() {
     setForm({
       paciente_id: informe.paciente_id || informe.paciente?.id || '',
       historia_clinica_id: historiaId,
-      fecha: informe.fecha || new Date().toISOString().slice(0, 10),
+      fecha: informe.fecha || boliviaDate(),
       doctor: profesionalAutenticado,
       diagnostico: informe.diagnostico || '',
       dx_cie: informe.dx_cie || '',
@@ -561,7 +574,7 @@ function Reportes() {
             <Table
               columns={['Paciente', 'Fecha', 'Diagnostico', 'Doctor', 'Acciones']}
               rows={filteredInformes.map((informe) => [
-                nombrePaciente(informe.paciente),
+                <PatientIdentity paciente={informe.paciente} secondary={`CI: ${informe.paciente?.ci || 'Sin dato'}`} />,
                 formatDate(informe.fecha),
                 informe.diagnostico,
                 informe.doctor || 'Sin dato',

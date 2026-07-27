@@ -35,7 +35,7 @@ export async function exportPlanillaExcel(planilla, generadoPor = '') {
   sheet.getRow(2).height = 24;
 
   sheet.mergeCells('A3:J3');
-  sheet.getCell('A3').value = `Generado por: ${generadoPor || planilla.creado_por?.nombre || 'Administrador'} · Fecha: ${new Date().toLocaleDateString('es-BO')}`;
+  sheet.getCell('A3').value = `Generado por: ${generadoPor || planilla.creado_por?.nombre || 'Administrador'} · Fecha: ${formatBoliviaDateTime(new Date(), { dateStyle: 'short' })}`;
   sheet.getCell('A3').alignment = { horizontal: 'center' };
   const headers = ['N°', 'AP. PATERNO', 'AP. MATERNO', 'NOMBRES', 'CÉDULA IDENTIDAD', 'CARGO', 'HORARIO', 'MODALIDAD', 'SUELDO Bs.-', 'FIRMA'];
   const headerRow = sheet.addRow(headers);
@@ -93,7 +93,7 @@ export async function exportPlanillasGeneralExcel(planillas, generadoPor = '') {
   sheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
   sheet.getCell('A1').alignment = { horizontal: 'center' };
   sheet.mergeCells('A2:G2');
-  sheet.getCell('A2').value = `Generado por: ${generadoPor || 'Administrador'} · ${new Date().toLocaleString('es-BO')}`;
+  sheet.getCell('A2').value = `Generado por: ${generadoPor || 'Administrador'} · ${formatBoliviaDateTime(new Date(), { dateStyle: 'short', timeStyle: 'short' })}`;
   const headers = ['N.º de planilla', 'Mes', 'Cantidad de personal', 'Total de sueldos', 'Estado', 'Fecha de creación', 'Responsable'];
   const header = sheet.getRow(5); header.values = headers;
   header.eachCell((cell) => { cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF164E63' } }; cell.alignment = { horizontal: 'center', wrapText: true }; });
@@ -106,3 +106,4 @@ export async function exportPlanillasGeneralExcel(planillas, generadoPor = '') {
 }
 
 export { MESES };
+import { formatBoliviaDateTime } from './boliviaDateTime';

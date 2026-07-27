@@ -10,6 +10,15 @@ export const getPaciente = async (id) => {
   return data;
 };
 
+export const getResumenPaciente = async (id) => {
+  const { data } = await api.get(`/pacientes/${id}/resumen`);
+  return data;
+};
+
+export const auditResumenPaciente = async (id, tipo) => {
+  await api.post(`/pacientes/${id}/resumen/auditoria`, { tipo });
+};
+
 export const createPaciente = async (payload) => {
   const { data } = await api.post('/pacientes', payload);
   return data;

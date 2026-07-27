@@ -66,11 +66,11 @@ export default function HistoriaDetalleProfesional({ historia, onClose, onEvolut
             {[['Postura', evaluacion.evaluacion_postura], ['Marcha', evaluacion.evaluacion_marcha], ['Diagnóstico CIF', evaluacion.diagnostico_kinesico_cif], ['Plan de tratamiento', evaluacion.plan_tratamiento], ['Sesiones indicadas', evaluacion.sesiones_contratadas]].map(([label, content]) => <div key={label} className="min-w-0 rounded-lg bg-slate-50 px-3 py-2.5"><span className="block text-[10px] font-black uppercase text-slate-500">{label}</span><p className="mt-1 break-words text-[11px] leading-5 text-slate-700">{value(content, '-')}</p></div>)}
           </div>
         </Card>
-        <Card title="Evolutivo y plan de tratamiento" icon={ClipboardList} color="text-amber-700" className="md:col-span-2">{sessions.length ? sessions.map((session, index) => <Row key={index} label={`Sesión ${index + 1}`}>{`${formatDate(session.fecha)} · ${value(session.aplicacion)}`}</Row>) : <p className="text-xs text-slate-500">Sin sesiones evolutivas registradas.</p>}</Card>
+        <Card title="Evolución y plan de tratamiento" icon={ClipboardList} color="text-amber-700" className="md:col-span-2">{sessions.length ? sessions.map((session, index) => <Row key={index} label={`Sesión ${index + 1}`}>{`${formatDate(session.fecha)} · ${value(session.aplicacion)}`}</Row>) : <p className="text-xs text-slate-500">Sin sesiones evolutivas registradas.</p>}</Card>
       </div>
 
       <footer className="sticky bottom-0 flex flex-wrap gap-2 border-t border-slate-200 bg-white pt-3">
-        {active && <button className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-700 px-4 text-xs font-black text-white hover:bg-emerald-800" onClick={() => onEvolutivo(historia)}><FilePenLine size={16} />Registrar evolutivo</button>}
+        {active && <button className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-700 px-4 text-xs font-black text-white hover:bg-emerald-800" onClick={() => onEvolutivo(historia)}><FilePenLine size={16} />Registrar evolución</button>}
         <button className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-blue-200 px-4 text-xs font-bold text-blue-700 hover:bg-blue-50" onClick={() => onPreview(historia)}><FileText size={16} />Vista previa PDF</button>
         <button className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-violet-200 px-4 text-xs font-bold text-violet-700 hover:bg-violet-50" onClick={onPatient}><UserRound size={16} />Datos del paciente</button>
         <div className="relative ml-auto">

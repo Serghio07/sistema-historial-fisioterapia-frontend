@@ -99,7 +99,7 @@ export async function exportSesionesSemanalesExcel({ registros, range, generated
   sheet.mergeCells('A3:G3');
   sheet.getCell('A3').value = `Rango seleccionado: ${formatDateExcel(range.inicio)} al ${formatDateExcel(range.fin)}`;
   sheet.mergeCells('H3:N3');
-  sheet.getCell('H3').value = `Fecha de generación: ${new Date().toLocaleString('es-BO')}`;
+  sheet.getCell('H3').value = `Fecha de generación: ${formatBoliviaDateTime(new Date(), { dateStyle: 'short', timeStyle: 'short' })}`;
   sheet.mergeCells('A4:N4');
   sheet.getCell('A4').value = `Generado por: ${generatedBy || 'Usuario autenticado'}`;
   sheet.mergeCells('A5:D5');
@@ -183,7 +183,7 @@ export async function exportSesionesSemanalesExcel({ registros, range, generated
     'Paciente', 'CI', 'Teléfono', 'Historia clínica', 'Diagnóstico', 'Fecha', 'N.º sesión',
     'Asistencia', 'Método de pago', 'Estado del pago', 'Monto sesión', 'Monto pagado',
     'Saldo pendiente', 'Dolor inicial', 'Dolor final', 'Fármacos', 'Dosis',
-    'Evolutivo / tratamiento', 'Observaciones', 'Profesional responsable'
+    'Evolución / tratamiento', 'Observaciones', 'Profesional responsable'
   ];
   const detailHeader = detail.getRow(7);
   detailHeader.values = detailHeaders;
@@ -251,3 +251,4 @@ export async function exportSesionesSemanalesExcel({ registros, range, generated
   link.remove();
   URL.revokeObjectURL(url);
 }
+import { formatBoliviaDateTime } from './boliviaDateTime';

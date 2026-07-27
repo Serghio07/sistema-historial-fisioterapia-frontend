@@ -25,30 +25,35 @@ import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
 import Pagination from '../../components/common/Pagination';
 import Table from '../../components/common/Table';
+import { matchesSearch } from '../../utils/search';
 import { useAuth } from '../../context/AuthContext';
 import { getHistoriasClinicas } from '../../services/historiaClinicaService';
 import { getPacientes } from '../../services/pacienteService';
 import { createSesion, deleteSesion, getSesiones, updateSesion } from '../../services/sesionService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
+import { boliviaDate } from '../../utils/boliviaDateTime';
 import SesionForm from './SesionForm';
 import SesionesPacienteAccordion, { sessionEvolution } from './SesionesPacienteAccordion';
 
 const initialForm = {
   paciente_id: '',
   historia_clinica_id: '',
-  fecha: new Date().toISOString().slice(0, 10),
+  fecha: boliviaDate(),
   numero_sesion: 1,
   sesiones_debe: 0,
   sesiones_hizo: 0,
   asistencia: 'asistio',
-  metodo_pago: 'Pendiente',
+  metodo_pago: '',
   estado_pago: 'Pendiente',
   monto_sesion: '',
   monto_pagado: '',
   saldo_pendiente: 0,
   aplica_farmacos: false,
+  farmacos: [],
   observacion_farmacos: '',
+  observacion_pago: '',
+  motivo_sin_costo: '',
   medios_fisicos: '',
   tecnicas_manuales: '',
   descripcion_tratamiento: '',
@@ -225,14 +230,13 @@ function Sesiones() {
   }, []);
 
   const filteredSesiones = useMemo(() => {
-    const query = registeredFilters.query.trim().toLowerCase();
     const filtered = sesiones.filter((sesion) => {
       const historia = sesion.historia_clinica || historias.find((item) => String(item.id) === String(sesion.historia_clinica_id));
-      const text = `${nombrePaciente(sesion.paciente)} ${sesion.paciente?.ci || ''} ${sesion.paciente?.telefono || sesion.paciente?.celular || ''} ${sesion.registrado_por?.nombre || ''} ${sesion.profesional_responsable || ''} ${sesion.observacion || ''} ${sesion.observacion_farmacos || ''} ${sesion.estado_pago || ''} ${sesion.metodo_pago || ''} ${historia?.condicion_actual?.zona_cuerpo || ''} ${historia?.motivo_consulta || ''} ${historia?.diagnostico_medico || ''}`.toLowerCase();
+      const text = `${nombrePaciente(sesion.paciente)} ${sesion.paciente?.ci || ''} ${sesion.paciente?.telefono || sesion.paciente?.celular || ''} ${sesion.registrado_por?.nombre || ''} ${sesion.profesional_responsable || ''} ${sesion.observacion || ''} ${sesion.observacion_farmacos || ''} ${sesion.estado_pago || ''} ${sesion.metodo_pago || ''} ${historia?.condicion_actual?.zona_cuerpo || ''} ${historia?.motivo_consulta || ''} ${historia?.diagnostico_medico || ''}`;
       const date = String(sesion.fecha || '');
       const matchesDate = (!registeredFilters.dateFrom || date >= registeredFilters.dateFrom)
         && (!registeredFilters.dateTo || date <= registeredFilters.dateTo);
-      return (!query || text.includes(query)) && matchesDate;
+      return matchesSearch(text, registeredFilters.query) && matchesDate;
     });
 
     return [...filtered].sort((a, b) => {
@@ -271,7 +275,6 @@ function Sesiones() {
       groups.get(key).sesiones.push(sesion);
     });
 
-    const query = registeredFilters.query.trim().toLowerCase();
     return [...groups.values()]
       .map((group) => {
         const sesionesOrdenadas = [...group.sesiones].sort((a, b) =>
@@ -300,23 +303,28 @@ function Sesiones() {
         };
       })
       .filter((group) => {
-        if (!query) return group.sesiones.length > 0;
+        if (!registeredFilters.query.trim()) return group.sesiones.length > 0;
         const historyText = group.historias.map((historia) => `${historia.condicion_actual?.zona_cuerpo || ''} ${historia.motivo_consulta || ''} ${historia.profesional_cargo || ''}`).join(' ');
-        const text = `${nombrePaciente(group.paciente)} ${group.paciente?.ci || ''} ${group.paciente?.telefono || group.paciente?.celular || ''} ${historyText}`.toLowerCase();
-        return text.includes(query) || group.sesiones.length > 0;
+        const text = `${nombrePaciente(group.paciente)} ${group.paciente?.ci || ''} ${group.paciente?.telefono || group.paciente?.celular || ''} ${historyText}`;
+        return matchesSearch(text, registeredFilters.query);
       })
       .sort((a, b) => String(b.ultimaSesion?.fecha || b.historia.fecha_evaluacion || '').localeCompare(String(a.ultimaSesion?.fecha || a.historia.fecha_evaluacion || '')));
   }, [historias, pacientes, sesionesActivas, registeredFilters.query]);
 
   const sessionFilterCounts = useMemo(() => {
-    const counts = { todos: sesionesActivas.length, asistio: 0, no_asistio: 0, pendiente: 0, evolutivo_pendiente: 0, evolutivo_registrado: 0 };
-    sesionesActivas.forEach((sesion) => {
-      const history = sesion.historia_clinica || historias.find((item) => String(item.id) === String(sesion.historia_clinica_id));
+    const visibleSessions = groupedSesiones.flatMap((group) =>
+      group.sesiones.map((sesion) => ({ sesion, group }))
+    );
+    const counts = { todos: visibleSessions.length, asistio: 0, no_asistio: 0, pendiente: 0, evolutivo_pendiente: 0, evolutivo_registrado: 0 };
+    visibleSessions.forEach(({ sesion, group }) => {
+      const history = sesion.historia_clinica
+        || group.historias.find((item) => String(item.id) === String(sesion.historia_clinica_id))
+        || group.historia;
       if (counts[sesion.asistencia] !== undefined) counts[sesion.asistencia] += 1;
       if (sesion.asistencia === 'asistio') counts[sessionEvolution(history, sesion) ? 'evolutivo_registrado' : 'evolutivo_pendiente'] += 1;
     });
     return counts;
-  }, [sesionesActivas, historias]);
+  }, [groupedSesiones]);
 
   const visibleGroups = useMemo(() => {
     const filtered = sessionFilter === 'todos' ? groupedSesiones : groupedSesiones.filter((group) => group.sesiones.some((sesion) => {
@@ -351,6 +359,24 @@ function Sesiones() {
     if (Number(form.sesiones_hizo || 0) < 0) return 'Las sesiones realizadas no pueden ser negativas.';
     if (Number(form.monto_sesion || 0) < 0) return 'El monto de la sesion no puede ser negativo.';
     if (Number(form.monto_pagado || 0) < 0) return 'El monto pagado no puede ser negativo.';
+    if (form.asistencia === 'asistio' && (form.dolor_despues === '' || form.dolor_despues == null)) return 'Registra el dolor final.';
+    if (form.asistencia === 'asistio' && !String(form.descripcion_tratamiento || '').trim()) return 'Registra el procedimiento realizado.';
+    if (form.estado_pago === 'Parcial' && !(Number(form.monto_pagado) > 0 && Number(form.monto_pagado) < Number(form.monto_sesion))) return 'El pago parcial debe ser mayor a cero y menor al monto de la sesión.';
+    if (form.estado_pago === 'Sin costo' && !String(form.motivo_sin_costo || '').trim()) return 'Registra el motivo de la sesión sin costo.';
+    if (form.aplica_farmacos && !form.farmacos?.length) return 'Agrega al menos un fármaco.';
+    if (form.aplica_farmacos) {
+      for (const [index, farmaco] of form.farmacos.entries()) {
+        const nombre = farmaco.nombre === 'Otro' ? farmaco.nombre_otro : farmaco.nombre;
+        const via = farmaco.via === 'Otra' ? farmaco.via_otro : farmaco.via;
+        if (!String(nombre || '').trim()) return `Selecciona el nombre del fármaco ${index + 1}.`;
+        if (!String(farmaco.presentacion_dosis || '').trim()) return `Registra la presentación o dosis del fármaco ${index + 1}.`;
+        if (!String(via || '').trim()) return `Selecciona la vía del fármaco ${index + 1}.`;
+        if (!(Number(farmaco.cantidad) > 0)) return `La cantidad del fármaco ${index + 1} debe ser mayor a cero.`;
+        if (!String(farmaco.motivo_clinico || '').trim()) return `Registra el motivo clínico del fármaco ${index + 1}.`;
+      }
+      const keys = form.farmacos.map((farmaco) => `${farmaco.nombre === 'Otro' ? farmaco.nombre_otro : farmaco.nombre}|${farmaco.presentacion_dosis}|${farmaco.via === 'Otra' ? farmaco.via_otro : farmaco.via}`.toLocaleLowerCase('es-BO'));
+      if (new Set(keys).size !== keys.length && !window.confirm('Hay medicamentos repetidos con la misma dosis y vía. ¿Confirma que desea registrarlos?')) return 'Revise los medicamentos duplicados.';
+    }
     return '';
   };
 
@@ -364,6 +390,7 @@ function Sesiones() {
     try {
       const payload = cleanPayload({
         ...form,
+        metodo_pago: form.metodo_pago || (Number(form.monto_pagado || 0) > 0 ? 'Efectivo' : null),
         numero_sesion: Number(form.numero_sesion || 1),
         sesiones_debe: Number(form.sesiones_debe || 0),
         sesiones_hizo: Number(form.sesiones_hizo || 0),
@@ -373,6 +400,11 @@ function Sesiones() {
       });
       if (editing) await updateSesion(editing, payload);
       else await createSesion(payload);
+      setMessage(form.asistencia === 'asistio'
+        ? form.aplica_farmacos
+          ? 'La sesión, evolución clínica y administración de fármacos se registraron correctamente.'
+          : 'La sesión y evolución clínica se registraron correctamente.'
+        : 'La sesión se registró correctamente.');
       setForm(initialForm);
       setEditing(null);
       setShowFormModal(false);
@@ -388,18 +420,32 @@ function Sesiones() {
     setForm({
       paciente_id: sesion.paciente_id || sesion.paciente?.id || '',
       historia_clinica_id: sesion.historia_clinica_id || sesion.historia_clinica?.id || '',
-      fecha: sesion.fecha || new Date().toISOString().slice(0, 10),
+      fecha: sesion.fecha || boliviaDate(),
       numero_sesion: sesion.numero_sesion || 1,
       sesiones_debe: sesion.sesiones_debe || 0,
       sesiones_hizo: sesion.sesiones_hizo || 0,
       asistencia: sesion.asistencia || 'pendiente',
-      metodo_pago: sesion.metodo_pago || 'Pendiente',
+      metodo_pago: sesion.metodo_pago || '',
       estado_pago: sesion.estado_pago || 'Pendiente',
       monto_sesion: sesion.monto_sesion || '',
       monto_pagado: sesion.monto_pagado || '',
       saldo_pendiente: sesion.saldo_pendiente || saldoPendiente(sesion),
       aplica_farmacos: Boolean(sesion.aplica_farmacos),
+      farmacos: Array.isArray(sesion.farmacos) ? sesion.farmacos.map((farmaco) => ({
+        id: farmaco.id,
+        fecha_creacion: farmaco.fecha_creacion,
+        nombre: farmaco.tipo === 'Otro' ? 'Otro' : farmaco.nombre,
+        nombre_otro: farmaco.tipo === 'Otro' ? farmaco.nombre : '',
+        presentacion_dosis: farmaco.presentacion_dosis || '',
+        via: farmaco.tipo_via === 'Otra' ? 'Otra' : farmaco.via,
+        via_otro: farmaco.tipo_via === 'Otra' ? farmaco.via : '',
+        cantidad: farmaco.cantidad || 1,
+        motivo_clinico: farmaco.motivo_clinico || '',
+        observacion: farmaco.observacion || ''
+      })) : [],
       observacion_farmacos: sesion.observacion_farmacos || '',
+      observacion_pago: sesion.observacion_pago || '',
+      motivo_sin_costo: sesion.motivo_sin_costo || '',
       medios_fisicos: sesion.medios_fisicos || '',
       tecnicas_manuales: sesion.tecnicas_manuales || '',
       descripcion_tratamiento: sesion.descripcion_tratamiento || '',
@@ -429,7 +475,18 @@ function Sesiones() {
   const openNuevaSesion = () => {
     setFormTab('session');
     setEditing(null);
-    setForm({ ...initialForm, profesional_responsable: profesionalActual });
+    setForm({
+      ...initialForm,
+      fecha: boliviaDate(),
+      profesional_responsable: profesionalActual,
+      dolor_antes: '',
+      dolor_despues: '',
+      descripcion_tratamiento: '',
+      evolucion_observada: '',
+      observacion: '',
+      aplica_farmacos: false,
+      farmacos: []
+    });
     setError('');
     setShowFormModal(true);
   };
@@ -455,6 +512,14 @@ function Sesiones() {
       historia_clinica_id: historia.id,
       numero_sesion: realizadas + 1,
       dolor_antes: dolorInicialParaHistoria(historia, sesionesHistoria),
+      // El dolor final pertenece exclusivamente a esta nueva sesión.
+      // Nunca debe heredarse de una sesión previamente abierta o editada.
+      dolor_despues: '',
+      descripcion_tratamiento: '',
+      evolucion_observada: '',
+      observacion: '',
+      aplica_farmacos: false,
+      farmacos: [],
       sesiones_debe: contratadas,
       sesiones_hizo: realizadas + 1
     });
@@ -549,7 +614,7 @@ function Sesiones() {
         inyectable_nombre: evolutionForm.inyectables
       });
       setEvolutionTarget(null);
-      setMessage(evolutionTarget.evolution ? 'Evolutivo actualizado correctamente.' : 'Evolutivo registrado correctamente.');
+      setMessage(evolutionTarget.evolution ? 'Evolución actualizado correctamente.' : 'Evolución registrado correctamente.');
       await load();
     } catch (err) {
       setError(err.message);
@@ -620,7 +685,7 @@ function Sesiones() {
         <div className="mb-4 flex flex-wrap gap-2">
           {[
             ['todos', 'Todos'], ['asistio', 'Asistió'], ['no_asistio', 'Faltó'], ['pendiente', 'Pendiente'],
-            ['evolutivo_pendiente', 'Evolutivo pendiente'], ['evolutivo_registrado', 'Evolutivo registrado']
+            ['evolutivo_pendiente', 'Evolución pendiente'], ['evolutivo_registrado', 'Evolución registrada']
           ].map(([value, label]) => <button key={value} type="button" onClick={() => { setSessionFilter(value); setExpandedGroupKey(null); }} className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${sessionFilter === value ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300'}`}>{label} <span className="ml-1 opacity-75">{sessionFilterCounts[value]}</span></button>)}
         </div>
         <div className="hidden mb-4 rounded-xl border border-slate-200 bg-slate-50 p-1">
@@ -884,14 +949,14 @@ function Sesiones() {
         onClose={closeFormModal}
         size="sessions"
       >
-        <SesionForm form={form} setForm={setForm} pacientes={pacientes} historias={historias} sesiones={sesiones} editing={editing} initialTab={formTab} onSubmit={submit} onCancel={closeFormModal} error={error} />
+        <SesionForm form={form} setForm={setForm} pacientes={pacientes} historias={historias} sesiones={sesiones} editing={editing} initialTab={formTab} onSubmit={submit} onCancel={closeFormModal} error={error} canEditDate={isAdmin} />
       </Modal>
 
-      <Modal open={Boolean(evolutionTarget)} title={evolutionTarget?.evolution ? 'Editar evolutivo' : 'Registrar evolutivo'} subtitle={evolutionTarget ? `${nombrePaciente(evolutionTarget.group.paciente)} · Sesión N.º ${evolutionTarget.session.numero_sesion} · ${formatDate(evolutionTarget.session.fecha)}` : ''} onClose={() => setEvolutionTarget(null)} size="sessions">
-        {evolutionTarget && <form onSubmit={saveEvolution} className="grid gap-4"><div className="rounded-lg border border-blue-100 bg-blue-50/60 px-4 py-3 text-xs text-blue-800"><strong>{evolutionTarget.history.condicion_actual?.zona_cuerpo || evolutionTarget.history.motivo_consulta || 'Historia clínica activa'}</strong><span className="ml-2">Paciente, historia, sesión y fecha vinculados automáticamente.</span></div><div className="grid gap-3 sm:grid-cols-2"><Input label="Dolor inicial (desde historia clínica)" type="number" min="0" max="10" value={evolutionForm.dolor_inicial} readOnly /><Input label="Dolor final (0-10)" type="number" min="0" max="10" value={evolutionForm.dolor_final} onChange={(event) => setEvolutionForm({ ...evolutionForm, dolor_final: event.target.value })} required /></div><p className="-mt-2 text-[11px] text-slate-500">El dolor inicial se obtiene automáticamente del último evolutivo o de la evaluación de la historia clínica.</p><Input label="Procedimiento realizado" value={evolutionForm.aplicacion} onChange={(event) => setEvolutionForm({ ...evolutionForm, aplicacion: event.target.value.toLocaleUpperCase('es-BO') })} multiline required /><Input label="Observaciones" value={evolutionForm.observaciones} onChange={(event) => setEvolutionForm({ ...evolutionForm, observaciones: event.target.value.toLocaleUpperCase('es-BO') })} multiline /><Input label="Inyectables (opcional)" value={evolutionForm.inyectables} onChange={(event) => setEvolutionForm({ ...evolutionForm, inyectables: event.target.value.toLocaleUpperCase('es-BO') })} /><div className="flex justify-end gap-2 border-t border-slate-200 pt-3"><Button variant="ghost" onClick={() => setEvolutionTarget(null)}>Cancelar</Button><Button type="submit">{evolutionTarget.evolution ? 'Actualizar evolutivo' : 'Guardar evolutivo'}</Button></div></form>}
+      <Modal open={Boolean(evolutionTarget)} title={evolutionTarget?.evolution ? 'Editar evolución' : 'Registrar evolución'} subtitle={evolutionTarget ? `${nombrePaciente(evolutionTarget.group.paciente)} · Sesión N.º ${evolutionTarget.session.numero_sesion} · ${formatDate(evolutionTarget.session.fecha)}` : ''} onClose={() => setEvolutionTarget(null)} size="sessions">
+        {evolutionTarget && <form onSubmit={saveEvolution} className="grid gap-4"><div className="rounded-lg border border-blue-100 bg-blue-50/60 px-4 py-3 text-xs text-blue-800"><strong>{evolutionTarget.history.condicion_actual?.zona_cuerpo || evolutionTarget.history.motivo_consulta || 'Historia clínica activa'}</strong><span className="ml-2">Paciente, historia, sesión y fecha vinculados automáticamente.</span></div><div className="grid gap-3 sm:grid-cols-2"><Input label="Dolor inicial (desde historia clínica)" type="number" min="0" max="10" value={evolutionForm.dolor_inicial} readOnly /><Input label="Dolor final (0-10)" type="number" min="0" max="10" value={evolutionForm.dolor_final} onChange={(event) => setEvolutionForm({ ...evolutionForm, dolor_final: event.target.value })} required /></div><p className="-mt-2 text-[11px] text-slate-500">El dolor inicial se obtiene automáticamente del última evolución o de la evaluación de la historia clínica.</p><Input label="Procedimiento realizado" value={evolutionForm.aplicacion} onChange={(event) => setEvolutionForm({ ...evolutionForm, aplicacion: event.target.value.toLocaleUpperCase('es-BO') })} multiline required /><Input label="Observaciones" value={evolutionForm.observaciones} onChange={(event) => setEvolutionForm({ ...evolutionForm, observaciones: event.target.value.toLocaleUpperCase('es-BO') })} multiline /><Input label="Inyectables (opcional)" value={evolutionForm.inyectables} onChange={(event) => setEvolutionForm({ ...evolutionForm, inyectables: event.target.value.toLocaleUpperCase('es-BO') })} /><div className="flex justify-end gap-2 border-t border-slate-200 pt-3"><Button variant="ghost" onClick={() => setEvolutionTarget(null)}>Cancelar</Button><Button type="submit">{evolutionTarget.evolution ? 'Actualizar evolución' : 'Guardar evolución'}</Button></div></form>}
       </Modal>
 
-      <Modal open={Boolean(evolutionDetail)} title="Detalle del evolutivo" subtitle={evolutionDetail ? `${nombrePaciente(evolutionDetail.group.paciente)} · Sesión N.º ${evolutionDetail.session.numero_sesion} · ${formatDate(evolutionDetail.session.fecha)}` : ''} onClose={() => setEvolutionDetail(null)} size="sessions">
+      <Modal open={Boolean(evolutionDetail)} title="Detalle de la evolución" subtitle={evolutionDetail ? `${nombrePaciente(evolutionDetail.group.paciente)} · Sesión N.º ${evolutionDetail.session.numero_sesion} · ${formatDate(evolutionDetail.session.fecha)}` : ''} onClose={() => setEvolutionDetail(null)} size="sessions">
         {evolutionDetail && <div className="grid gap-3"><div className="grid gap-3 sm:grid-cols-2"><Detail label="Dolor inicial" value={`${evolutionDetail.session.dolor_antes ?? evolutionDetail.evolution.dolor_inicial ?? '-'} / 10`} /><Detail label="Dolor final" value={`${evolutionDetail.session.dolor_despues ?? evolutionDetail.evolution.dolor_final ?? '-'} / 10`} /></div><Detail label="Procedimiento realizado" value={evolutionDetail.session.descripcion_tratamiento || [evolutionDetail.session.medios_fisicos, evolutionDetail.session.tecnicas_manuales].filter(Boolean).join(' · ') || evolutionDetail.evolution.aplicacion || evolutionDetail.evolution.procedimiento_realizado} /><Detail label="Observaciones" value={evolutionDetail.session.evolucion_observada || evolutionDetail.session.observacion || evolutionDetail.evolution.observaciones} /><Detail label="Inyectables utilizados" value={[evolutionDetail.session.inyectable_nombre, evolutionDetail.session.inyectable_dosis].filter(Boolean).join(' · ') || evolutionDetail.evolution.inyectables} /></div>}
       </Modal>
 

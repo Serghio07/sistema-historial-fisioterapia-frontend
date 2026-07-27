@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import Input from '../../../components/common/Input';
+import { formatBoliviaDateTime } from '../../../utils/boliviaDateTime';
 
 function DatosPacienteSection({ form, setForm, pacientes, user }) {
   const update = (key, value) => setForm({ ...form, [key]: value });
@@ -7,8 +8,7 @@ function DatosPacienteSection({ form, setForm, pacientes, user }) {
 
   const formatBirthData = (paciente) => {
     const fecha = paciente?.fecha_nacimiento
-      ? new Intl.DateTimeFormat('es-BO', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' })
-        .format(new Date(`${paciente.fecha_nacimiento}T00:00:00Z`))
+      ? formatBoliviaDateTime(`${paciente.fecha_nacimiento}T12:00:00-04:00`, { day: '2-digit', month: '2-digit', year: 'numeric' })
       : '';
     return [paciente?.lugar_nacimiento, fecha].filter(Boolean).join(', ');
   };

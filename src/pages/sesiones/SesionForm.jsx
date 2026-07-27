@@ -1,4 +1,4 @@
-import { Activity, CalendarDays, CalendarSync, CreditCard, Pill, Save, UserRound } from 'lucide-react';
+import { Activity, ArrowLeft, CalendarDays, CalendarSync, Check, ChevronRight, CreditCard, Pill, Plus, Save, Trash2, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -33,8 +33,18 @@ const historiaDx = (historia) =>
   cleanClinicalText(historia?.diagnostico_medico || historia?.evaluacion_final?.diagnostico_kinesico_cif);
 const historiaOptionLabel = (historia) =>
   `${historia?.fecha_evaluacion || 'Sin fecha'} - ${historiaZona(historia)} - Activa`;
+const emptyFarmaco = () => ({
+  nombre: '',
+  nombre_otro: '',
+  presentacion_dosis: '',
+  via: '',
+  via_otro: '',
+  cantidad: 1,
+  motivo_clinico: '',
+  observacion: ''
+});
 
-function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, onSubmit, onCancel, error, initialTab = 'session' }) {
+function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, onSubmit, onCancel, error, initialTab = 'session', canEditDate = false }) {
   const [tab, setTab] = useState(initialTab);
   useEffect(() => setTab(initialTab), [initialTab, editing]);
   const update = (key, value) => setForm({ ...form, [key]: value });
@@ -62,9 +72,11 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
   const realizadas = form.historia_clinica_id ? sesionesRealizadasPrevias + cuentaEstaSesion : Number(form.sesiones_hizo || 0);
   const restantes = Math.max(contratadas - realizadas, 0);
   const progress = contratadas > 0 ? Math.min((realizadas / contratadas) * 100, 100) : 0;
-  const montoSesion = toMoney(form.monto_sesion);
-  const montoPagado = form.estado_pago === 'Debe' ? 0 : toMoney(form.monto_pagado);
+  const montoSesion = form.estado_pago === 'Sin costo' ? 0 : toMoney(form.monto_sesion);
+  const montoPagado = ['Pendiente', 'Sin costo'].includes(form.estado_pago) && !form.monto_pagado ? '' : form.monto_pagado;
   const saldoPendiente = Math.max(montoSesion - montoPagado, 0);
+  const puedeContinuar = Boolean(form.paciente_id && form.historia_clinica_id && form.fecha) && !planCompleto;
+  const requiereEvolucion = form.asistencia === 'asistio';
 
   const dolorInicialParaHistoria = (historia, historySessions) => {
     const previousPain = [...historySessions]
@@ -131,12 +143,12 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
 
   const updatePago = (changes) => {
     const next = { ...form, ...changes };
-    const nextMontoSesion = toMoney(next.monto_sesion);
+    const nextMontoSesion = next.estado_pago === 'Sin costo' ? 0 : toMoney(next.monto_sesion);
     const isChangingStatus = Object.prototype.hasOwnProperty.call(changes, 'estado_pago');
     const forcedPaid = isChangingStatus && next.estado_pago === 'Pagado'
       ? nextMontoSesion
-      : isChangingStatus && next.estado_pago === 'Debe'
-        ? 0
+      : isChangingStatus && ['Pendiente', 'Sin costo'].includes(next.estado_pago)
+        ? ''
         : next.monto_pagado;
     const nextMontoPagado = toMoney(forcedPaid);
     const nextSaldo = Math.max(nextMontoSesion - nextMontoPagado, 0);
@@ -154,12 +166,39 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
       ...next,
       estado_pago: nextEstadoPago,
       monto_pagado: forcedPaid,
-      saldo_pendiente: nextSaldo
+      saldo_pendiente: nextSaldo,
+      metodo_pago: ['Pendiente', 'Sin costo'].includes(nextEstadoPago)
+        ? ''
+        : next.metodo_pago || (nextMontoPagado > 0 ? 'Efectivo' : ''),
+      motivo_sin_costo: next.estado_pago === 'Sin costo' ? next.motivo_sin_costo : ''
     });
   };
 
+  const updateFarmaco = (index, key, value) => {
+    const farmacos = [...(form.farmacos || [])];
+    farmacos[index] = { ...farmacos[index], [key]: value };
+    setForm({ ...form, farmacos, aplica_farmacos: true });
+  };
+  const setAdministraFarmacos = (value) => {
+    if (!value && form.farmacos?.length && !window.confirm('Se eliminarán los medicamentos ingresados. ¿Desea continuar?')) return;
+    setForm({ ...form, aplica_farmacos: value, farmacos: value ? (form.farmacos?.length ? form.farmacos : [emptyFarmaco()]) : [] });
+  };
+  const evolucionCompleta = String(form.descripcion_tratamiento || '').trim()
+    && String(form.evolucion_observada || form.observacion || '').trim()
+    && form.dolor_despues !== '' && form.dolor_despues != null;
+  const selectAsistencia = (value) => {
+    if (value !== 'asistio' && form.farmacos?.length && !window.confirm('La asistencia seleccionada no permite administrar fármacos. ¿Desea eliminar los medicamentos ingresados?')) return;
+    setForm({
+      ...form,
+      asistencia: value,
+      aplica_farmacos: value === 'asistio' ? form.aplica_farmacos : false,
+      farmacos: value === 'asistio' ? form.farmacos : []
+    });
+    if (value !== 'asistio') setTab('session');
+  };
+
   return (
-    <form onSubmit={onSubmit} className="grid max-h-[72vh] min-w-0 gap-3 overflow-x-hidden overflow-y-auto pr-1">
+    <form onSubmit={onSubmit} noValidate className="grid max-h-[72vh] min-w-0 gap-3 overflow-x-hidden overflow-y-auto pr-1">
       {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
       {planCompleto && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">El paciente ya completó las {contratadas} sesiones contratadas para esta historia clínica. No se pueden registrar más sesiones.</p>}
 
@@ -170,7 +209,7 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
 
       <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1" role="tablist">
         <button type="button" role="tab" aria-selected={tab === 'session'} onClick={() => setTab('session')} className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-bold transition ${tab === 'session' ? 'bg-white text-brand-700 shadow-sm ring-1 ring-brand-200' : 'text-slate-500 hover:text-slate-700'}`}><CalendarDays size={15} />Datos de la sesión</button>
-        <button type="button" role="tab" aria-selected={tab === 'evolution'} onClick={() => setTab('evolution')} className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-bold transition ${tab === 'evolution' ? 'bg-white text-brand-700 shadow-sm ring-1 ring-brand-500' : 'text-slate-500 hover:text-slate-700'}`}><Activity size={15} />Evolutivo clínico</button>
+        <button type="button" role="tab" aria-selected={tab === 'evolution'} disabled={!puedeContinuar || !requiereEvolucion} onClick={() => setTab('evolution')} className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-45 ${tab === 'evolution' ? 'bg-white text-brand-700 shadow-sm ring-1 ring-brand-500' : 'text-slate-500 hover:text-slate-700'}`}><Activity size={15} />Evolución clínica</button>
       </div>
 
       {tab === 'session' && <>
@@ -206,7 +245,7 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
             required
             disabled={!form.paciente_id}
           />
-          <Input compact label="Fecha" type="date" value={form.fecha} onChange={(event) => update('fecha', event.target.value)} required />
+          <Input compact label="Fecha" type="date" value={form.fecha} onChange={(event) => update('fecha', event.target.value)} disabled={!canEditDate} required />
           <Input compact label="Numero de sesion siguiente" type="number" min="1" value={form.numero_sesion} readOnly />
         </div>
         {selectedHistoria && (
@@ -245,20 +284,17 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
       </Section>
 
       <Section title="Asistencia" icon={CreditCard} tone="blue">
-        <div className="grid gap-2.5 md:grid-cols-3">
-          <Input
-            compact
-            label="Asistencia"
-            value={form.asistencia}
-            onChange={(event) => update('asistencia', event.target.value)}
-            options={[
-              { value: 'pendiente', label: 'Pendiente' },
-              { value: 'asistio', label: 'Asistio' },
-              { value: 'no_asistio', label: 'Falto' },
-              { value: 'cancelada', label: 'Cancelada' },
-              { value: 'reprogramada', label: 'Reprogramada' }
-            ]}
-          />
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" role="radiogroup" aria-label="Asistencia">
+          {[
+            ['asistio', 'Asistió'],
+            ['no_asistio', 'Faltó'],
+            ['pendiente', 'Pendiente'],
+            ['cancelada', 'Cancelada'],
+            ['reprogramada', 'Reprogramada']
+          ].map(([value, label]) => {
+            const selected = form.asistencia === value;
+            return <button key={value} type="button" role="radio" aria-checked={selected} onClick={() => selectAsistencia(value)} className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-black transition ${selected ? 'border-blue-600 bg-blue-600 text-white shadow-sm' : 'border-blue-200 bg-white text-slate-600 hover:border-blue-400 hover:bg-blue-50'}`}>{selected && <Check size={15} />}{label}</button>;
+          })}
         </div>
       </Section>
 
@@ -270,12 +306,14 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
             value={form.metodo_pago}
             onChange={(event) => updatePago({ metodo_pago: event.target.value })}
             options={[
-              { value: 'Pendiente', label: 'Pendiente' },
+              { value: '', label: 'Seleccionar método' },
               { value: 'Efectivo', label: 'Efectivo' },
               { value: 'QR', label: 'QR' },
               { value: 'Transferencia', label: 'Transferencia' },
+              { value: 'Tarjeta', label: 'Tarjeta' },
               { value: 'Otro', label: 'Otro' }
             ]}
+            disabled={['Pendiente', 'Sin costo'].includes(form.estado_pago)}
           />
           <Input
             compact
@@ -285,47 +323,19 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
             options={[
               { value: 'Pendiente', label: 'Pendiente' },
               { value: 'Pagado', label: 'Pagado' },
-              { value: 'Parcial', label: 'Parcial' },
-              { value: 'Debe', label: 'Debe' }
+              { value: 'Parcial', label: 'Pago parcial' },
+              { value: 'Sin costo', label: 'Sin costo' }
             ]}
           />
-          <Input compact label="Monto de la sesion" type="number" min="0" step="0.01" value={form.monto_sesion} onChange={(event) => updatePago({ monto_sesion: event.target.value })} />
-          <Input compact label="Monto pagado" type="number" min="0" step="0.01" value={form.estado_pago === 'Debe' ? 0 : form.monto_pagado} onChange={(event) => updatePago({ monto_pagado: event.target.value })} disabled={form.estado_pago === 'Debe'} placeholder="0" />
+          <Input compact label="Monto de la sesion" type="number" min="0" step="0.01" value={form.estado_pago === 'Sin costo' ? 0 : form.monto_sesion} onChange={(event) => updatePago({ monto_sesion: event.target.value })} disabled={form.estado_pago === 'Sin costo'} />
+          <Input compact label="Monto pagado" type="number" min="0" step="0.01" value={montoPagado} onChange={(event) => updatePago({ monto_pagado: event.target.value })} disabled={form.estado_pago === 'Sin costo'} placeholder="0" />
           <Input compact label="Saldo pendiente" type="number" min="0" step="0.01" value={saldoPendiente} readOnly />
+          <Input compact label="Observación del pago (opcional)" value={form.observacion_pago} onChange={(event) => update('observacion_pago', event.target.value.toLocaleUpperCase('es-BO'))} />
+          {form.estado_pago === 'Sin costo' && <Input compact label="Motivo de la sesión sin costo" value={form.motivo_sin_costo} onChange={(event) => update('motivo_sin_costo', event.target.value.toLocaleUpperCase('es-BO'))} placeholder="Cortesía, reposición, promoción u otro" required />}
         </div>
       </Section>
 
-      <Section title="Farmacos" icon={Pill} tone="cyan">
-        <div className="grid gap-2.5 md:grid-cols-[190px_1fr]">
-          <label className={`flex min-h-9 items-center gap-2 self-start rounded-lg border px-3 text-xs font-bold ${
-            form.aplica_farmacos ? 'border-violet-200 bg-violet-50 text-violet-800' : 'border-slate-200 bg-white text-slate-600'
-          }`}>
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
-              checked={Boolean(form.aplica_farmacos)}
-              onChange={(event) => setForm({
-                ...form,
-                aplica_farmacos: event.target.checked,
-                observacion_farmacos: event.target.checked ? form.observacion_farmacos : '',
-                inyectable_nombre: event.target.checked ? form.inyectable_nombre : '',
-                inyectable_dosis: event.target.checked ? form.inyectable_dosis : ''
-              })}
-            />
-            Aplica farmacos
-          </label>
-          <Input
-            compact
-            label="Observacion de farmacos (opcional)"
-            value={form.observacion_farmacos}
-            onChange={(event) => update('observacion_farmacos', event.target.value)}
-            disabled={!form.aplica_farmacos}
-            placeholder={form.aplica_farmacos ? 'Ej. Se aplico antiinflamatorio topico...' : 'Activa la opcion para registrar una observacion'}
-          />
-          <Input compact label="Inyectable aplicado" value={form.inyectable_nombre} onChange={(event) => update('inyectable_nombre', event.target.value.toLocaleUpperCase('es-BO'))} disabled={!form.aplica_farmacos} />
-          <Input compact label="Dosis o presentación" value={form.inyectable_dosis} onChange={(event) => update('inyectable_dosis', event.target.value.toLocaleUpperCase('es-BO'))} disabled={!form.aplica_farmacos} />
-        </div>
-      </Section>
+      {form.asistencia !== 'asistio' && <Section title="Observación administrativa" icon={CalendarSync} tone="cyan"><Input compact label="Observación (opcional)" value={form.observacion} onChange={(event) => update('observacion', event.target.value.toLocaleUpperCase('es-BO'))} multiline placeholder="Motivo de falta, cancelación, reprogramación u otra novedad administrativa" /></Section>}
       </>}
 
       {tab === 'evolution' && <div className="grid gap-3">
@@ -342,22 +352,63 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
           </div>
           <p className="mt-1 pl-7">Dx: {historiaDx(selectedHistoria)} | Zona: {historiaZona(selectedHistoria)}</p>
         </div>
+        {!requiereEvolucion && <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">La asistencia está marcada como “{form.asistencia === 'no_asistio' ? 'Faltó' : form.asistencia === 'reprogramada' ? 'Reprogramada' : form.asistencia === 'cancelada' ? 'Cancelada' : 'Pendiente'}”. Esta sesión no requiere una evolución clínica.</div>}
+        {requiereEvolucion && <>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Input label="Dolor inicial (desde historia clínica)" type="number" min="0" max="10" value={form.dolor_antes} readOnly />
-          <Input label="Dolor final (0-10)" type="number" min="0" max="10" value={form.dolor_despues} onChange={(event) => update('dolor_despues', event.target.value)} required />
+          <Input label="Dolor inicial (último dolor final)" type="number" min="0" max="10" value={form.dolor_antes} readOnly />
+          <Input
+            key={`dolor-final-${editing || 'nueva'}-${form.historia_clinica_id || 'sin-historia'}-${form.numero_sesion || 1}`}
+            label="Dolor final de esta sesión (0-10)"
+            type="number"
+            min="0"
+            max="10"
+            value={form.dolor_despues}
+            onChange={(event) => update('dolor_despues', event.target.value)}
+            autoComplete="off"
+            required
+          />
         </div>
-        <p className="-mt-2 text-[11px] text-slate-500">El dolor inicial se obtiene automáticamente del último evolutivo o de la evaluación de la historia clínica.</p>
+        <p className="-mt-2 text-[11px] text-slate-500">El dolor final de la última sesión se convierte en el dolor inicial de esta sesión. El nuevo dolor final se registra al terminar la atención.</p>
         <Input label="Procedimiento realizado" value={form.descripcion_tratamiento} onChange={(event) => update('descripcion_tratamiento', event.target.value.toLocaleUpperCase('es-BO'))} multiline required />
         <Input label="Observaciones" value={form.evolucion_observada || form.observacion} onChange={(event) => setForm({ ...form, evolucion_observada: event.target.value.toLocaleUpperCase('es-BO'), observacion: event.target.value.toLocaleUpperCase('es-BO') })} multiline />
-        <Input label="Inyectables (opcional)" value={form.inyectable_nombre} onChange={(event) => setForm({ ...form, aplica_farmacos: Boolean(event.target.value), inyectable_nombre: event.target.value.toLocaleUpperCase('es-BO') })} />
+        <Section title="Administración de fármacos según evolución" icon={Pill} tone="cyan">
+          <p className="mb-3 rounded-lg border border-cyan-100 bg-white/80 px-3 py-2 text-xs text-cyan-800">Los fármacos se administran de acuerdo con la evolución clínica registrada durante la sesión.</p>
+          <p className="text-xs font-black text-slate-700">¿Se administraron fármacos según la evolución del paciente?</p>
+          <div className="mt-2 flex gap-2">
+            {[false, true].map((value) => <button key={String(value)} type="button" onClick={() => setAdministraFarmacos(value)} disabled={value && !evolucionCompleta} className={`min-h-9 rounded-lg border px-5 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${Boolean(form.aplica_farmacos) === value ? 'border-teal-600 bg-teal-600 text-white' : 'border-teal-200 bg-white text-slate-600 hover:bg-teal-50'}`}>{value ? 'Sí' : 'No'}</button>)}
+          </div>
+          {!evolucionCompleta && <p className="mt-2 text-xs font-semibold text-amber-700">Primero registre la evolución clínica del paciente antes de administrar fármacos.</p>}
+          {form.aplica_farmacos && evolucionCompleta && <div className="mt-4 grid gap-3">
+            <div className="rounded-lg border border-teal-100 bg-white px-3 py-2 text-xs text-slate-600">Vinculado a: sesión N.º {form.numero_sesion} · {form.fecha} · Historia clínica activa.</div>
+            {(form.farmacos || []).map((farmaco, index) => <article key={farmaco.id || index} className="rounded-lg border border-teal-200 bg-white p-3">
+              <div className="mb-3 flex items-center justify-between"><strong className="text-sm text-teal-800">Fármaco {index + 1}</strong><button type="button" onClick={() => setForm({ ...form, farmacos: form.farmacos.filter((_, current) => current !== index) })} className="inline-flex h-8 items-center gap-1 rounded-lg border border-red-200 px-2 text-xs font-bold text-red-600 hover:bg-red-50"><Trash2 size={14} />Eliminar</button></div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Input compact label="Fármaco" value={farmaco.nombre} onChange={(event) => updateFarmaco(index, 'nombre', event.target.value)} options={[{ value: '', label: 'Seleccionar' }, { value: 'Diclofenaco', label: 'Diclofenaco' }, { value: 'Dexametasona', label: 'Dexametasona' }, { value: 'Complejo B', label: 'Complejo B' }, { value: 'Otro', label: 'Otro' }]} required />
+                {farmaco.nombre === 'Otro' && <Input compact label="Nombre del fármaco" value={farmaco.nombre_otro} onChange={(event) => updateFarmaco(index, 'nombre_otro', event.target.value.toLocaleUpperCase('es-BO'))} required />}
+                <Input compact label="Presentación o dosis" value={farmaco.presentacion_dosis} onChange={(event) => updateFarmaco(index, 'presentacion_dosis', event.target.value.toLocaleUpperCase('es-BO'))} placeholder="Ej. 3 ml, 1 ampolla, 500 mg" required />
+                <Input compact label="Vía de administración" value={farmaco.via} onChange={(event) => updateFarmaco(index, 'via', event.target.value)} options={[{ value: '', label: 'Seleccionar' }, { value: 'IM – Intramuscular', label: 'IM – Intramuscular' }, { value: 'IV – Intravenosa', label: 'IV – Intravenosa' }, { value: 'VO – Vía oral', label: 'VO – Vía oral' }, { value: 'SC – Subcutánea', label: 'SC – Subcutánea' }, { value: 'Tópica', label: 'Tópica' }, { value: 'Otra', label: 'Otra' }]} required />
+                {farmaco.via === 'Otra' && <Input compact label="Especificar vía" value={farmaco.via_otro} onChange={(event) => updateFarmaco(index, 'via_otro', event.target.value.toLocaleUpperCase('es-BO'))} required />}
+                <Input compact label="Cantidad" type="number" min="1" step="1" value={farmaco.cantidad} onChange={(event) => updateFarmaco(index, 'cantidad', event.target.value)} required />
+                <Input compact label="Motivo clínico" value={farmaco.motivo_clinico} onChange={(event) => updateFarmaco(index, 'motivo_clinico', event.target.value.toLocaleUpperCase('es-BO'))} placeholder="Dolor persistente, inflamación..." required />
+                <Input compact label="Observación (opcional)" value={farmaco.observacion} onChange={(event) => updateFarmaco(index, 'observacion', event.target.value.toLocaleUpperCase('es-BO'))} />
+              </div>
+            </article>)}
+            <button type="button" onClick={() => setForm({ ...form, farmacos: [...(form.farmacos || []), emptyFarmaco()] })} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-dashed border-teal-400 bg-teal-50 px-4 text-xs font-black text-teal-700 hover:bg-teal-100"><Plus size={16} />Agregar fármaco</button>
+          </div>}
+        </Section>
+        </>}
       </div>}
 
       <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white/95 pt-2.5 backdrop-blur">
+        {error && <p className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p>}
         <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit" disabled={planCompleto}>
-          <Save size={17} />
-          {tab === 'evolution' ? (editing ? 'Actualizar evolutivo' : 'Guardar evolutivo') : (editing ? 'Actualizar sesion' : 'Guardar sesion')}
-        </Button>
+        {tab === 'session' ? requiereEvolucion ? <Button type="button" disabled={!puedeContinuar} onClick={() => setTab('evolution')}>Siguiente <ChevronRight size={17} /></Button> : <Button type="submit" disabled={planCompleto}><Save size={17} />Guardar sesión</Button> : <>
+          <Button type="button" variant="secondary" onClick={() => setTab('session')}><ArrowLeft size={17} />Atrás</Button>
+          <Button type="submit" disabled={planCompleto}>
+            <Save size={17} />
+            {editing ? 'Actualizar sesión' : 'Guardar sesión'}
+          </Button>
+        </>}
       </div>
     </form>
   );

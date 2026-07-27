@@ -2,6 +2,7 @@ import { Activity, BriefcaseBusiness, Home, Save, UserRound } from 'lucide-react
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import ProfilePhotoInput from '../../components/common/ProfilePhoto';
+import { boliviaDate } from '../../utils/boliviaDateTime';
 
 const civilStatusOptions = [
   { value: '', label: 'SELECCIONAR' },
@@ -19,7 +20,7 @@ const calculateAge = (date) => {
   if (!date) return '';
   const birth = new Date(`${date}T00:00:00`);
   if (Number.isNaN(birth.getTime())) return '';
-  const today = new Date();
+  const today = new Date(`${boliviaDate()}T12:00:00-04:00`);
   let age = today.getFullYear() - birth.getFullYear();
   const month = today.getMonth() - birth.getMonth();
   if (month < 0 || (month === 0 && today.getDate() < birth.getDate())) age -= 1;
@@ -64,7 +65,7 @@ function PacienteForm({ form, setForm, onSubmit, onCancel, submitting = false })
     setForm(next);
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = boliviaDate();
 
   return (
     <form onSubmit={onSubmit} className="grid gap-4">

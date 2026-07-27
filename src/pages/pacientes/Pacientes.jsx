@@ -11,6 +11,7 @@ import PacienteForm from './PacienteForm';
 import { createPaciente, deactivatePaciente, getPacientes, updatePaciente } from '../../services/pacienteService';
 import { nombrePaciente } from '../../utils/validators';
 import { formatDate } from '../../utils/formatDate';
+import { matchesSearch } from '../../utils/search';
 
 const initialForm = {
   nombres: '', apellidos: '', ci: '', fecha_nacimiento: '', lugar_nacimiento: '',
@@ -64,12 +65,10 @@ function Pacientes() {
   useEffect(() => { load(); }, []);
 
   const filtered = useMemo(() => {
-    const term = query.trim().toLocaleLowerCase('es-BO');
     const isActive = statusFilter === 'active';
     return pacientes.filter((paciente) => {
       const matchesStatus = Boolean(paciente.estado) === isActive;
-      const matchesQuery = `${paciente.nombres || ''} ${paciente.apellidos || ''} ${paciente.ci || ''} ${paciente.telefono || ''}`
-        .toLocaleLowerCase('es-BO').includes(term);
+      const matchesQuery = matchesSearch(`${paciente.nombres || ''} ${paciente.apellidos || ''} ${paciente.ci || ''} ${paciente.telefono || ''}`, query);
       return matchesStatus && matchesQuery;
     });
   }, [pacientes, query, statusFilter]);

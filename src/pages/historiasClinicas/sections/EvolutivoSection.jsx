@@ -1,9 +1,10 @@
 import { Plus, Trash2 } from 'lucide-react';
 import Button from '../../../components/common/Button';
 import Input from '../../../components/common/Input';
+import { boliviaDate } from '../../../utils/boliviaDateTime';
 
 const emptySession = (numero) => ({
-  numero, fecha: new Date().toISOString().slice(0, 10), aplicacion: '',
+  numero, fecha: boliviaDate(), aplicacion: '',
   dolor_inicial: '', dolor_final: '', observaciones: '', inyectables: ''
 });
 

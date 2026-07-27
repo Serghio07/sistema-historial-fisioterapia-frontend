@@ -11,8 +11,9 @@ const groups = [
     icon: Users,
     items: [
       { to: '/pacientes', label: 'Pacientes', icon: Users },
+      { to: '/resumen-pacientes', label: 'Resumen de Pacientes', icon: FileText },
       { to: '/historias-clinicas', label: 'Historias Clinicas', icon: ClipboardList },
-      { to: '/evolutivos-clinicos', label: 'Evolutivos clinicos', icon: Activity },
+      { to: '/evolutivos-clinicos', label: 'Evoluciones clínicas', icon: Activity },
       { to: '/informes-medicos', label: 'Informes Medicos', icon: FileBarChart }
     ]
   },

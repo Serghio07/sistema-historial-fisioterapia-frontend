@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { CalendarClock, ChevronLeft, ChevronRight, Eye, FilePenLine, Plus, TableProperties, Trash2, XCircle } from 'lucide-react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, FilePenLine, Plus, TableProperties, Trash2, UserRound, XCircle } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
 import Table from '../../components/common/Table';
+import { PatientIdentity } from '../../components/common/ProfilePhoto';
 import { useAuth } from '../../context/AuthContext';
 import { createCita, deleteCita, getCitas, updateCita, updateCitaEstado } from '../../services/citaService';
 import { getPacientes } from '../../services/pacienteService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
+import { matchesSearch } from '../../utils/search';
+import { BOLIVIA_TIME_ZONE, boliviaDate } from '../../utils/boliviaDateTime';
 
 const ESTADOS = ['Pendiente', 'Confirmada', 'Atendida', 'Cancelada', 'Reprogramada', 'No asistio'];
 const TIPOS = ['Primera consulta', 'Sesion de fisioterapia', 'Evaluacion', 'Control', 'Rehabilitacion', 'Otro'];
@@ -47,7 +50,7 @@ const pacienteStyles = [
 
 const emptyForm = {
   paciente_id: '',
-  fecha: new Date().toISOString().slice(0, 10),
+  fecha: boliviaDate(),
   hora_inicio: '08:00',
   hora_fin: '08:30',
   motivo: '',
@@ -56,7 +59,7 @@ const emptyForm = {
   observacion: ''
 };
 
-const toISODate = (date) => date.toISOString().slice(0, 10);
+const toISODate = (date) => boliviaDate(date);
 
 const addDays = (date, days) => {
   const next = new Date(date);
@@ -131,6 +134,8 @@ function EventCard({ cita, compact = false, onClick }) {
 
 function Citas() {
   const { isAdmin } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const pacienteInicial = searchParams.get('paciente_id') || '';
   const [pacientes, setPacientes] = useState([]);
@@ -138,7 +143,7 @@ function Citas() {
   const [form, setForm] = useState({ ...emptyForm, paciente_id: pacienteInicial });
   const [filters, setFilters] = useState({ paciente: '', fecha: '', estado: '', tipo_atencion: '' });
   const [view, setView] = useState('semana');
-  const [cursor, setCursor] = useState(new Date());
+  const [cursor, setCursor] = useState(() => new Date(`${boliviaDate()}T12:00:00-04:00`));
   const [activeTab, setActiveTab] = useState('listado');
   const [showFormModal, setShowFormModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -165,10 +170,19 @@ function Citas() {
     load();
   }, []);
 
+  useEffect(() => {
+    const citaId = location.state?.verCitaId;
+    if (!citaId || !citas.length) return;
+    const cita = citas.find((item) => Number(item.id) === Number(citaId));
+    if (cita) {
+      setSelected(cita);
+      setActiveTab('listado');
+    }
+  }, [citas, location.state?.verCitaId]);
+
   const filteredCitas = useMemo(() => {
-    const pacienteText = filters.paciente.trim().toLowerCase();
     return citas.filter((cita) => {
-      const matchPaciente = !pacienteText || nombrePaciente(cita.paciente).toLowerCase().includes(pacienteText);
+      const matchPaciente = matchesSearch(nombrePaciente(cita.paciente), filters.paciente);
       const matchPacienteInicial = !pacienteInicial || String(cita.paciente_id) === String(pacienteInicial);
       const matchFecha = !filters.fecha || cita.fecha === filters.fecha;
       const matchEstado = !filters.estado || cita.estado === filters.estado;
@@ -257,7 +271,7 @@ function Citas() {
   };
 
   const title = view === 'mes'
-    ? cursor.toLocaleDateString('es-BO', { month: 'long', year: 'numeric' })
+    ? cursor.toLocaleDateString('es-BO', { timeZone: BOLIVIA_TIME_ZONE, month: 'long', year: 'numeric' })
     : `${formatDate(toISODate(visibleDays[0]))} - ${formatDate(toISODate(visibleDays[visibleDays.length - 1]))}`;
 
   return (
@@ -351,7 +365,7 @@ function Citas() {
                 return (
                   <div key={iso} className={`min-h-36 rounded-lg border border-slate-200 bg-white p-3 ${outsideMonth ? 'opacity-45' : ''}`}>
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <strong className="text-sm capitalize text-ink">{day.toLocaleDateString('es-BO', { weekday: 'short', day: '2-digit' })}</strong>
+                      <strong className="text-sm capitalize text-ink">{day.toLocaleDateString('es-BO', { timeZone: BOLIVIA_TIME_ZONE, weekday: 'short', day: '2-digit' })}</strong>
                       <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-500">{dayCitas.length}</span>
                     </div>
                     <div className="grid gap-2">
@@ -369,7 +383,7 @@ function Citas() {
           <aside className="panel">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-black text-ink">Calendario rapido</h3>
-              <strong className="text-xs capitalize text-slate-500">{cursor.toLocaleDateString('es-BO', { month: 'long', year: 'numeric' })}</strong>
+              <strong className="text-xs capitalize text-slate-500">{cursor.toLocaleDateString('es-BO', { timeZone: BOLIVIA_TIME_ZONE, month: 'long', year: 'numeric' })}</strong>
             </div>
             <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-black text-slate-500">
               {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map((day) => <span key={day}>{day}</span>)}
@@ -437,7 +451,7 @@ function Citas() {
         <Table
           columns={['Paciente', 'Fecha', 'Hora', 'Registrado por', 'Motivo', 'Tipo de atencion', 'Estado', 'Observacion', 'Acciones']}
           rows={filteredCitas.map((cita) => [
-            nombrePaciente(cita.paciente),
+            <PatientIdentity paciente={cita.paciente} secondary={`CI: ${cita.paciente?.ci || 'Sin dato'}`} />,
             formatDate(cita.fecha),
             `${cita.hora_inicio?.slice(0, 5) || ''} - ${cita.hora_fin?.slice(0, 5) || ''}`,
             cita.registrado_por?.nombre || 'Registro anterior',
@@ -461,25 +475,64 @@ function Citas() {
         <CitaForm form={form} setForm={setForm} pacientes={pacientes} onSubmit={submit} onCancel={closeFormModal} editing={editing} error={error} />
       </Modal>
 
-      <Modal open={Boolean(selected)} title="Detalle de cita" onClose={() => setSelected(null)} size="lg">
+      <Modal
+        open={Boolean(selected)}
+        title="Detalle de cita"
+        subtitle={selected ? `Cita #${selected.id} · Información vinculada al paciente` : ''}
+        onClose={() => setSelected(null)}
+        size="lg"
+        patientStyle
+      >
         {selected && (
-          <div className="grid gap-4">
-            <div className="grid gap-3 md:grid-cols-4">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Paciente</span><strong className="mt-1 block text-sm text-ink">{nombrePaciente(selected.paciente)}</strong></div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Fecha</span><strong className="mt-1 block text-sm text-ink">{formatDate(selected.fecha)}</strong></div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Hora</span><strong className="mt-1 block text-sm text-ink">{selected.hora_inicio?.slice(0, 5)} - {selected.hora_fin?.slice(0, 5) || ''}</strong></div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Estado</span><div className="mt-1"><Badge estado={selected.estado} /></div></div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Registrado por</span><strong className="mt-1 block text-sm text-ink">{selected.registrado_por?.nombre || 'Registro anterior'}</strong></div>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="overflow-y-auto p-5">
+              <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-brand-100 bg-gradient-to-r from-brand-50 via-white to-cyan-50 p-4">
+                <PatientIdentity
+                  paciente={selected.paciente}
+                  secondary={`CI: ${selected.paciente?.ci || 'Sin CI'} · Tel: ${selected.paciente?.telefono || 'Sin teléfono'}`}
+                  className="[&_strong]:text-base [&_small]:mt-1"
+                />
+                <Badge estado={selected.estado} />
+              </section>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700"><CalendarDays size={20} /></span>
+                  <div><span className="block text-[10px] font-black uppercase tracking-wide text-slate-500">Fecha</span><strong className="mt-1 block text-sm text-ink">{formatDate(selected.fecha)}</strong></div>
+                </div>
+                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-700"><Clock3 size={20} /></span>
+                  <div><span className="block text-[10px] font-black uppercase tracking-wide text-slate-500">Horario</span><strong className="mt-1 block text-sm text-ink">{selected.hora_inicio?.slice(0, 5)} – {selected.hora_fin?.slice(0, 5) || ''}</strong></div>
+                </div>
+                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-2 lg:col-span-1">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><UserRound size={20} /></span>
+                  <div className="min-w-0"><span className="block text-[10px] font-black uppercase tracking-wide text-slate-500">Registrado por</span><strong className="mt-1 block truncate text-sm text-ink">{selected.registrado_por?.nombre || 'Registro anterior'}</strong></div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                  <span className="text-[10px] font-black uppercase tracking-wide text-brand-700">Tipo de atención</span>
+                  <p className="mt-2 text-sm font-bold text-ink">{selected.tipo_atencion || 'Sin tipo registrado'}</p>
+                </section>
+                <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                  <span className="text-[10px] font-black uppercase tracking-wide text-brand-700">Motivo</span>
+                  <p className="mt-2 text-sm font-bold text-ink">{selected.motivo || 'Sin motivo registrado'}</p>
+                </section>
+                <section className="rounded-xl border border-slate-200 bg-white p-4 md:col-span-2">
+                  <span className="text-[10px] font-black uppercase tracking-wide text-brand-700">Observación</span>
+                  <p className="mt-2 min-h-10 whitespace-pre-wrap text-sm leading-6 text-slate-700">{selected.observacion || 'Sin observaciones registradas para esta cita.'}</p>
+                </section>
+              </div>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Motivo</span><strong className="mt-1 block text-sm text-ink">{selected.motivo || 'Sin motivo'}</strong></div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Tipo</span><strong className="mt-1 block text-sm text-ink">{selected.tipo_atencion || 'Sin tipo'}</strong></div>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="block text-xs font-black uppercase text-slate-500">Observacion</span><strong className="mt-1 block text-sm text-ink">{selected.observacion || 'Sin observacion'}</strong></div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="ghost" onClick={() => editCita(selected)}><FilePenLine size={17} />Editar</Button>
-              <Button variant="danger" onClick={() => updateCitaEstado(selected.id, 'Cancelada').then(() => { setSelected(null); load(); })}><XCircle size={17} />Cancelar cita</Button>
-            </div>
+
+            <footer className="flex flex-wrap items-center gap-2 border-t border-slate-200 bg-slate-50/80 px-5 py-4">
+              {location.state?.returnTo && <Button variant="secondary" onClick={() => navigate(location.state.returnTo, { state: { resumenState: location.state.resumenState } })}><ChevronLeft size={17} />Volver al resumen</Button>}
+              <div className="ml-auto flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => editCita(selected)}><FilePenLine size={17} />Editar cita</Button>
+                <Button variant="danger" disabled={selected.estado === 'Cancelada'} onClick={() => updateCitaEstado(selected.id, 'Cancelada').then(() => { setSelected(null); load(); })}><XCircle size={17} />Cancelar cita</Button>
+              </div>
+            </footer>
           </div>
         )}
       </Modal>

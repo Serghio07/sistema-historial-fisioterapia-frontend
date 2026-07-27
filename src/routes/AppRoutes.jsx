@@ -20,6 +20,7 @@ import DocumentosClinicos from '../pages/documentos/DocumentosClinicos';
 import EvolutivosClinicos from '../pages/evolutivosClinicos/EvolutivosClinicos';
 import PlanillaPagos from '../pages/planillaPagos/PlanillaPagos';
 import ResumenDiario from '../pages/resumenDiario/ResumenDiario';
+import ResumenPacientes from '../pages/resumenPacientes/ResumenPacientes';
 
 function AppRoutes() {
   return (
@@ -30,6 +31,7 @@ function AppRoutes() {
           <Route element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="pacientes" element={<Pacientes />} />
+            <Route path="resumen-pacientes" element={<ResumenPacientes />} />
             <Route path="pacientes/:id" element={<PacienteDetalle />} />
             <Route path="historias-clinicas" element={<HistoriasClinicas />} />
             <Route path="historias-clinicas/:id" element={<HistoriaClinicaDetalle />} />
