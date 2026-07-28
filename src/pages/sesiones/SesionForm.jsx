@@ -44,7 +44,7 @@ const emptyFarmaco = () => ({
   observacion: ''
 });
 
-function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, onSubmit, onCancel, error, initialTab = 'session', canEditDate = false }) {
+function SesionForm({ form, setForm, pacientes, historias, sesiones, programaciones = [], editing, onSubmit, onCancel, error, initialTab = 'session', canEditDate = false }) {
   const [tab, setTab] = useState(initialTab);
   useEffect(() => setTab(initialTab), [initialTab, editing]);
   const update = (key, value) => setForm({ ...form, [key]: value });
@@ -77,6 +77,9 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
   const saldoPendiente = Math.max(montoSesion - montoPagado, 0);
   const puedeContinuar = Boolean(form.paciente_id && form.historia_clinica_id && form.fecha) && !planCompleto;
   const requiereEvolucion = form.asistencia === 'asistio';
+  const programacionesPaciente = programaciones
+    .filter((cita) => String(cita.paciente_id || cita.paciente?.id) === String(form.paciente_id))
+    .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || String(a.hora_inicio).localeCompare(String(b.hora_inicio)));
 
   const dolorInicialParaHistoria = (historia, historySessions) => {
     const previousPain = [...historySessions]
@@ -86,6 +89,29 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
       .filter((value) => value !== '' && value != null)
       .at(-1);
     return previousPain ?? historia?.intervencion_clinica?.escala_dolor ?? '';
+  };
+
+  const applyProgramacion = (cita, baseForm = form) => {
+    const historia = historias.find((item) => String(item.id) === String(cita.historia_clinica_id || cita.historia_clinica?.id));
+    if (!historia) return;
+    const realizadasHistoria = sesiones.filter((sesion) =>
+      String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historia.id)
+      && isSesionActivaRealizada(sesion)
+      && (!editing || String(sesion.id) !== String(editing))
+    ).length;
+    setForm({
+      ...baseForm,
+      cita_id: cita.id,
+      paciente_id: cita.paciente_id || cita.paciente?.id,
+      historia_clinica_id: historia.id,
+      fecha: cita.fecha,
+      numero_sesion: cita.numero_sesion,
+      sesiones_debe: cita.total_sesiones || historia.evaluacion_final?.sesiones_contratadas || 0,
+      sesiones_hizo: realizadasHistoria + 1,
+      profesional_responsable: cita.profesional?.nombre || baseForm.profesional_responsable || '',
+      dolor_antes: dolorInicialParaHistoria(historia, sesiones.filter((sesion) => String(sesion.historia_clinica_id) === String(historia.id))),
+      dolor_despues: ''
+    });
   };
 
   const selectPaciente = (pacienteId) => {
@@ -105,8 +131,9 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
       ? sesiones.filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(autoHistoria.id))
       : [];
 
-    setForm({
+    const nextForm = {
       ...form,
+      cita_id: '',
       paciente_id: pacienteId,
       historia_clinica_id: autoHistoria?.id || '',
       numero_sesion: autoHistoria ? autoRealizadas + 1 : 1,
@@ -114,7 +141,14 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
       dolor_despues: '',
       sesiones_debe: autoContratadas,
       sesiones_hizo: autoHistoria ? autoRealizadas + 1 : 0
-    });
+    };
+    const pendientes = programaciones
+      .filter((cita) => String(cita.paciente_id || cita.paciente?.id) === String(pacienteId))
+      .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || String(a.hora_inicio).localeCompare(String(b.hora_inicio)));
+    const programadaHoy = pendientes.find((cita) => cita.fecha === new Date().toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' }));
+    const programacionAutomatica = programadaHoy || (pendientes.length === 1 ? pendientes[0] : null);
+    if (programacionAutomatica) applyProgramacion(programacionAutomatica, nextForm);
+    else setForm(nextForm);
   };
 
   const selectHistoria = (historiaId) => {
@@ -229,7 +263,24 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
             ]}
             required
             compact
+            disabled={Boolean(form.cita_id)}
           />
+          {programacionesPaciente.length > 0 && <Input
+            compact
+            label="Seleccionar sesión programada"
+            value={form.cita_id || ''}
+            onChange={(event) => {
+              const cita = programacionesPaciente.find((item) => String(item.id) === String(event.target.value));
+              if (cita) applyProgramacion(cita);
+            }}
+            options={[
+              { value: '', label: 'Seleccionar fecha programada' },
+              ...programacionesPaciente.map((cita) => ({
+                value: cita.id,
+                label: `Sesión ${cita.numero_sesion} de ${cita.total_sesiones} — ${cita.fecha} — ${cita.hora_inicio?.slice(0, 5)}`
+              }))
+            ]}
+          />}
           <Input
             compact
             label="Historia clinica activa"
@@ -243,7 +294,7 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, editing, on
               }))
             ]}
             required
-            disabled={!form.paciente_id}
+            disabled={!form.paciente_id || Boolean(form.cita_id)}
           />
           <Input compact label="Fecha" type="date" value={form.fecha} onChange={(event) => update('fecha', event.target.value)} disabled={!canEditDate} required />
           <Input compact label="Numero de sesion siguiente" type="number" min="1" value={form.numero_sesion} readOnly />

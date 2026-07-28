@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { formatDate } from '../../utils/formatDate';
 import { nombrePaciente } from '../../utils/validators';
 import { Avatar } from '../../components/common/ProfilePhoto';
+import ProgramacionSesionesModal from './ProgramacionSesionesModal';
 
 const isCompleted = (session) => !session?.anulada
   && String(session?.estado || '').toLowerCase() !== 'anulada'
@@ -46,6 +47,7 @@ export default function PacienteHistoriasAccordion({
   const { paciente, allHistorias } = group;
   const latest = group.historias[0] || allHistorias[0];
   const [showMenu, setShowMenu] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
   const tone = tones[latest.estado] || tones.borrador;
   const initials = nombrePaciente(paciente).split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('');
   const sessionStory = latest.estado === 'activa' ? latest : allHistorias.find((story) => story.estado === 'activa' && Number(story.evaluacion_final?.sesiones_contratadas || 0));
@@ -96,7 +98,7 @@ export default function PacienteHistoriasAccordion({
 
             <aside className="rounded-xl border border-slate-200 bg-white p-4">
               <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[.06em] text-emerald-700"><Activity size={16} />Progreso de sesiones</h3>
-              {contracted > 0 ? <><div className="mt-5 flex items-end gap-1.5"><strong className="text-3xl font-black text-slate-900">{completed}</strong><span className="pb-1 text-base font-bold text-slate-700">de {contracted}</span></div><p className="mt-1 text-xs text-slate-500">sesiones realizadas</p><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${progress}%` }} /></div><div className="mt-3 flex justify-between text-[11px] font-bold"><span className="text-emerald-600">{Math.round(progress)}% completado</span><span className="text-slate-500">{remaining} restantes</span></div></> : <p className="mt-5 text-sm text-slate-500">Sin sesiones contratadas.</p>}
+              {contracted > 0 ? <><div className="mt-5 flex items-end gap-1.5"><strong className="text-3xl font-black text-slate-900">{completed}</strong><span className="pb-1 text-base font-bold text-slate-700">de {contracted}</span></div><p className="mt-1 text-xs text-slate-500">sesiones realizadas</p><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${progress}%` }} /></div><div className="mt-3 flex justify-between text-[11px] font-bold"><span className="text-emerald-600">{Math.round(progress)}% completado</span><span className="text-slate-500">{remaining} restantes</span></div><button type="button" disabled={!sessionStory || remaining === 0} onClick={() => setShowSchedule(true)} className="mt-4 flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-3 text-xs font-black text-white shadow-sm hover:bg-teal-700 disabled:bg-emerald-100 disabled:text-emerald-700"><CalendarDays size={16} />{remaining === 0 ? 'Tratamiento completado' : 'Agendar días de sesiones'}</button></> : <p className="mt-5 text-sm text-slate-500">Sin sesiones contratadas.</p>}
             </aside>
           </div>
 
@@ -111,5 +113,6 @@ export default function PacienteHistoriasAccordion({
         </div>
       </div>
     </div>
+    <ProgramacionSesionesModal open={showSchedule} onClose={() => setShowSchedule(false)} historia={sessionStory} paciente={paciente} />
   </article>;
 }

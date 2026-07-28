@@ -30,6 +30,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getHistoriasClinicas } from '../../services/historiaClinicaService';
 import { getPacientes } from '../../services/pacienteService';
 import { createSesion, deleteSesion, getSesiones, updateSesion } from '../../services/sesionService';
+import { getCitas } from '../../services/citaService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import { boliviaDate } from '../../utils/boliviaDateTime';
@@ -37,6 +38,7 @@ import SesionForm from './SesionForm';
 import SesionesPacienteAccordion, { sessionEvolution } from './SesionesPacienteAccordion';
 
 const initialForm = {
+  cita_id: '',
   paciente_id: '',
   historia_clinica_id: '',
   fecha: boliviaDate(),
@@ -181,6 +183,7 @@ function Sesiones() {
   const [pacientes, setPacientes] = useState([]);
   const [historias, setHistorias] = useState([]);
   const [sesiones, setSesiones] = useState([]);
+  const [programaciones, setProgramaciones] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [formTab, setFormTab] = useState('session');
   const [editing, setEditing] = useState(null);
@@ -207,9 +210,14 @@ function Sesiones() {
     setLoading(true);
     setError('');
     try {
-      const [pacientesData, historiasData] = await Promise.all([getPacientes(), getHistoriasClinicas()]);
+      const [pacientesData, historiasData, programacionesData] = await Promise.all([
+        getPacientes(),
+        getHistoriasClinicas(),
+        getCitas({ origen: 'Plan de tratamiento' })
+      ]);
       setPacientes(pacientesData);
       setHistorias(historiasData);
+      setProgramaciones(programacionesData.filter((cita) => ['Programada', 'Confirmada'].includes(cita.estado)));
     } catch (err) {
       setError(`No se pudieron cargar pacientes: ${err.message}`);
     }
@@ -228,6 +236,25 @@ function Sesiones() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    const cita = location.state?.programacion;
+    if (!cita || !pacientes.length || !historias.length) return;
+    const historia = historias.find((item) => String(item.id) === String(cita.historia_clinica_id || cita.historia_clinica?.id));
+    if (!historia) return setError('La historia clínica vinculada a esta programación no está disponible.');
+    const hechas = sesiones.filter((item) => String(item.historia_clinica_id) === String(historia.id) && item.asistencia === 'asistio' && !item.anulada).length;
+    setEditing(null);
+    setFormTab('session');
+    setForm({
+      ...initialForm, cita_id: cita.id, paciente_id: cita.paciente_id,
+      historia_clinica_id: historia.id, fecha: cita.fecha, numero_sesion: cita.numero_sesion,
+      sesiones_debe: cita.total_sesiones || historia.evaluacion_final?.sesiones_contratadas || 0,
+      sesiones_hizo: hechas + 1, profesional_responsable: cita.profesional?.nombre || profesionalActual,
+      asistencia: 'asistio'
+    });
+    setShowFormModal(true);
+    navigate('/sesiones', { replace: true, state: null });
+  }, [location.state?.programacion, pacientes.length, historias.length, sesiones.length]);
 
   const filteredSesiones = useMemo(() => {
     const filtered = sesiones.filter((sesion) => {
@@ -945,11 +972,11 @@ function Sesiones() {
       <Modal
         open={showFormModal}
         title={editing ? 'Editar sesión' : 'Nueva sesión'}
-        subtitle="Registra la atención diaria del paciente y actualiza automáticamente su resumen semanal."
+        subtitle={form.cita_id ? `Sesión programada encontrada · Sesión ${form.numero_sesion} · ${form.fecha}` : 'Registra la atención diaria del paciente y actualiza automáticamente su resumen semanal.'}
         onClose={closeFormModal}
         size="sessions"
       >
-        <SesionForm form={form} setForm={setForm} pacientes={pacientes} historias={historias} sesiones={sesiones} editing={editing} initialTab={formTab} onSubmit={submit} onCancel={closeFormModal} error={error} canEditDate={isAdmin} />
+        <SesionForm form={form} setForm={setForm} pacientes={pacientes} historias={historias} sesiones={sesiones} programaciones={programaciones} editing={editing} initialTab={formTab} onSubmit={submit} onCancel={closeFormModal} error={error} canEditDate={form.cita_id ? false : isAdmin} />
       </Modal>
 
       <Modal open={Boolean(evolutionTarget)} title={evolutionTarget?.evolution ? 'Editar evolución' : 'Registrar evolución'} subtitle={evolutionTarget ? `${nombrePaciente(evolutionTarget.group.paciente)} · Sesión N.º ${evolutionTarget.session.numero_sesion} · ${formatDate(evolutionTarget.session.fecha)}` : ''} onClose={() => setEvolutionTarget(null)} size="sessions">

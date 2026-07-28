@@ -24,6 +24,7 @@ const estadoStyles = {
   Pendiente: 'border-amber-200 bg-amber-50 text-amber-800',
   Confirmada: 'border-blue-200 bg-blue-50 text-blue-800',
   Atendida: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  Realizada: 'border-emerald-200 bg-emerald-50 text-emerald-800',
   Cancelada: 'border-red-200 bg-red-50 text-red-800',
   Reprogramada: 'border-violet-200 bg-violet-50 text-violet-800',
   'No asistio': 'border-orange-200 bg-orange-50 text-orange-800'
@@ -84,6 +85,11 @@ function Badge({ estado }) {
   return <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-black ${estadoStyles[estado] || estadoStyles.Pendiente}`}>{estado}</span>;
 }
 
+const estadoVisible = (cita) =>
+  cita?.origen === 'Plan de tratamiento' && cita?.estado === 'Atendida'
+    ? 'Realizada'
+    : cita?.estado;
+
 const getPacienteStyle = (pacienteId) => pacienteStyles[Math.abs(Number(pacienteId || 0)) % pacienteStyles.length];
 
 function CitaForm({ form, setForm, pacientes, onSubmit, onCancel, editing, error }) {
@@ -127,7 +133,7 @@ function EventCard({ cita, compact = false, onClick }) {
     >
       <span className="font-black">{cita.hora_inicio?.slice(0, 5)} {compact ? '' : `- ${cita.hora_fin?.slice(0, 5) || ''}`}</span>
       <span className="line-clamp-1">{nombrePaciente(cita.paciente)}</span>
-      {!compact && <span className="line-clamp-1">{cita.estado} - {cita.tipo_atencion || cita.motivo || 'Sin tipo'}</span>}
+      {!compact && <span className="line-clamp-1">{estadoVisible(cita)} - {cita.tipo_atencion || cita.motivo || 'Sin tipo'}</span>}
     </button>
   );
 }
@@ -457,7 +463,7 @@ function Citas() {
             cita.registrado_por?.nombre || 'Registro anterior',
             cita.motivo || 'Sin motivo',
             cita.tipo_atencion || 'Sin tipo',
-            <Badge estado={cita.estado} />,
+            <Badge estado={estadoVisible(cita)} />,
             cita.observacion || 'Sin observacion',
             <div className="flex gap-2">
               <ActionButton label="Ver detalle" icon={Eye} tone="view" onClick={() => setSelected(cita)} />
@@ -492,7 +498,7 @@ function Citas() {
                   secondary={`CI: ${selected.paciente?.ci || 'Sin CI'} · Tel: ${selected.paciente?.telefono || 'Sin teléfono'}`}
                   className="[&_strong]:text-base [&_small]:mt-1"
                 />
-                <Badge estado={selected.estado} />
+                <Badge estado={estadoVisible(selected)} />
               </section>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -529,8 +535,9 @@ function Citas() {
             <footer className="flex flex-wrap items-center gap-2 border-t border-slate-200 bg-slate-50/80 px-5 py-4">
               {location.state?.returnTo && <Button variant="secondary" onClick={() => navigate(location.state.returnTo, { state: { resumenState: location.state.resumenState } })}><ChevronLeft size={17} />Volver al resumen</Button>}
               <div className="ml-auto flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => editCita(selected)}><FilePenLine size={17} />Editar cita</Button>
-                <Button variant="danger" disabled={selected.estado === 'Cancelada'} onClick={() => updateCitaEstado(selected.id, 'Cancelada').then(() => { setSelected(null); load(); })}><XCircle size={17} />Cancelar cita</Button>
+                {selected.origen === 'Plan de tratamiento' && ['Programada', 'Confirmada'].includes(selected.estado) && <Button onClick={() => navigate('/sesiones', { state: { programacion: selected } })}><CalendarClock size={17} />Registrar sesión</Button>}
+                {!['Atendida', 'Cancelada'].includes(selected.estado) && <Button variant="secondary" onClick={() => editCita(selected)}><FilePenLine size={17} />{selected.origen === 'Plan de tratamiento' ? 'Reprogramar' : 'Editar cita'}</Button>}
+                {!['Atendida', 'Cancelada'].includes(selected.estado) && <Button variant="danger" onClick={() => updateCitaEstado(selected.id, 'Cancelada').then(() => { setSelected(null); load(); })}><XCircle size={17} />Cancelar cita</Button>}
               </div>
             </footer>
           </div>

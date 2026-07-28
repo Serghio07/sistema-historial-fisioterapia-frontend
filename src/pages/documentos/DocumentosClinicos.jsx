@@ -229,7 +229,7 @@ const historiaLabel = (historia) => {
   if (!historia) return '';
   const fecha = historia.fecha_evaluacion ? formatDate(historia.fecha_evaluacion) : '';
   const zona = historia.condicion_actual?.zona_cuerpo || historia.motivo_consulta || historia.diagnostico_medico || '';
-  return [fecha, zona].filter(Boolean).join(' - ') || `Historia ${historia.id}`;
+  return [fecha, zona].filter(Boolean).join(' - ') || 'Historia clínica';
 };
 
 const money = (value) => Number(value || 0).toFixed(2);

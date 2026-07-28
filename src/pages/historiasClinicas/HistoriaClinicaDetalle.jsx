@@ -85,7 +85,7 @@ function HistoriaClinicaDetalle() {
     <section className="grid gap-4">
       <div className="panel flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase text-brand-600">Historia clínica #{historia.id}</p>
+          <p className="text-xs font-black uppercase text-brand-600">Historia clínica</p>
           <div className="mt-2"><PatientIdentity paciente={historia.paciente} secondary={`Evaluación: ${formatDate(historia.fecha_evaluacion)}`} /></div>
         </div>
         <div className="flex items-center gap-3">

@@ -48,7 +48,7 @@ function Section({ icon: Icon, title, children }) {
   );
 }
 
-function PacienteForm({ form, setForm, onSubmit, onCancel, submitting = false }) {
+function PacienteForm({ form, setForm, onSubmit, onCancel, submitting = false, ciError = '' }) {
   const update = (key, rawValue) => {
     let value = upperFields.has(key) ? rawValue.toLocaleUpperCase('es-BO') : rawValue;
     if (key === 'ci' || key === 'telefono') value = rawValue.replace(/\D/g, '');
@@ -75,7 +75,7 @@ function PacienteForm({ form, setForm, onSubmit, onCancel, submitting = false })
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <Input required label="Nombres *" value={form.nombres} onChange={(e) => update('nombres', e.target.value)} placeholder="NOMBRES DEL PACIENTE" />
           <Input required label="Apellidos *" value={form.apellidos} onChange={(e) => update('apellidos', e.target.value)} placeholder="APELLIDOS DEL PACIENTE" />
-          <Input required label="CI *" inputMode="numeric" value={form.ci} onChange={(e) => update('ci', e.target.value)} placeholder="SOLO NÚMEROS" />
+          <Input required name="ci" label="CI *" inputMode="numeric" value={form.ci} onChange={(e) => update('ci', e.target.value)} placeholder="SOLO NÚMEROS" error={ciError} />
           <Input label="Fecha de nacimiento" type="date" max={today} value={form.fecha_nacimiento || ''} onChange={(e) => update('fecha_nacimiento', e.target.value)} />
           <Input label="Lugar de nacimiento" value={form.lugar_nacimiento || ''} onChange={(e) => update('lugar_nacimiento', e.target.value)} />
           <Input label="Edad" value={form.edad === '' || form.edad == null ? '' : `${form.edad} AÑOS`} readOnly className="[&_input]:bg-slate-100" />
@@ -132,7 +132,7 @@ function PacienteForm({ form, setForm, onSubmit, onCancel, submitting = false })
 
       <div className="sticky -bottom-4 z-20 -mx-4 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_18px_rgba(15,23,42,0.06)] backdrop-blur">
         <Button type="button" variant="ghost" onClick={onCancel}>CANCELAR</Button>
-        <Button type="submit" disabled={submitting}><Save size={17} />{submitting ? 'GUARDANDO...' : 'GUARDAR'}</Button>
+        <Button type="submit" disabled={submitting || Boolean(ciError)}><Save size={17} />{submitting ? 'GUARDANDO...' : 'GUARDAR'}</Button>
       </div>
     </form>
   );

@@ -28,27 +28,61 @@ const activityStyles = {
   tarea: {
     label: 'Tareas extra',
     icon: ListTodo,
-    iconClass: 'bg-brand-50 text-brand-700 ring-brand-100',
-    badgeClass: 'bg-brand-50 text-brand-700 ring-brand-100'
+    iconClass: 'bg-violet-50 text-violet-700 ring-violet-200',
+    badgeClass: 'bg-violet-50 text-violet-700 ring-violet-200'
   },
   cambio: {
     label: 'Cambios',
     icon: FilePenLine,
-    iconClass: 'bg-brand-50 text-brand-700 ring-brand-100',
-    badgeClass: 'bg-brand-50 text-brand-700 ring-brand-100'
+    iconClass: 'bg-amber-50 text-amber-700 ring-amber-200',
+    badgeClass: 'bg-amber-50 text-amber-800 ring-amber-200'
   },
   sesion: {
     label: 'Sesiones',
     icon: Activity,
-    iconClass: 'bg-brand-50 text-brand-700 ring-brand-100',
-    badgeClass: 'bg-brand-50 text-brand-700 ring-brand-100'
+    iconClass: 'bg-teal-50 text-teal-700 ring-teal-200',
+    badgeClass: 'bg-teal-50 text-teal-700 ring-teal-200'
   },
   cita: {
     label: 'Citas',
     icon: CalendarClock,
-    iconClass: 'bg-brand-50 text-brand-700 ring-brand-100',
-    badgeClass: 'bg-brand-50 text-brand-700 ring-brand-100'
+    iconClass: 'bg-sky-50 text-sky-700 ring-sky-200',
+    badgeClass: 'bg-sky-50 text-sky-700 ring-sky-200'
   }
+};
+const activityVisual = (item) => {
+  const action = String(item.tipo || '').toLocaleLowerCase('es');
+
+  if (action.includes('elimin') || action.includes('borr')) {
+    return {
+      icon: Trash2,
+      iconClass: 'bg-rose-50 text-rose-700 ring-rose-200',
+      badgeClass: 'bg-rose-50 text-rose-700 ring-rose-200'
+    };
+  }
+  if (action.includes('anul') || action.includes('cancel')) {
+    return {
+      icon: Trash2,
+      iconClass: 'bg-slate-100 text-slate-600 ring-slate-200',
+      badgeClass: 'bg-slate-100 text-slate-700 ring-slate-200'
+    };
+  }
+  if (action.includes('edit') || action.includes('actualiz') || action.includes('modific')) {
+    return {
+      icon: FilePenLine,
+      iconClass: 'bg-amber-50 text-amber-700 ring-amber-200',
+      badgeClass: 'bg-amber-50 text-amber-800 ring-amber-200'
+    };
+  }
+  if (action.includes('complet') || action.includes('finaliz')) {
+    return {
+      icon: CheckCircle2,
+      iconClass: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+      badgeClass: 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+    };
+  }
+
+  return activityStyles[activityKind(item)];
 };
 const fieldLabels = {
   titulo: 'Título', descripcion: 'Descripción', diagnostico: 'Diagnóstico',
@@ -306,13 +340,13 @@ function ActividadesDiarias() {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          [Activity, actividades.length, 'Actividad total'],
-          [ListTodo, activityCounts.tarea, 'Tareas extra'],
-          [CalendarDays, activityCounts.sesion, 'Sesiones'],
-          [CalendarClock, activityCounts.cita, 'Citas']
-        ].map(([Icon, value, label]) => (
+          [Activity, actividades.length, 'Actividad total', 'bg-slate-100 text-slate-700 ring-slate-200'],
+          [ListTodo, activityCounts.tarea, 'Tareas extra', 'bg-violet-50 text-violet-700 ring-violet-200'],
+          [CalendarDays, activityCounts.sesion, 'Sesiones', 'bg-teal-50 text-teal-700 ring-teal-200'],
+          [CalendarClock, activityCounts.cita, 'Citas', 'bg-sky-50 text-sky-700 ring-sky-200']
+        ].map(([Icon, value, label, iconClass]) => (
           <article key={label} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700 ring-1 ring-brand-100"><Icon size={19} /></span>
+            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ring-1 ${iconClass}`}><Icon size={19} /></span>
             <div><strong className="block text-2xl font-black leading-none text-slate-900">{value}</strong><span className="mt-1 block text-xs font-bold text-slate-500">{label}</span></div>
           </article>
         ))}
@@ -370,8 +404,7 @@ function ActividadesDiarias() {
                 <span className="text-right">Acciones</span>
               </div>
               {visibleActivities.map((item) => {
-                const kind = activityKind(item);
-                const style = activityStyles[kind];
+                const style = activityVisual(item);
                 const Icon = style.icon;
                 return (
                   <article key={item.id} className="grid gap-3 border-b border-slate-100 bg-white px-4 py-3 last:border-b-0 hover:bg-brand-50/25 lg:grid-cols-[72px_190px_minmax(260px,1fr)_250px_118px] lg:items-center">

@@ -80,9 +80,24 @@ function Pacientes() {
     counts[paciente.estado ? 'active' : 'inactive'] += 1;
     return counts;
   }, { active: 0, inactive: 0 }), [pacientes]);
+  const duplicateCiPatient = useMemo(() => {
+    const ci = String(form.ci || '').trim();
+    if (!ci) return null;
+    return pacientes.find((paciente) =>
+      String(paciente.ci || '').trim() === ci
+      && String(paciente.id) !== String(editing || '')
+    ) || null;
+  }, [pacientes, form.ci, editing]);
+  const ciError = duplicateCiPatient
+    ? `Este CI ya pertenece a ${nombrePaciente(duplicateCiPatient)} (${duplicateCiPatient.estado ? 'paciente activo' : 'paciente inactivo'}).`
+    : '';
 
   const submit = async (event) => {
     event.preventDefault();
+    if (duplicateCiPatient) {
+      notify('No se puede registrar: el CI ya pertenece a otro paciente.', 'error');
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = {
@@ -261,7 +276,7 @@ function Pacientes() {
       </div>
 
       <Modal open={showFormModal} title={editing ? 'EDITAR PACIENTE' : 'NUEVO PACIENTE'} subtitle="Complete los datos generales del paciente." onClose={closeFormModal} size="lg">
-        <PacienteForm form={form} setForm={setForm} onSubmit={submit} onCancel={closeFormModal} submitting={submitting} />
+        <PacienteForm form={form} setForm={setForm} onSubmit={submit} onCancel={closeFormModal} submitting={submitting} ciError={ciError} />
       </Modal>
 
       <Modal open={Boolean(selectedPaciente)} title="Datos del paciente" subtitle="Información personal y clínica registrada" onClose={() => setSelectedPaciente(null)} size="patient" patientStyle>
