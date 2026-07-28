@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Activity, Banknote, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Landmark, ListChecks, LogOut, Pill, ShieldCheck, UserCog, Users, WalletCards } from 'lucide-react';
+import { Activity, Banknote, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Landmark, ListChecks, LogOut, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import icono from '../../assets/images/icono.png';
@@ -61,6 +61,15 @@ const groups = [
     icon: CalendarDays,
     items: [
       { to: '/control-diario/resumen', label: 'Resumen diario', icon: Activity }
+    ]
+  },
+  {
+    key: 'contenido',
+    label: 'Contenido web',
+    icon: Newspaper,
+    items: [
+      { to: '/blog', label: 'Blog y publicaciones', icon: Newspaper },
+      { to: '/blog/categorias', label: 'Categorías', icon: Tags, adminOnly: true }
     ]
   },
   {

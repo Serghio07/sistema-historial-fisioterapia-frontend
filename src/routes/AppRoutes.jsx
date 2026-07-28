@@ -21,6 +21,10 @@ import EvolutivosClinicos from '../pages/evolutivosClinicos/EvolutivosClinicos';
 import PlanillaPagos from '../pages/planillaPagos/PlanillaPagos';
 import ResumenDiario from '../pages/resumenDiario/ResumenDiario';
 import ResumenPacientes from '../pages/resumenPacientes/ResumenPacientes';
+import BlogPosts from '../pages/blog/BlogPosts';
+import BlogPostForm from '../pages/blog/BlogPostForm';
+import BlogPreview from '../pages/blog/BlogPreview';
+import BlogCategories from '../pages/blog/BlogCategories';
 
 function AppRoutes() {
   return (
@@ -54,6 +58,10 @@ function AppRoutes() {
             <Route path="control-diario/resumen" element={<ResumenDiario />} />
             <Route path="control-diario/tareas" element={<Navigate to="/control-diario/resumen" replace />} />
             <Route path="control-diario/incidencias" element={<Navigate to="/control-diario/resumen" replace />} />
+            <Route path="blog" element={<BlogPosts />} />
+            <Route path="blog/nuevo" element={<BlogPostForm />} />
+            <Route path="blog/editar/:id" element={<BlogPostForm />} />
+            <Route path="blog/vista-previa/:id" element={<BlogPreview />} />
           </Route>
         </Route>
         <Route element={<PrivateRoute adminOnly />}>
@@ -61,6 +69,7 @@ function AppRoutes() {
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="roles-permisos" element={<RolesPermisos />} />
             <Route path="personal/planilla" element={<PlanillaPersonal />} />
+            <Route path="blog/categorias" element={<BlogCategories />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
