@@ -1,11 +1,17 @@
 import { Navigate, Outlet } from 'react-router-dom';
+import Loader from '../components/common/Loader';
+import { canAccessModule } from '../config/permissions';
 import { useAuth } from '../context/AuthContext';
+import Forbidden from '../pages/errors/Forbidden';
 
-function PrivateRoute({ adminOnly = false }) {
-  const { isAuthenticated, isAdmin } = useAuth();
+function PrivateRoute({ adminOnly = false, permission }) {
+  const { checkingSession, isAuthenticated, isAdmin, user } = useAuth();
 
+  if (checkingSession) return <Loader />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (adminOnly && !isAdmin) return <Navigate to="/" replace />;
+  if ((adminOnly && !isAdmin) || (permission && !canAccessModule(user?.rol, permission))) {
+    return <Forbidden />;
+  }
 
   return <Outlet />;
 }

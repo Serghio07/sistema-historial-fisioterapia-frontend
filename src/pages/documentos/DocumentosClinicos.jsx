@@ -19,6 +19,7 @@ import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import { formatDate } from '../../utils/formatDate';
 import { matchesSearch } from '../../utils/search';
 import { boliviaDate } from '../../utils/boliviaDateTime';
+import { buildFarmacosWorkbook } from '../../utils/farmacosExcel';
 import {
   createDocumentoClinico,
   deleteDocumentoClinico,
@@ -232,6 +233,14 @@ const historiaLabel = (historia) => {
   return [fecha, zona].filter(Boolean).join(' - ') || 'Historia clínica';
 };
 
+const isHistoriaActiva = (historia) => (
+  Boolean(historia)
+  && !historia.anulada
+  && !['anulada', 'inactiva', 'eliminada'].includes(
+    String(historia.estado || '').trim().toLowerCase()
+  )
+);
+
 const money = (value) => Number(value || 0).toFixed(2);
 
 function StageFields({ title, data = {}, onChange }) {
@@ -287,7 +296,7 @@ function DocumentosClinicos({ tipo }) {
 
   const historiasPorPaciente = useMemo(() => {
     const map = new Map();
-    historias.forEach((historia) => {
+    historias.filter(isHistoriaActiva).forEach((historia) => {
       const key = Number(historia.paciente_id);
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(historia);
@@ -347,11 +356,16 @@ function DocumentosClinicos({ tipo }) {
   }));
 
   const historiasPacienteActual = historias
-    .filter((historia) => Number(historia.paciente_id || historia.paciente?.id) === Number(form.paciente_id))
+    .filter((historia) => (
+      isHistoriaActiva(historia)
+      && Number(historia.paciente_id || historia.paciente?.id) === Number(form.paciente_id)
+    ))
     .sort((a, b) => String(b.fecha_evaluacion || '').localeCompare(String(a.fecha_evaluacion || '')) || Number(b.id || 0) - Number(a.id || 0));
 
   const selectHistoriaDocumento = (historiaId) => {
-    const historia = historias.find((item) => Number(item.id) === Number(historiaId));
+    const historia = historias.find((item) => (
+      isHistoriaActiva(item) && Number(item.id) === Number(historiaId)
+    ));
     setForm((current) => ({
       ...current,
       historia_clinica_id: historiaId,
@@ -367,7 +381,10 @@ function DocumentosClinicos({ tipo }) {
 
   const hydratePaciente = async (pacienteId) => {
     const paciente = pacientes.find((item) => Number(item.id) === Number(pacienteId));
-    const historiasDelPaciente = historias.filter((historia) => Number(historia.paciente_id || historia.paciente?.id) === Number(pacienteId));
+    const historiasDelPaciente = historias.filter((historia) => (
+      isHistoriaActiva(historia)
+      && Number(historia.paciente_id || historia.paciente?.id) === Number(pacienteId)
+    ));
     const historiaUnica = historiasDelPaciente.length === 1 ? historiasDelPaciente[0] : null;
     setForm((current) => ({ ...current, paciente_id: pacienteId, historia_clinica_id: historiaUnica?.id || '', sesion_id: '' }));
     if (!pacienteId) return;
@@ -611,7 +628,7 @@ function DocumentosClinicos({ tipo }) {
     const rootElement = document.createElement('div');
     wrapper.appendChild(rootElement);
     const root = createRoot(rootElement);
-    root.render(<DocumentoPreview documento={documento} />);
+    root.render(<DocumentoPreview documento={documento} canViewFinancial={isAdmin} />);
     await new Promise((resolve) => setTimeout(resolve, 300));
     return { wrapper, rootElement, root };
   };
@@ -651,56 +668,19 @@ function DocumentosClinicos({ tipo }) {
 
   const exportExcel = async () => {
     const ExcelJS = (await import('exceljs')).default;
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Administracion de Farmacos');
-    const days = farmacoWeekDays(farmacoFilters.semana);
-    sheet.mergeCells('A1:L1');
-    sheet.getCell('A1').value = 'ADMINISTRACION DE FARMACOS';
-    sheet.getCell('A1').font = { bold: true, size: 18, color: { argb: 'FF0F766E' } };
-    sheet.getCell('A1').alignment = { horizontal: 'center' };
-    sheet.mergeCells('A2:L2');
-    sheet.getCell('A2').value = `Semana ${formatDate(farmacoFilters.semana)} al ${formatDate(addDays(farmacoFilters.semana, 5))}`;
-    sheet.getCell('A2').alignment = { horizontal: 'center' };
-    sheet.addRow([]);
-    sheet.addRow(['PACIENTE', 'HISTORIA CLINICA', ...days.map((day) => `${day.label} ${day.day}`), 'TOTAL SEMANA', 'Bs.', 'METODO', 'ESTADO']);
-    farmacoGroups.forEach((group) => {
-      const dayValues = days.map((day) => group.rows
-        .filter((row) => row.fecha === day.fecha)
-        .map((row) => `${row.labels.join(', ')} ${farmacoDose(row.data)}`.trim())
-        .join(' | '));
-      sheet.addRow([
-        nombrePaciente(group.paciente),
-        group.historiaLabel,
-        ...dayValues,
-        group.rows.length,
-        Number(group.totalBs || 0),
-        group.metodo,
-        group.estado
-      ]);
+    const workbook = buildFarmacosWorkbook({
+      ExcelJS,
+      weekStart: farmacoFilters.semana,
+      rows: farmacoVisibleRows.map((row) => ({
+        fecha: row.fecha,
+        paciente: nombrePaciente(row.paciente) || row.data.paciente_nombre,
+        productos: legacyProductos(row.data),
+        source: row.data,
+        monto: row.data.monto_bs ?? row.sesion?.monto_pagado ?? row.sesion?.monto_sesion,
+        metodo: row.data.metodo_pago || row.sesion?.metodo_pago || (row.data.qr ? 'QR' : '')
+      })),
+      includeFinancial: isAdmin
     });
-    const header = sheet.getRow(4);
-    header.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.alignment = { horizontal: 'center' };
-      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-    });
-    sheet.eachRow((row, rowNumber) => {
-      if (rowNumber < 5) return;
-      row.eachCell((cell, colNumber) => {
-        cell.alignment = { horizontal: colNumber <= 2 ? 'left' : 'center', wrapText: true };
-        cell.border = { top: { style: 'thin', color: { argb: 'FFBFDAD6' } }, left: { style: 'thin', color: { argb: 'FFBFDAD6' } }, bottom: { style: 'thin', color: { argb: 'FFBFDAD6' } }, right: { style: 'thin', color: { argb: 'FFBFDAD6' } } };
-      });
-    });
-    sheet.columns = [
-      { width: 30 },
-      { width: 34 },
-      ...days.map(() => ({ width: 22 })),
-      { width: 14 },
-      { width: 12 },
-      { width: 14 },
-      { width: 14 }
-    ];
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
@@ -748,7 +728,9 @@ function DocumentosClinicos({ tipo }) {
   };
 
   const selectHistoriaFila = (index, historiaId) => {
-    const historia = historias.find((item) => Number(item.id) === Number(historiaId));
+    const historia = historias.find((item) => (
+      isHistoriaActiva(item) && Number(item.id) === Number(historiaId)
+    ));
     const filas = (form.datos.filas || []).map((fila, current) => current === index ? {
       ...fila,
       historia_clinica_id: historiaId,
@@ -1156,7 +1138,7 @@ function DocumentosClinicos({ tipo }) {
               </section>
               <section className="grid gap-3 border-t border-slate-100 pt-4"><div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-black text-slate-800">Fármacos e insumos</h3><p className="text-xs text-slate-500">Agrega uno o varios productos administrados.</p></div><Button type="button" variant="ghost" onClick={() => setProductos([...productos, emptyProducto()])}><Plus size={16} />Agregar producto</Button></div>{productos.map((producto, index) => <article key={index} className="rounded-lg border border-slate-200 p-3"><div className="mb-3 flex items-center justify-between"><strong className="text-xs text-emerald-700">Producto {index + 1}</strong><button type="button" title="Eliminar producto" onClick={() => productos.length > 1 && setProductos(productos.filter((_, current) => current !== index))} disabled={productos.length === 1} className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"><Trash2 size={15} /></button></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Input label="Fármaco o insumo" value={producto.producto} onChange={(e) => updateProducto(index, 'producto', e.target.value)} options={['', 'Diclofenaco', 'Dexametasona', 'Complejo B', 'Jeringa 3 ml', 'Jeringa 5 ml', 'Jeringa 10 ml', 'Otro'].map((value) => ({ value, label: value || 'Seleccionar producto' }))} />{producto.producto === 'Otro' && <Input label="Nombre del producto" value={producto.nombre_otro} onChange={(e) => updateProducto(index, 'nombre_otro', e.target.value)} />}<Input label="Presentación" value={producto.presentacion} onChange={(e) => updateProducto(index, 'presentacion', e.target.value)} placeholder="Ej. Ampolla" /><Input label="Dosis" value={producto.dosis} onChange={(e) => updateProducto(index, 'dosis', e.target.value)} placeholder="Ej. 75 mg" /><Input label="Volumen" value={producto.volumen} onChange={(e) => updateProducto(index, 'volumen', e.target.value)} placeholder="Ej. 3 ml" /><Input label="Cantidad" type="number" min="1" value={producto.cantidad} onChange={(e) => updateProducto(index, 'cantidad', e.target.value)} /><Input label="Vía" value={producto.via} onChange={(e) => updateProducto(index, 'via', e.target.value)} options={['Intramuscular', 'Tópica', 'Oral', 'Intravenosa', 'Otra'].map((value) => ({ value, label: value }))} /><Input label="Costo unitario Bs." type="number" min="0" step="0.01" value={producto.costo} onChange={(e) => updateProducto(index, 'costo', e.target.value)} /></div></article>)}</section>
               <section className="grid gap-3 border-t border-slate-100 pt-4"><Input label="Motivo de aplicación" value={fila.motivo || ''} onChange={(e) => updateFarmacoRow(0, 'motivo', e.target.value)} placeholder="Aplicación posterior a terapia manual" /><Input label="Observaciones clínicas" value={fila.observaciones || ''} onChange={(e) => updateFarmacoRow(0, 'observaciones', e.target.value)} multiline /><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-red-600" checked={Boolean(fila.reaccion_adversa)} onChange={(e) => updateFarmacoRow(0, 'reaccion_adversa', e.target.checked)} />Se presentó una reacción adversa</label>{fila.reaccion_adversa && <Input label="Detalle de la reacción" value={fila.detalle_reaccion || ''} onChange={(e) => updateFarmacoRow(0, 'detalle_reaccion', e.target.value)} multiline />}</section>
-              <section className="grid gap-3 border-t border-slate-100 pt-4"><div><h3 className="text-sm font-black text-slate-800">Pago</h3><p className="text-xs text-slate-500">El costo y el saldo se calculan automáticamente.</p></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><Input label="Costo total Bs." value={money(costoTotal)} readOnly /><Input label="Monto pagado Bs." type="number" min="0" step="0.01" value={fila.monto_pagado || ''} onChange={(e) => { const paid = Math.min(Number(e.target.value || 0), costoTotal); updateDatos('filas', [{ ...fila, productos, monto_bs: costoTotal, monto_pagado: e.target.value, saldo_bs: Math.max(costoTotal - paid, 0), estado_pago: costoTotal > 0 && paid >= costoTotal ? 'Pagado' : paid > 0 ? 'Parcial' : 'Pendiente' }]); }} /><Input label="Saldo Bs." value={money(saldo)} readOnly /><Input label="Método" value={fila.metodo_pago || 'Efectivo'} onChange={(e) => updateFarmacoRow(0, 'metodo_pago', e.target.value)} options={['Efectivo', 'QR', 'Transferencia', 'Otro'].map((value) => ({ value, label: value }))} /><Input label="Estado de pago" value={estadoPago} readOnly /><Input label="Estado del registro" value={fila.estado || 'Guardado'} onChange={(e) => updateFarmacoRow(0, 'estado', e.target.value)} options={[{ value: 'Borrador', label: 'Borrador' }, { value: 'Guardado', label: 'Guardado' }, { value: 'Anulado', label: 'Anulado' }]} /></div></section>
+              {isAdmin && <section className="grid gap-3 border-t border-slate-100 pt-4"><div><h3 className="text-sm font-black text-slate-800">Pago</h3><p className="text-xs text-slate-500">El costo y el saldo se calculan automáticamente.</p></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><Input label="Costo total Bs." value={money(costoTotal)} readOnly /><Input label="Monto pagado Bs." type="number" min="0" step="0.01" value={fila.monto_pagado || ''} onChange={(e) => { const paid = Math.min(Number(e.target.value || 0), costoTotal); updateDatos('filas', [{ ...fila, productos, monto_bs: costoTotal, monto_pagado: e.target.value, saldo_bs: Math.max(costoTotal - paid, 0), estado_pago: costoTotal > 0 && paid >= costoTotal ? 'Pagado' : paid > 0 ? 'Parcial' : 'Pendiente' }]); }} /><Input label="Saldo Bs." value={money(saldo)} readOnly /><Input label="Método" value={fila.metodo_pago || 'Efectivo'} onChange={(e) => updateFarmacoRow(0, 'metodo_pago', e.target.value)} options={['Efectivo', 'QR', 'Transferencia', 'Otro'].map((value) => ({ value, label: value }))} /><Input label="Estado de pago" value={estadoPago} readOnly /><Input label="Estado del registro" value={fila.estado || 'Guardado'} onChange={(e) => updateFarmacoRow(0, 'estado', e.target.value)} options={[{ value: 'Borrador', label: 'Borrador' }, { value: 'Guardado', label: 'Guardado' }, { value: 'Anulado', label: 'Anulado' }]} /></div></section>}
             </div>;
           })()}
 
@@ -1287,7 +1269,7 @@ function DocumentosClinicos({ tipo }) {
           </Button>
         </div>
         <div ref={previewRef} className="max-h-[75vh] overflow-auto bg-slate-100 p-4">
-          <DocumentoPreview documento={preview} />
+          <DocumentoPreview documento={preview} canViewFinancial={isAdmin} />
         </div>
       </Modal>
 
@@ -1302,8 +1284,8 @@ function DocumentosClinicos({ tipo }) {
             </div>
             <div className="grid gap-3 md:grid-cols-4">
               <div className="rounded-lg bg-emerald-50 p-3"><span className="block text-xs font-black text-emerald-700">Aplicaciones</span><strong>{farmacoDetail.rows.length}</strong></div>
-              <div className="rounded-lg bg-blue-50 p-3"><span className="block text-xs font-black text-blue-700">Total</span><strong>{money(farmacoDetail.totalBs)} Bs</strong></div>
-              <div className="rounded-lg bg-amber-50 p-3"><span className="block text-xs font-black text-amber-700">Pendiente</span><strong>{money(farmacoDetail.pendiente)} Bs</strong></div>
+              {isAdmin && <div className="rounded-lg bg-blue-50 p-3"><span className="block text-xs font-black text-blue-700">Total</span><strong>{money(farmacoDetail.totalBs)} Bs</strong></div>}
+              {isAdmin && <div className="rounded-lg bg-amber-50 p-3"><span className="block text-xs font-black text-amber-700">Pendiente</span><strong>{money(farmacoDetail.pendiente)} Bs</strong></div>}
               <div className="rounded-lg bg-slate-50 p-3"><span className="block text-xs font-black text-slate-600">Profesional</span><strong>{farmacoDetail.rows[0]?.data.profesional || farmacoDetail.rows[0]?.documento.creado_por?.nombre || '-'}</strong></div>
             </div>
             {farmacoDetail.rows[0]?.data.origen === 'sesion' && <div className="grid gap-2 rounded-lg border border-teal-100 bg-teal-50 p-3 text-sm text-slate-700"><strong className="text-teal-800">Evolución clínica · Sesión N.º {farmacoDetail.rows[0].data.numero_sesion}</strong><span>Dolor: {farmacoDetail.rows[0].data.dolor_inicial ?? '-'} → {farmacoDetail.rows[0].data.dolor_final ?? '-'}</span><span><b>Procedimiento:</b> {farmacoDetail.rows[0].data.procedimiento_realizado || '-'}</span><span><b>Respuesta:</b> {farmacoDetail.rows[0].data.resumen_evolucion || '-'}</span></div>}
@@ -1315,12 +1297,12 @@ function DocumentosClinicos({ tipo }) {
                       <strong className="text-ink">{formatDate(row.fecha)}</strong>
                       <p className="text-sm text-slate-500">{row.data.motivo || row.data.diagnostico || 'Sin motivo registrado'}</p>
                     </div>
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">{row.data.estado_pago || row.data.estado || row.documento.estado}</span>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">{(isAdmin && row.data.estado_pago) || row.data.estado || row.documento.estado}</span>
                   </div>
                   <div className="mt-3"><FarmacoBadge row={row} /></div>
                   <p className="mt-3 text-sm text-slate-600">Vía: {row.data.via_administracion || row.data.productos?.[0]?.via || '-'}</p>
                   <p className="text-sm text-slate-600">Cantidad: {row.data.productos?.[0]?.cantidad || 1} · Motivo: {row.data.motivo || row.data.productos?.[0]?.motivo_clinico || '-'}</p>
-                  <p className="text-sm text-slate-600">Pago: {money(row.data.monto_bs)} Bs · {row.data.metodo_pago || '-'}</p>
+                  {isAdmin && <p className="text-sm text-slate-600">Pago: {money(row.data.monto_bs)} Bs · {row.data.metodo_pago || '-'}</p>}
                   {row.data.observaciones && <p className="mt-2 rounded bg-slate-50 p-2 text-sm text-slate-600">{row.data.observaciones}</p>}
                   {row.data.reaccion_adversa && <p className="mt-2 rounded bg-red-50 p-2 text-sm font-semibold text-red-700">Reaccion adversa: {row.data.detalle_reaccion || 'Sin detalle'}</p>}
                 </div>

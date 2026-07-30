@@ -15,6 +15,7 @@ import {
   UserRoundPlus
 } from 'lucide-react';
 import Button from '../../components/common/Button';
+import Loader from '../../components/common/Loader';
 import ProfilePhotoInput from '../../components/common/ProfilePhoto';
 import { useAuth } from '../../context/AuthContext';
 import { accessRequest } from '../../services/authService';
@@ -72,7 +73,7 @@ function PasswordToggle({ visible, onClick }) {
 }
 
 function Login() {
-  const { login, isAuthenticated, loading } = useAuth();
+  const { login, isAuthenticated, loading, checkingSession } = useAuth();
   const [view, setView] = useState('login');
   const [form, setForm] = useState(loginInitial);
   const [requestForm, setRequestForm] = useState(requestInitial);
@@ -89,6 +90,7 @@ function Login() {
       : 'Sugerencia: usa 8 caracteres o más, con mayúscula, minúscula y número.';
   }, [requestForm.password]);
 
+  if (checkingSession) return <Loader />;
   if (isAuthenticated) return <Navigate to="/" replace />;
 
   const changeView = (nextView) => {

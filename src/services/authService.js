@@ -16,10 +16,17 @@ export const saveSession = ({ usuario }) => {
 
 export const getStoredUser = () => {
   const raw = localStorage.getItem('physio_user');
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    localStorage.removeItem('physio_user');
+    return null;
+  }
 };
 
 export const clearSession = () => {
   localStorage.removeItem('physio_user');
-  api.post('/auth/logout').catch(() => {});
+  api.post('/auth/logout', undefined, { hideErrorToast: true }).catch(() => {});
 };

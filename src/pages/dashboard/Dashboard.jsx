@@ -27,7 +27,7 @@ function StatCard({ title, value, hint, icon: Icon, color, to }) {
 const EmptyState = ({ text }) => <div className="grid min-h-32 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-sm text-slate-400">{text}</div>;
 
 function Dashboard() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [resumen, setResumen] = useState(emptyResumen);
@@ -67,7 +67,7 @@ function Dashboard() {
     </div>
 
     <div className="grid gap-6 xl:grid-cols-2">
-      <article className="dashboard-panel"><div className="panel-heading"><div><p className="eyebrow">Seguimiento</p><h3>Sesiones de hoy</h3><span>Asistencia y control clínico diario.</span></div><Link to="/sesiones" className="text-link">Ver todas <ArrowRight size={15} /></Link></div>{sesionesHoy.length ? <div className="mt-3 grid gap-2">{sesionesHoy.slice(0, 4).map((s, i) => <div key={s.id || i} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3"><PatientIdentity paciente={s.paciente} secondary={`Sesión ${s.numero_sesion || s.sesiones_hizo || '—'} · ${s.metodo_pago || 'Pago pendiente'}`} /><Status>{s.asistencia}</Status></div>)}</div> : <EmptyState text="No hay sesiones registradas para hoy." />}</article>
+      <article className="dashboard-panel"><div className="panel-heading"><div><p className="eyebrow">Seguimiento</p><h3>Sesiones de hoy</h3><span>Asistencia y control clínico diario.</span></div><Link to="/sesiones" className="text-link">Ver todas <ArrowRight size={15} /></Link></div>{sesionesHoy.length ? <div className="mt-3 grid gap-2">{sesionesHoy.slice(0, 4).map((s, i) => <div key={s.id || i} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3"><PatientIdentity paciente={s.paciente} secondary={`Sesión ${s.numero_sesion || s.sesiones_hizo || '—'}${isAdmin ? ` · ${s.metodo_pago || 'Pago pendiente'}` : ''}`} /><Status>{s.asistencia}</Status></div>)}</div> : <EmptyState text="No hay sesiones registradas para hoy." />}</article>
       <article className="dashboard-panel"><div className="panel-heading"><div><p className="eyebrow">Nuevos ingresos</p><h3>Pacientes recientes</h3><span>Últimos registros incorporados.</span></div><Link to="/pacientes" className="text-link">Ver pacientes <ArrowRight size={15} /></Link></div>{pacientesRecientes.length ? <div className="mt-3 grid gap-2">{pacientesRecientes.slice(0, 4).map((p, i) => <Link to={`/pacientes/${p.id}`} key={p.id || i} className="flex items-center gap-3 rounded-xl border border-transparent p-3 transition hover:border-slate-100 hover:bg-slate-50"><Avatar src={p.foto} name={nombrePaciente(p)} size="sm" className="rounded-full" /><div className="min-w-0 flex-1"><strong className="block truncate text-sm text-slate-800">{nombrePaciente(p)}</strong><span className="block truncate text-xs text-slate-400">{p.historias_clinicas?.[0]?.diagnostico_medico || 'Sin diagnóstico inicial'}</span></div><span className="text-xs text-slate-400">{formatDate(p.created_at)}</span></Link>)}</div> : <EmptyState text="Todavía no hay pacientes registrados." />}</article>
     </div>
   </section>;

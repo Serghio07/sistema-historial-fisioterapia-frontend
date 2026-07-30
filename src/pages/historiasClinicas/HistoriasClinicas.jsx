@@ -618,7 +618,7 @@ function HistoriasClinicas() {
     setLoading(true);
     try {
       const [historiasData, pacientesData, profesionalesData, sesionesData] = await Promise.all([
-        getHistoriasClinicas(),
+        getHistoriasClinicas({ incluirAnuladas: true }),
         getPacientes(),
         getProfesionalesActivos(),
         getSesiones()

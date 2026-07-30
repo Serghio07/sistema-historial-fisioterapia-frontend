@@ -5,14 +5,31 @@ import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import TextAlign from '@tiptap/extension-text-align';
-import { Bold, Italic, UnderlineIcon, List, ListOrdered, Heading2, Heading3, Quote, Undo2, Redo2, AlignLeft, AlignCenter, Eraser, ImageIcon, LinkIcon, Minus } from 'lucide-react';
+import { Bold, Italic, UnderlineIcon, List, ListOrdered, Heading2, Heading3, Quote, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, Eraser, ImageIcon, LinkIcon, Minus, Maximize2 } from 'lucide-react';
+
+const AdjustableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: { default: '100%', parseHTML: (element) => element.style.width || element.getAttribute('width') || '100%' },
+      alignment: {
+        default: 'center',
+        parseHTML: (element) => element.dataset.alignment || 'center',
+        renderHTML: (attributes) => {
+          const margin = attributes.alignment === 'left' ? '0 auto 1rem 0' : attributes.alignment === 'right' ? '0 0 1rem auto' : '0 auto 1rem';
+          return { 'data-alignment': attributes.alignment, style: `display:block;width:${attributes.width};max-width:100%;height:auto;margin:${margin};border-radius:12px` };
+        }
+      }
+    };
+  }
+});
 
 export default function RichTextEditor({ value, onChange }) {
   const editor = useEditor({
     extensions: [
       StarterKit,
       Underline,
-      Image.configure({ allowBase64: false }),
+      AdjustableImage.configure({ allowBase64: false }),
       Link.configure({ openOnClick: false }),
       TextAlign.configure({ types: ['heading', 'paragraph'] })
     ],
@@ -32,8 +49,10 @@ export default function RichTextEditor({ value, onChange }) {
   };
   const addImage = () => {
     const src = window.prompt('Dirección pública de la imagen');
-    if (src) editor.chain().focus().setImage({ src, alt: 'Imagen del artículo' }).run();
+    if (src) editor.chain().focus().setImage({ src, alt: 'Imagen del artículo', width: '100%', alignment: 'center' }).run();
   };
+  const imageSize = (width) => editor.chain().focus().updateAttributes('image', { width }).run();
+  const imageAlign = (alignment) => editor.chain().focus().updateAttributes('image', { alignment }).run();
 
   return <div className="rte">
     <div className="rte-toolbar">
@@ -47,6 +66,16 @@ export default function RichTextEditor({ value, onChange }) {
       {action('Cita', Quote, () => editor.chain().focus().toggleBlockquote().run(), editor.isActive('blockquote'))}
       {action('Enlace', LinkIcon, addLink, editor.isActive('link'))}
       {action('Insertar imagen', ImageIcon, addImage)}
+      {editor.isActive('image') && <span className="rte-image-tools">
+        <span>Imagen</span>
+        <button type="button" title="Imagen pequeña" onClick={() => imageSize('33%')}>33%</button>
+        <button type="button" title="Imagen mediana" onClick={() => imageSize('50%')}>50%</button>
+        <button type="button" title="Imagen grande" onClick={() => imageSize('75%')}>75%</button>
+        {action('Ancho completo', Maximize2, () => imageSize('100%'))}
+        {action('Alinear imagen a la izquierda', AlignLeft, () => imageAlign('left'))}
+        {action('Centrar imagen', AlignCenter, () => imageAlign('center'))}
+        {action('Alinear imagen a la derecha', AlignRight, () => imageAlign('right'))}
+      </span>}
       {action('Separador', Minus, () => editor.chain().focus().setHorizontalRule().run())}
       {action('Alinear izquierda', AlignLeft, () => editor.chain().focus().setTextAlign('left').run())}
       {action('Centrar', AlignCenter, () => editor.chain().focus().setTextAlign('center').run())}

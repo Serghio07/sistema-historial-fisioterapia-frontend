@@ -1,7 +1,9 @@
 import api from './api';
 
-export const getHistoriasClinicas = async () => {
-  const { data } = await api.get('/historias-clinicas');
+export const getHistoriasClinicas = async ({ incluirAnuladas = false } = {}) => {
+  const { data } = await api.get('/historias-clinicas', {
+    params: incluirAnuladas ? { incluir_anuladas: true } : undefined
+  });
   return data;
 };
 

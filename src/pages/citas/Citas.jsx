@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, FilePenLine, Plus, TableProperties, Trash2, UserRound, XCircle } from 'lucide-react';
+import { CalendarClock, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Eye, FilePenLine, Globe2, Hospital, MessageCircle, Plus, TableProperties, Trash2, UserRound, XCircle } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -11,6 +11,7 @@ import { PatientIdentity } from '../../components/common/ProfilePhoto';
 import { useAuth } from '../../context/AuthContext';
 import { createCita, deleteCita, getCitas, updateCita, updateCitaEstado } from '../../services/citaService';
 import { getPacientes } from '../../services/pacienteService';
+import { getPersonal } from '../../services/personalService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import { matchesSearch } from '../../utils/search';
@@ -19,6 +20,12 @@ import { BOLIVIA_TIME_ZONE, boliviaDate } from '../../utils/boliviaDateTime';
 const ESTADOS = ['Pendiente', 'Confirmada', 'Atendida', 'Cancelada', 'Reprogramada', 'No asistio'];
 const TIPOS = ['Primera consulta', 'Sesion de fisioterapia', 'Evaluacion', 'Control', 'Rehabilitacion', 'Otro'];
 const VISTAS = ['dia', 'semana', 'mes'];
+const CANALES = [
+  { value: 'SISTEMA_INTERNO', label: 'Registro interno' },
+  { value: 'WHATSAPP', label: 'WhatsApp' },
+  { value: 'WEB_WHATSAPP', label: 'Web → WhatsApp' }
+];
+const CONFIRMACIONES = ['PENDIENTE', 'CONFIRMADA', 'SIN_RESPUESTA', 'RECHAZADA'];
 
 const estadoStyles = {
   Pendiente: 'border-amber-200 bg-amber-50 text-amber-800',
@@ -58,6 +65,7 @@ const emptyForm = {
   tipo_atencion: 'Sesion de fisioterapia',
   estado: 'Pendiente',
   observacion: ''
+  , profesional_id: ''
 };
 
 const toISODate = (date) => boliviaDate(date);
@@ -85,6 +93,20 @@ function Badge({ estado }) {
   return <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-black ${estadoStyles[estado] || estadoStyles.Pendiente}`}>{estado}</span>;
 }
 
+function OriginBadge({ canal }) {
+  const data = canal === 'WEB_WHATSAPP'
+    ? { label: 'Web → WhatsApp', Icon: Globe2, style: 'border-cyan-200 bg-cyan-50 text-cyan-800' }
+    : canal === 'WHATSAPP'
+      ? { label: 'WhatsApp', Icon: MessageCircle, style: 'border-emerald-200 bg-emerald-50 text-emerald-800' }
+      : { label: canal ? 'Registro interno' : 'Registro anterior', Icon: Hospital, style: 'border-slate-200 bg-slate-50 text-slate-700' };
+  return <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-black ${data.style}`}><data.Icon size={12} />{data.label}</span>;
+}
+
+function ConfirmationBadge({ estado }) {
+  const confirmed = estado === 'CONFIRMADA';
+  return <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-black ${confirmed ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : estado === 'SIN_RESPUESTA' ? 'border-orange-200 bg-orange-50 text-orange-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}><CheckCircle2 size={12} />{estado || 'Sin registro'}</span>;
+}
+
 const estadoVisible = (cita) =>
   cita?.origen === 'Plan de tratamiento' && cita?.estado === 'Atendida'
     ? 'Realizada'
@@ -92,17 +114,19 @@ const estadoVisible = (cita) =>
 
 const getPacienteStyle = (pacienteId) => pacienteStyles[Math.abs(Number(pacienteId || 0)) % pacienteStyles.length];
 
-function CitaForm({ form, setForm, pacientes, onSubmit, onCancel, editing, error }) {
+function CitaForm({ form, setForm, pacientes, profesionales, onSubmit, onCancel, editing, error }) {
   const pacienteOptions = [
     { value: '', label: 'Seleccionar paciente' },
     ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))
   ];
+  const profesionalOptions = [{ value: '', label: 'Profesional que registra' }, ...profesionales.map((item) => ({ value: item.usuario_id, label: item.nombre_mostrado || [item.nombres, item.apellido_paterno].filter(Boolean).join(' ') }))];
 
   return (
     <form onSubmit={onSubmit} className="grid gap-4">
       {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
       <div className="form-grid">
         <Input label="Paciente" options={pacienteOptions} value={form.paciente_id || ''} onChange={(event) => setForm({ ...form, paciente_id: event.target.value })} />
+        <Input label="Profesional" options={profesionalOptions} value={form.profesional_id || ''} onChange={(event) => setForm({ ...form, profesional_id: event.target.value })} />
         <Input label="Fecha" type="date" value={form.fecha || ''} onChange={(event) => setForm({ ...form, fecha: event.target.value })} />
         <Input label="Hora inicio" type="time" value={form.hora_inicio || ''} onChange={(event) => setForm({ ...form, hora_inicio: event.target.value })} />
         <Input label="Hora fin" type="time" value={form.hora_fin || ''} onChange={(event) => setForm({ ...form, hora_fin: event.target.value })} />
@@ -145,9 +169,10 @@ function Citas() {
   const [searchParams] = useSearchParams();
   const pacienteInicial = searchParams.get('paciente_id') || '';
   const [pacientes, setPacientes] = useState([]);
+  const [profesionales, setProfesionales] = useState([]);
   const [citas, setCitas] = useState([]);
   const [form, setForm] = useState({ ...emptyForm, paciente_id: pacienteInicial });
-  const [filters, setFilters] = useState({ paciente: '', fecha: '', estado: '', tipo_atencion: '' });
+  const [filters, setFilters] = useState({ paciente: '', fecha: '', estado: '', tipo_atencion: '', canal_origen: '', estado_confirmacion: '', profesional_id: '' });
   const [view, setView] = useState('semana');
   const [cursor, setCursor] = useState(() => new Date(`${boliviaDate()}T12:00:00-04:00`));
   const [activeTab, setActiveTab] = useState('listado');
@@ -162,9 +187,10 @@ function Citas() {
     setLoading(true);
     setError('');
     try {
-      const [pacientesData, citasData] = await Promise.all([getPacientes(), getCitas()]);
+      const [pacientesData, citasData, personalData] = await Promise.all([getPacientes(), getCitas(), getPersonal()]);
       setPacientes(pacientesData);
       setCitas(citasData);
+      setProfesionales(personalData.filter((item) => item.estado === 'activo' && item.usuario_id));
     } catch (err) {
       setError(`${err.message}. Si el modulo es nuevo, ejecuta backend/docs/citas-agenda-migration.sql.`);
     } finally {
@@ -193,7 +219,10 @@ function Citas() {
       const matchFecha = !filters.fecha || cita.fecha === filters.fecha;
       const matchEstado = !filters.estado || cita.estado === filters.estado;
       const matchTipo = !filters.tipo_atencion || cita.tipo_atencion === filters.tipo_atencion;
-      return matchPaciente && matchPacienteInicial && matchFecha && matchEstado && matchTipo;
+      const matchCanal = !filters.canal_origen || cita.canal_origen === filters.canal_origen;
+      const matchConfirmacion = !filters.estado_confirmacion || cita.estado_confirmacion === filters.estado_confirmacion;
+      const matchProfesional = !filters.profesional_id || String(cita.profesional_id) === String(filters.profesional_id);
+      return matchPaciente && matchPacienteInicial && matchFecha && matchEstado && matchTipo && matchCanal && matchConfirmacion && matchProfesional;
     });
   }, [citas, filters, pacienteInicial]);
 
@@ -266,6 +295,7 @@ function Citas() {
       tipo_atencion: cita.tipo_atencion || 'Sesion de fisioterapia',
       estado: cita.estado || 'Pendiente',
       observacion: cita.observacion || ''
+      , profesional_id: cita.profesional_id || ''
     });
     setSelected(null);
     setShowFormModal(true);
@@ -336,11 +366,14 @@ function Citas() {
               </Button>
             </div>
 
-            <div className="mb-4 grid gap-3 md:grid-cols-4">
+            <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <Input label="Buscar por paciente" value={filters.paciente} onChange={(event) => setFilters({ ...filters, paciente: event.target.value })} />
               <Input label="Filtrar por fecha" type="date" value={filters.fecha} onChange={(event) => setFilters({ ...filters, fecha: event.target.value })} />
               <Input label="Estado" options={[{ value: '', label: 'Todos' }, ...ESTADOS.map((estado) => ({ value: estado, label: estado }))]} value={filters.estado} onChange={(event) => setFilters({ ...filters, estado: event.target.value })} />
               <Input label="Tipo de atencion" options={[{ value: '', label: 'Todos' }, ...TIPOS.map((tipo) => ({ value: tipo, label: tipo }))]} value={filters.tipo_atencion} onChange={(event) => setFilters({ ...filters, tipo_atencion: event.target.value })} />
+              <Input label="Origen de la cita" options={[{ value: '', label: 'Todos' }, ...CANALES]} value={filters.canal_origen} onChange={(event) => setFilters({ ...filters, canal_origen: event.target.value })} />
+              <Input label="Confirmación" options={[{ value: '', label: 'Todas' }, ...CONFIRMACIONES.map((estado) => ({ value: estado, label: estado }))]} value={filters.estado_confirmacion} onChange={(event) => setFilters({ ...filters, estado_confirmacion: event.target.value })} />
+              <Input label="Profesional" options={[{ value: '', label: 'Todos' }, ...profesionales.map((item) => ({ value: item.usuario_id, label: item.nombre_mostrado || [item.nombres, item.apellido_paterno].filter(Boolean).join(' ') }))]} value={filters.profesional_id} onChange={(event) => setFilters({ ...filters, profesional_id: event.target.value })} />
             </div>
 
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -448,23 +481,27 @@ function Citas() {
             Nueva cita
           </Button>
         </div>
-        <div className="mb-4 grid gap-3 md:grid-cols-4">
+        <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Input label="Buscar por paciente" value={filters.paciente} onChange={(event) => setFilters({ ...filters, paciente: event.target.value })} />
           <Input label="Filtrar por fecha" type="date" value={filters.fecha} onChange={(event) => setFilters({ ...filters, fecha: event.target.value })} />
           <Input label="Estado" options={[{ value: '', label: 'Todos' }, ...ESTADOS.map((estado) => ({ value: estado, label: estado }))]} value={filters.estado} onChange={(event) => setFilters({ ...filters, estado: event.target.value })} />
           <Input label="Tipo de atencion" options={[{ value: '', label: 'Todos' }, ...TIPOS.map((tipo) => ({ value: tipo, label: tipo }))]} value={filters.tipo_atencion} onChange={(event) => setFilters({ ...filters, tipo_atencion: event.target.value })} />
+          <Input label="Origen de la cita" options={[{ value: '', label: 'Todos' }, ...CANALES]} value={filters.canal_origen} onChange={(event) => setFilters({ ...filters, canal_origen: event.target.value })} />
+          <Input label="Confirmación" options={[{ value: '', label: 'Todas' }, ...CONFIRMACIONES.map((estado) => ({ value: estado, label: estado }))]} value={filters.estado_confirmacion} onChange={(event) => setFilters({ ...filters, estado_confirmacion: event.target.value })} />
+          <Input label="Profesional" options={[{ value: '', label: 'Todos' }, ...profesionales.map((item) => ({ value: item.usuario_id, label: item.nombre_mostrado || [item.nombres, item.apellido_paterno].filter(Boolean).join(' ') }))]} value={filters.profesional_id} onChange={(event) => setFilters({ ...filters, profesional_id: event.target.value })} />
         </div>
         <Table
-          columns={['Paciente', 'Fecha', 'Hora', 'Registrado por', 'Motivo', 'Tipo de atencion', 'Estado', 'Observacion', 'Acciones']}
+          columns={['Paciente', 'Fecha', 'Hora', 'Profesional', 'Motivo', 'Tipo de atención', 'Estado', 'Origen', 'Confirmación', 'Acciones']}
           rows={filteredCitas.map((cita) => [
             <PatientIdentity paciente={cita.paciente} secondary={`CI: ${cita.paciente?.ci || 'Sin dato'}`} />,
             formatDate(cita.fecha),
             `${cita.hora_inicio?.slice(0, 5) || ''} - ${cita.hora_fin?.slice(0, 5) || ''}`,
-            cita.registrado_por?.nombre || 'Registro anterior',
+            cita.profesional?.nombre || cita.registrado_por?.nombre || 'Sin asignar',
             cita.motivo || 'Sin motivo',
             cita.tipo_atencion || 'Sin tipo',
             <Badge estado={estadoVisible(cita)} />,
-            cita.observacion || 'Sin observacion',
+            <OriginBadge canal={cita.canal_origen} />,
+            <ConfirmationBadge estado={cita.estado_confirmacion} />,
             <div className="flex gap-2">
               <ActionButton label="Ver detalle" icon={Eye} tone="view" onClick={() => setSelected(cita)} />
               <ActionButton label="Editar cita" icon={FilePenLine} tone="edit" onClick={() => editCita(cita)} />
@@ -478,7 +515,7 @@ function Citas() {
       )}
 
       <Modal open={showFormModal} title={editing ? 'Editar cita' : 'Nueva cita'} onClose={closeFormModal} size="lg">
-        <CitaForm form={form} setForm={setForm} pacientes={pacientes} onSubmit={submit} onCancel={closeFormModal} editing={editing} error={error} />
+        <CitaForm form={form} setForm={setForm} pacientes={pacientes} profesionales={profesionales} onSubmit={submit} onCancel={closeFormModal} editing={editing} error={error} />
       </Modal>
 
       <Modal
@@ -498,7 +535,7 @@ function Citas() {
                   secondary={`CI: ${selected.paciente?.ci || 'Sin CI'} · Tel: ${selected.paciente?.telefono || 'Sin teléfono'}`}
                   className="[&_strong]:text-base [&_small]:mt-1"
                 />
-                <Badge estado={estadoVisible(selected)} />
+                <div className="flex flex-wrap items-center justify-end gap-2"><Badge estado={estadoVisible(selected)} /><OriginBadge canal={selected.canal_origen} /><ConfirmationBadge estado={selected.estado_confirmacion} />{selected.paciente_verificado && <span className="inline-flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-2 py-1 text-[11px] font-black text-teal-800"><CheckCircle2 size={12} />Paciente verificado</span>}</div>
               </section>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

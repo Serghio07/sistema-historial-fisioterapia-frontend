@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Activity, Banknote, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Landmark, ListChecks, LogOut, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
+import { Activity, Banknote, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Landmark, ListChecks, LogOut, MessageCircle, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { canAccessModule, getRoleLabel } from '../../config/permissions';
 import icono from '../../assets/images/icono.png';
 
 const groups = [
@@ -51,6 +52,7 @@ const groups = [
     key: 'financiero',
     label: 'Control financiero',
     icon: Landmark,
+    permission: 'finanzas',
     items: [
       { to: '/control-financiero/planilla-pagos', label: 'Planilla de pagos', icon: WalletCards }
     ]
@@ -67,9 +69,10 @@ const groups = [
     key: 'contenido',
     label: 'Contenido web',
     icon: Newspaper,
+    permission: 'blogAdministracion',
     items: [
       { to: '/blog', label: 'Blog y publicaciones', icon: Newspaper },
-      { to: '/blog/categorias', label: 'Categorías', icon: Tags, adminOnly: true }
+      { to: '/blog/categorias', label: 'Categorías', icon: Tags, permission: 'blogCategorias' }
     ]
   },
   {
@@ -79,7 +82,8 @@ const groups = [
     adminOnly: true,
     items: [
       { to: '/usuarios', label: 'Usuarios', icon: UserCog },
-      { to: '/roles-permisos', label: 'Roles y Permisos', icon: ShieldCheck }
+      { to: '/roles-permisos', label: 'Roles y Permisos', icon: ShieldCheck },
+      { to: '/configuracion/whatsapp/simulador', label: 'Simulador WhatsApp', icon: MessageCircle }
     ]
   }
 ];
@@ -110,7 +114,7 @@ function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }
         </div>
         <div className="sidebar-text min-w-0">
           <strong className="block truncate text-white">Physio Active</strong>
-          <span className="block text-sm capitalize text-brand-100">{user?.rol}</span>
+          <span className="block text-sm text-brand-100">{getRoleLabel(user?.rol)}</span>
         </div>
       </div>
 
@@ -121,11 +125,13 @@ function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }
         </NavLink>
 
         {groups
-          .filter((group) => !group.adminOnly || isAdmin)
+          .filter((group) => (!group.adminOnly || isAdmin) && (!group.permission || canAccessModule(user?.rol, group.permission)))
           .map((group) => {
             const Icon = group.icon;
             const active = isGroupActive(location.pathname, group);
-            const visibleItems = group.items.filter((item) => !item.adminOnly || isAdmin);
+            const visibleItems = group.items.filter((item) => (
+              (!item.adminOnly || isAdmin) && (!item.permission || canAccessModule(user?.rol, item.permission))
+            ));
             if (!visibleItems.length) return null;
 
             return (

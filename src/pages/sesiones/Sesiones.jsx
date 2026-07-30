@@ -810,17 +810,17 @@ function Sesiones() {
                         <StatPill icon={Activity} label="Sesiones" value={`${group.realizadas} / ${group.contratadas}`} tone="bg-emerald-50 text-emerald-800 ring-emerald-100" />
                         <StatPill icon={CalendarSync} label="Restantes" value={group.restantes} tone="bg-cyan-50 text-cyan-800 ring-cyan-100" />
                         <StatPill icon={CalendarDays} label="Última sesión" value={group.ultimaSesion ? formatDate(group.ultimaSesion.fecha) : 'Sin sesiones'} tone="bg-blue-50 text-blue-800 ring-blue-100" />
-                        <StatPill icon={CreditCard} label="Pago / saldo" value={`${group.estadoPago} · ${formatMoney(group.saldo)}`} tone={group.saldo > 0 ? 'bg-amber-50 text-amber-800 ring-amber-100' : 'bg-emerald-50 text-emerald-800 ring-emerald-100'} />
+                        {isAdmin && <StatPill icon={CreditCard} label="Pago / saldo" value={`${group.estadoPago} · ${formatMoney(group.saldo)}`} tone={group.saldo > 0 ? 'bg-amber-50 text-amber-800 ring-amber-100' : 'bg-emerald-50 text-emerald-800 ring-emerald-100'} />}
                       </div>
                     </div>
 
                     <div className="mt-4 grid gap-2 md:grid-cols-3 xl:grid-cols-6">
                       <StatPill icon={ClipboardList} label="Registradas" value={group.sesiones.length} />
                       <StatPill icon={Eye} label="Última asistencia" value={group.ultimaSesion ? labelAsistencia(group.ultimaSesion.asistencia) : 'Sin dato'} tone={group.ultimaSesion ? asistenciaTone[group.ultimaSesion.asistencia] || asistenciaTone.pendiente : 'bg-slate-50 text-slate-700 ring-slate-200'} />
-                      <StatPill icon={CreditCard} label="Estado pago" value={group.estadoPago} tone={paymentTone} />
-                      <StatPill icon={CreditCard} label="Total" value={formatMoney(group.montoTotal)} />
-                      <StatPill icon={CreditCard} label="Pagado" value={formatMoney(group.pagado)} tone="bg-emerald-50 text-emerald-800 ring-emerald-100" />
-                      <StatPill icon={CreditCard} label="Saldo" value={formatMoney(group.saldo)} tone={group.saldo > 0 ? 'bg-amber-50 text-amber-800 ring-amber-100' : 'bg-slate-50 text-slate-700 ring-slate-200'} />
+                      {isAdmin && <StatPill icon={CreditCard} label="Estado pago" value={group.estadoPago} tone={paymentTone} />}
+                      {isAdmin && <StatPill icon={CreditCard} label="Total" value={formatMoney(group.montoTotal)} />}
+                      {isAdmin && <StatPill icon={CreditCard} label="Pagado" value={formatMoney(group.pagado)} tone="bg-emerald-50 text-emerald-800 ring-emerald-100" />}
+                      {isAdmin && <StatPill icon={CreditCard} label="Saldo" value={formatMoney(group.saldo)} tone={group.saldo > 0 ? 'bg-amber-50 text-amber-800 ring-amber-100' : 'bg-slate-50 text-slate-700 ring-slate-200'} />}
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
@@ -852,7 +852,10 @@ function Sesiones() {
                         <table className="min-w-[980px] w-full text-left text-xs">
                           <thead className="bg-slate-50 text-[11px] font-black uppercase text-slate-500">
                             <tr>
-                              {['Sesión', 'Fecha', 'Asistencia', 'Método', 'Estado pago', 'Monto', 'Pagado', 'Saldo', 'Fármacos', 'Observación clínica', 'Acciones'].map((head) => (
+                              {(isAdmin
+                                ? ['Sesión', 'Fecha', 'Asistencia', 'Método', 'Estado pago', 'Monto', 'Pagado', 'Saldo', 'Fármacos', 'Observación clínica', 'Acciones']
+                                : ['Sesión', 'Fecha', 'Asistencia', 'Fármacos', 'Observación clínica', 'Acciones']
+                              ).map((head) => (
                                 <th key={head} className="px-3 py-2">{head}</th>
                               ))}
                             </tr>
@@ -863,11 +866,11 @@ function Sesiones() {
                                 <td className="px-3 py-2 font-black text-slate-800">#{sesion.numero_sesion || 1}</td>
                                 <td className="px-3 py-2 font-semibold text-slate-700">{formatDate(sesion.fecha)}</td>
                                 <td className="px-3 py-2"><Badge tone={asistenciaTone[sesion.asistencia] || asistenciaTone.pendiente}>{labelAsistencia(sesion.asistencia)}</Badge></td>
-                                <td className="px-3 py-2"><Badge tone={pagoTone[sesion.metodo_pago] || pagoTone.Pendiente}>{sesion.metodo_pago}</Badge></td>
-                                <td className="px-3 py-2"><Badge tone={estadoPagoTone[sesion.estado_pago] || estadoPagoTone.Pendiente}>{sesion.estado_pago || 'Pendiente'}</Badge></td>
-                                <td className="px-3 py-2 font-semibold text-slate-700">{formatMoney(montoSesion(sesion))}</td>
-                                <td className="px-3 py-2 font-semibold text-emerald-700">{formatMoney(montoPagado(sesion))}</td>
-                                <td className="px-3 py-2 font-semibold text-amber-700">{formatMoney(saldoPendiente(sesion))}</td>
+                                {isAdmin && <td className="px-3 py-2"><Badge tone={pagoTone[sesion.metodo_pago] || pagoTone.Pendiente}>{sesion.metodo_pago}</Badge></td>}
+                                {isAdmin && <td className="px-3 py-2"><Badge tone={estadoPagoTone[sesion.estado_pago] || estadoPagoTone.Pendiente}>{sesion.estado_pago || 'Pendiente'}</Badge></td>}
+                                {isAdmin && <td className="px-3 py-2 font-semibold text-slate-700">{formatMoney(montoSesion(sesion))}</td>}
+                                {isAdmin && <td className="px-3 py-2 font-semibold text-emerald-700">{formatMoney(montoPagado(sesion))}</td>}
+                                {isAdmin && <td className="px-3 py-2 font-semibold text-amber-700">{formatMoney(saldoPendiente(sesion))}</td>}
                                 <td className="px-3 py-2">{sesion.aplica_farmacos ? 'Sí' : 'No'}</td>
                                 <td className="max-w-[220px] px-3 py-2 text-slate-600">{sesion.observacion || 'Sin observación'}</td>
                                 <td className="px-3 py-2">
@@ -893,7 +896,11 @@ function Sesiones() {
 
         {viewMode === 'listado' && <div className="hidden md:block">
           <Table
-          columns={['Paciente', 'Historia clínica', 'Fecha', 'Registrado por', 'Contratadas', 'Realizadas', 'Restantes', 'Asistencia', 'Pago', 'Fármacos', 'Observación clínica', 'Acciones']}
+          columns={[
+            'Paciente', 'Historia clínica', 'Fecha', 'Registrado por', 'Contratadas', 'Realizadas', 'Restantes', 'Asistencia',
+            ...(isAdmin ? ['Pago'] : []),
+            'Fármacos', 'Observación clínica', 'Acciones'
+          ]}
           rows={sesionesActivas.map((sesion) => {
             const restantes = Math.max(Number(sesion.sesiones_debe || 0) - Number(sesion.sesiones_hizo || 0), 0);
             const historia = sesion.historia_clinica || historias.find((item) => String(item.id) === String(sesion.historia_clinica_id));
@@ -909,10 +916,10 @@ function Sesiones() {
               sesion.sesiones_hizo,
               <span className={restantes === 0 && Number(sesion.sesiones_debe || 0) > 0 ? 'font-bold text-amber-700' : 'font-bold text-brand-700'}>{restantes}</span>,
               <Badge tone={asistenciaTone[sesion.asistencia] || asistenciaTone.pendiente}>{labelAsistencia(sesion.asistencia)}</Badge>,
-              <div className="grid gap-1">
+              ...(isAdmin ? [<div className="grid gap-1">
                 <Badge tone={pagoTone[sesion.metodo_pago] || pagoTone.Pendiente}>{sesion.metodo_pago}</Badge>
                 <Badge tone={estadoPagoTone[sesion.estado_pago] || estadoPagoTone.Pendiente}>{sesion.estado_pago || 'Pendiente'}</Badge>
-              </div>,
+              </div>] : []),
               <Badge tone={sesion.aplica_farmacos ? 'bg-violet-50 text-violet-700 ring-violet-200' : 'bg-slate-100 text-slate-600 ring-slate-200'}>
                 {sesion.aplica_farmacos ? 'Sí' : 'No'}
               </Badge>,
@@ -950,7 +957,7 @@ function Sesiones() {
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <div className="flex flex-wrap gap-1">
-                    <Badge tone={pagoTone[sesion.metodo_pago] || pagoTone.Pendiente}>{sesion.metodo_pago}</Badge>
+                    {isAdmin && <Badge tone={pagoTone[sesion.metodo_pago] || pagoTone.Pendiente}>{sesion.metodo_pago}</Badge>}
                     <Badge tone={sesion.aplica_farmacos ? 'bg-violet-50 text-violet-700 ring-violet-200' : 'bg-slate-100 text-slate-600 ring-slate-200'}>
                       Fármacos: {sesion.aplica_farmacos ? 'Sí' : 'No'}
                     </Badge>
@@ -976,7 +983,7 @@ function Sesiones() {
         onClose={closeFormModal}
         size="sessions"
       >
-        <SesionForm form={form} setForm={setForm} pacientes={pacientes} historias={historias} sesiones={sesiones} programaciones={programaciones} editing={editing} initialTab={formTab} onSubmit={submit} onCancel={closeFormModal} error={error} canEditDate={form.cita_id ? false : isAdmin} />
+        <SesionForm form={form} setForm={setForm} pacientes={pacientes} historias={historias} sesiones={sesiones} programaciones={programaciones} editing={editing} initialTab={formTab} onSubmit={submit} onCancel={closeFormModal} error={error} canEditDate={form.cita_id ? false : isAdmin} canViewFinancial={isAdmin} />
       </Modal>
 
       <Modal open={Boolean(evolutionTarget)} title={evolutionTarget?.evolution ? 'Editar evolución' : 'Registrar evolución'} subtitle={evolutionTarget ? `${nombrePaciente(evolutionTarget.group.paciente)} · Sesión N.º ${evolutionTarget.session.numero_sesion} · ${formatDate(evolutionTarget.session.fecha)}` : ''} onClose={() => setEvolutionTarget(null)} size="sessions">
@@ -1005,11 +1012,11 @@ function Sesiones() {
                 <div className="grid grid-cols-3 gap-2">{[['Contratadas', contratadas], ['Realizadas', realizadas], ['Restantes', restantes]].map(([label, value]) => <div key={label} className={`rounded-xl p-3 text-center ${label === 'Realizadas' ? 'border border-teal-300 bg-teal-50' : 'bg-slate-50'}`}><strong className="block text-2xl text-teal-800">{value}</strong><small className="text-[10px] font-bold uppercase text-slate-500">{label}</small></div>)}</div>
                 <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm"><span className="text-slate-500">Asistencia</span><Badge tone={asistenciaTone[selectedSesion.asistencia] || asistenciaTone.pendiente}>{labelAsistencia(selectedSesion.asistencia)}</Badge></div>
               </section>
-              <section className="session-detail-card">
+              {isAdmin && <section className="session-detail-card">
                 <h3><CreditCard size={19} />Detalle de pago</h3>
                 <div className="grid grid-cols-2 gap-2"><Detail label="Método" value={selectedSesion.metodo_pago} /><Detail label="Estado" value={selectedSesion.estado_pago} /><Detail label="Monto sesión" value={formatMoney(montoSesion(selectedSesion))} /><Detail label="Monto pagado" value={formatMoney(montoPagado(selectedSesion))} /></div>
                 <div className="flex items-center justify-between rounded-lg border border-teal-100 bg-teal-50 p-3"><span className="text-xs font-semibold text-teal-700">Saldo pendiente</span><strong className="text-lg text-emerald-700">{formatMoney(saldoPendiente(selectedSesion))}</strong></div>
-              </section>
+              </section>}
               <section className="session-detail-card">
                 <h3><Activity size={19} />Estado clínico</h3>
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3"><span className="text-sm text-slate-500">Fármacos</span><Badge tone={selectedSesion.aplica_farmacos ? 'bg-violet-50 text-violet-700 ring-violet-200' : 'bg-slate-100 text-slate-600 ring-slate-200'}>{selectedSesion.aplica_farmacos ? 'Sí aplica' : 'No aplica'}</Badge></div>

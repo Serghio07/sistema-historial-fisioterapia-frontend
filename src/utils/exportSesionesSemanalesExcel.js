@@ -30,7 +30,7 @@ const styleCell = (cell, fill) => {
   };
 };
 
-export async function exportSesionesSemanalesExcel({ registros, range, generatedBy }) {
+export async function exportSesionesSemanalesExcel({ registros, range, generatedBy, includeFinancial = false }) {
   const excelModule = await import('exceljs');
   const ExcelJS = excelModule.default || excelModule;
   const workbook = new ExcelJS.Workbook();
@@ -238,6 +238,15 @@ export async function exportSesionesSemanalesExcel({ registros, range, generated
   detail.autoFilter = { from: { row: 7, column: 1 }, to: { row: 7 + totalSessions, column: 20 } };
   const detailWidths = [27, 15, 16, 34, 34, 14, 12, 15, 17, 17, 16, 16, 17, 15, 15, 23, 20, 40, 38, 30];
   detail.columns.forEach((column, index) => { column.width = detailWidths[index]; });
+  if (!includeFinancial) {
+    let debtSummaryRow = null;
+    sheet.eachRow((row, rowNumber) => {
+      if (row.getCell(1).value === 'Deuda total') debtSummaryRow = rowNumber;
+    });
+    if (debtSummaryRow) sheet.spliceRows(debtSummaryRow, 1);
+    sheet.spliceColumns(11, 1);
+    detail.spliceColumns(9, 5);
+  }
   workbook.views = [{ activeTab: 1 }];
 
   const buffer = await workbook.xlsx.writeBuffer();

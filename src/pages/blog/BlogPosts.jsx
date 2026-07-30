@@ -59,8 +59,8 @@ export default function BlogPosts() {
         <td className="blog-menu-cell"><button className="blog-icon-btn" onClick={() => setMenu(menu === post.id ? null : post.id)}><MoreVertical size={18} /></button>
           {menu === post.id && <div className="blog-menu">
             <button onClick={() => navigate(`/blog/vista-previa/${post.id}`)}><Eye size={15} />Vista previa</button>
-            <button onClick={() => navigate(`/blog/editar/${post.id}`)}><FileEdit size={15} />Editar</button>
-            {isAdmin && post.estado !== 'PUBLICADO' && <button onClick={() => act('¿Publicar este artículo? Será visible en el sitio web.', () => publishBlogPost(post.id))}><Send size={15} />Publicar</button>}
+            {(isAdmin || post.estado === 'BORRADOR') && <button onClick={() => navigate(`/blog/editar/${post.id}`)}><FileEdit size={15} />Editar</button>}
+            {((isAdmin && post.estado !== 'PUBLICADO') || (!isAdmin && post.estado === 'BORRADOR')) && <button onClick={() => act('¿Publicar este artículo? Será visible en el sitio web.', () => publishBlogPost(post.id))}><Send size={15} />Publicar</button>}
             {isAdmin && post.estado === 'PUBLICADO' && <button onClick={() => act('El artículo dejará de mostrarse en el sitio web.', () => hideBlogPost(post.id))}><EyeOff size={15} />Ocultar</button>}
             {isAdmin && post.estado !== 'ARCHIVADO' && <button onClick={() => act('¿Archivar este artículo?', () => archiveBlogPost(post.id))}><Archive size={15} />Archivar</button>}
             {isAdmin && ['OCULTO','ARCHIVADO'].includes(post.estado) && <button onClick={() => act('¿Restaurar como borrador?', () => restoreBlogPost(post.id))}><RotateCcw size={15} />Restaurar</button>}

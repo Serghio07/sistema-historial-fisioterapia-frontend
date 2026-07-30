@@ -7,18 +7,52 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(getStoredUser());
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(() => Boolean(getStoredUser()));
 
   useEffect(() => {
-    if (!user?.id) return;
+    const handleUnauthorized = () => {
+      setUser(null);
+      setCheckingSession(false);
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setCheckingSession(false);
+      return undefined;
+    }
+
+    let active = true;
+    setCheckingSession(true);
+
     getProfesionalesActivos()
       .then((profesionales) => {
+        if (!active) return;
         const actualizado = profesionales.find((item) => String(item.id) === String(user.id));
-        if (!actualizado) return;
+        if (!actualizado) {
+          clearSession();
+          setUser(null);
+          return;
+        }
         const perfil = { ...user, ...actualizado };
         saveSession({ usuario: perfil });
         setUser(perfil);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!active) return;
+        clearSession();
+        setUser(null);
+      })
+      .finally(() => {
+        if (active) setCheckingSession(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [user?.id]);
 
   const login = async (credentials) => {
@@ -27,6 +61,7 @@ export function AuthProvider({ children }) {
       const session = await loginRequest(credentials);
       saveSession(session);
       setUser(session.usuario);
+      setCheckingSession(false);
       return session.usuario;
     } finally {
       setLoading(false);
@@ -42,12 +77,13 @@ export function AuthProvider({ children }) {
     () => ({
       user,
       loading,
+      checkingSession,
       isAuthenticated: Boolean(user),
       isAdmin: user?.rol === 'admin',
       login,
       logout
     }),
-    [user, loading]
+    [user, loading, checkingSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -211,7 +211,7 @@ function CountBadge({ value, tone }) {
   return <span className={`inline-flex min-w-8 justify-center rounded-full px-2.5 py-1 text-xs font-black ${tone}`}>{value}</span>;
 }
 
-function DetailModal({ registro, dateRange, onClose, onHistory, onSession, onWeekChange }) {
+function DetailModal({ registro, dateRange, onClose, onHistory, onSession, onWeekChange, canViewFinancial = false }) {
   const stats = conteos(registro, dateRange);
   const historia = registro.historia_clinica;
   const estado = historyStatus(historia);
@@ -241,7 +241,7 @@ function DetailModal({ registro, dateRange, onClose, onHistory, onSession, onWee
     <Modal
       open={Boolean(registro)}
       title="Detalle de sesiones"
-      subtitle="Resumen de asistencia, pagos, fármacos y evolución del paciente en el rango seleccionado."
+      subtitle={canViewFinancial ? 'Resumen de asistencia, pagos, fármacos y evolución del paciente en el rango seleccionado.' : 'Resumen de asistencia, fármacos y evolución del paciente en el rango seleccionado.'}
       onClose={onClose}
       size="xl"
       patientStyle
@@ -272,7 +272,7 @@ function DetailModal({ registro, dateRange, onClose, onHistory, onSession, onWee
             <StatCard label="Asistió" value={stats.asistio} icon={CheckCircle2} tone="border-emerald-100 bg-emerald-50 text-emerald-700" />
             <StatCard label="Faltó" value={stats.falto} icon={XCircle} tone="border-red-100 bg-red-50 text-red-700" />
             <StatCard label="Pendiente" value={stats.pendiente} icon={Activity} tone="border-amber-100 bg-amber-50 text-amber-700" />
-            <StatCard label="Deuda semanal" value={money(stats.deuda)} icon={WalletCards} tone="border-red-100 bg-red-50 text-red-700" />
+            {canViewFinancial && <StatCard label="Deuda semanal" value={money(stats.deuda)} icon={WalletCards} tone="border-red-100 bg-red-50 text-red-700" />}
             <StatCard label="Fármacos" value={sesionesConFarmacos.length ? 'Sí' : 'No'} icon={Pill} tone="border-violet-100 bg-violet-50 text-violet-700" />
           </section>
 
@@ -299,8 +299,8 @@ function DetailModal({ registro, dateRange, onClose, onHistory, onSession, onWee
                     </div>
                     <div className="text-xs text-slate-600">
                       <span className={`inline-flex rounded-full border px-2 py-0.5 font-black ${asistenciaTone[sesion.asistencia] || asistenciaTone.pendiente}`}>{asistenciaLabel[sesion.asistencia] || sesion.asistencia}</span>
-                      <p className="mt-1 font-semibold">{sesion.metodo_pago || 'Pendiente'} · {sesion.estado_pago || 'Pendiente'}</p>
-                      <p>Pagado: <b>{money(sesion.monto_pagado)}</b> · Saldo: <b className={Number(sesion.saldo_pendiente) > 0 ? 'text-red-600' : 'text-emerald-700'}>{money(sesion.saldo_pendiente)}</b></p>
+                      {canViewFinancial && <p className="mt-1 font-semibold">{sesion.metodo_pago || 'Pendiente'} · {sesion.estado_pago || 'Pendiente'}</p>}
+                      {canViewFinancial && <p>Pagado: <b>{money(sesion.monto_pagado)}</b> · Saldo: <b className={Number(sesion.saldo_pendiente) > 0 ? 'text-red-600' : 'text-emerald-700'}>{money(sesion.saldo_pendiente)}</b></p>}
                     </div>
                     <div className="grid gap-1 text-xs text-slate-600">
                       <span>Dolor inicial <PainBadge value={sesion.dolor_antes} /></span>
@@ -360,7 +360,7 @@ function DetailModal({ registro, dateRange, onClose, onHistory, onSession, onWee
 
 function SesionesSemanales() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [dateRange, setDateRange] = useState(getWeekRange());
   const [registros, setRegistros] = useState([]);
   const [selectedRegistro, setSelectedRegistro] = useState(null);
@@ -440,13 +440,13 @@ function SesionesSemanales() {
       if (registro.historia_clinica?.anulada || ['anulada', 'inactiva'].includes(estadoHistoria)) return false;
       if (!matchesSearch(text, filters.query)) return false;
       if (filters.estado !== 'Todos' && estado !== filters.estado) return false;
-      if (filters.deuda === 'Con deuda' && stats.deuda <= 0) return false;
-      if (filters.deuda === 'Sin deuda' && stats.deuda > 0) return false;
+      if (isAdmin && filters.deuda === 'Con deuda' && stats.deuda <= 0) return false;
+      if (isAdmin && filters.deuda === 'Sin deuda' && stats.deuda > 0) return false;
       if (filters.farmacos === 'Si' && !stats.farmacos) return false;
       if (filters.farmacos === 'No' && stats.farmacos) return false;
       return true;
     });
-  }, [groupedRegistros, filters, dateRange]);
+  }, [groupedRegistros, filters, dateRange, isAdmin]);
 
   const onDateChange = (field, value) => {
     setDateRange((current) => {
@@ -533,7 +533,7 @@ function SesionesSemanales() {
         || user?.nombre
         || user?.usuario
         || 'Usuario autenticado';
-      await exportSesionesSemanalesExcel({ registros: exportable, range: exportRange, generatedBy });
+      await exportSesionesSemanalesExcel({ registros: exportable, range: exportRange, generatedBy, includeFinancial: isAdmin });
       await Swal.fire({ icon: 'success', title: 'Archivo Excel generado correctamente.', confirmButtonColor: '#0F766E' });
     } catch (err) {
       await Swal.fire({ icon: 'error', title: 'No se pudo generar el archivo Excel.', text: 'Inténtalo nuevamente.', confirmButtonColor: '#0F766E' });
@@ -574,10 +574,10 @@ function SesionesSemanales() {
 
       <div className="rounded-lg border border-white/70 bg-white/95 p-3 shadow-soft backdrop-blur">
         <div className="grid items-end gap-3 md:grid-cols-2 xl:grid-cols-10">
-          <label className="grid gap-1 text-sm font-bold text-slate-700">
+          {isAdmin && <label className="grid gap-1 text-sm font-bold text-slate-700">
             <span>Desde</span>
             <input type="date" value={dateRange.inicio} onChange={(event) => onDateChange('inicio', event.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold shadow-sm focus:border-brand-500 focus:ring-brand-500" />
-          </label>
+          </label>}
           <label className="grid gap-1 text-sm font-bold text-slate-700">
             <span>Hasta</span>
             <input type="date" value={dateRange.fin} onChange={(event) => onDateChange('fin', event.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold shadow-sm focus:border-brand-500 focus:ring-brand-500" />
@@ -639,7 +639,11 @@ function SesionesSemanales() {
 
         <div className="hidden xl:block">
           <Table
-            columns={['Paciente', 'Historia clínica', 'Última sesión', 'Sesiones registradas', 'Asistió', 'Pendiente', 'Faltó', 'Deuda semanal', 'Fármacos', 'Estado', 'Profesional', 'Acciones']}
+            columns={[
+              'Paciente', 'Historia clínica', 'Última sesión', 'Sesiones registradas', 'Asistió', 'Pendiente', 'Faltó',
+              ...(isAdmin ? ['Deuda semanal'] : []),
+              'Fármacos', 'Estado', 'Profesional', 'Acciones'
+            ]}
             rows={filteredRegistros.map((registro) => {
               const stats = conteos(registro, dateRange);
               const estado = estadoRegistro(registro, dateRange);
@@ -651,7 +655,7 @@ function SesionesSemanales() {
                 <CountBadge value={stats.asistio} tone="bg-emerald-50 text-emerald-700" />,
                 <CountBadge value={stats.pendiente} tone="bg-amber-50 text-amber-700" />,
                 <CountBadge value={stats.falto} tone="bg-red-50 text-red-700" />,
-                <span className={`font-black ${stats.deuda > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{money(stats.deuda)}<br /><small>{stats.deuda > 0 ? 'deuda' : 'sin deuda'}</small></span>,
+                ...(isAdmin ? [<span className={`font-black ${stats.deuda > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{money(stats.deuda)}<br /><small>{stats.deuda > 0 ? 'deuda' : 'sin deuda'}</small></span>] : []),
                 <span className={`rounded-full px-2.5 py-1 text-xs font-black ${stats.farmacos ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>{stats.farmacos ? 'Si' : 'No'}</span>,
                 <span className={`rounded-full px-2.5 py-1 text-xs font-black ${statusClass(estado)}`}>{estado}</span>,
                 <span className="max-w-[170px] text-xs font-semibold text-slate-600">{profesionalRegistro(registro, dateRange)}</span>,
@@ -685,7 +689,7 @@ function SesionesSemanales() {
                   <div className="rounded-lg bg-emerald-50 p-2"><span className="block text-[11px] font-bold text-emerald-600">Asistio</span><strong>{stats.asistio}</strong></div>
                   <div className="rounded-lg bg-amber-50 p-2"><span className="block text-[11px] font-bold text-amber-600">Pendiente</span><strong>{stats.pendiente}</strong></div>
                   <div className="rounded-lg bg-red-50 p-2"><span className="block text-[11px] font-bold text-red-600">Falto</span><strong>{stats.falto}</strong></div>
-                  <div className="rounded-lg bg-red-50 p-2"><span className="block text-[11px] font-bold text-red-600">Deuda</span><strong>{money(stats.deuda)}</strong></div>
+                  {isAdmin && <div className="rounded-lg bg-red-50 p-2"><span className="block text-[11px] font-bold text-red-600">Deuda</span><strong>{money(stats.deuda)}</strong></div>}
                   <div className="rounded-lg bg-violet-50 p-2"><span className="block text-[11px] font-bold text-violet-600">Farmacos</span><strong>{stats.farmacos ? 'Si' : 'No'}</strong></div>
                 </div>
                 <div className="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-3">
@@ -707,6 +711,7 @@ function SesionesSemanales() {
           onHistory={openHistory}
           onSession={(sesion) => navigate('/sesiones', { state: { verSesionId: sesion.id } })}
           onWeekChange={changeDetailWeek}
+          canViewFinancial={isAdmin}
         />
       )}
     </section>

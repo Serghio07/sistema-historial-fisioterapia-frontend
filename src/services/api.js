@@ -31,6 +31,26 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    const isAuthRequest = error.config?.url?.startsWith('/auth/');
+    const sessionIsInvalid = error.response?.status === 401;
+    const serverIsUnavailable =
+      !error.response
+      && (error.code === 'ERR_NETWORK' || error.message === 'Network Error');
+
+    if (!isAuthRequest && (sessionIsInvalid || serverIsUnavailable)) {
+      localStorage.removeItem('physio_user');
+      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+
+      if (window.location.pathname !== '/login') {
+        window.location.replace('/login');
+      }
+
+      const sessionMessage = sessionIsInvalid
+        ? 'Tu sesion finalizo. Inicia sesion nuevamente.'
+        : 'No se pudo conectar con el sistema. Inicia sesion nuevamente.';
+      return Promise.reject(new Error(sessionMessage));
+    }
+
     const message =
       error.response?.data?.message ||
       error.response?.data?.errors?.join(', ') ||

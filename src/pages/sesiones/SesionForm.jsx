@@ -44,7 +44,7 @@ const emptyFarmaco = () => ({
   observacion: ''
 });
 
-function SesionForm({ form, setForm, pacientes, historias, sesiones, programaciones = [], editing, onSubmit, onCancel, error, initialTab = 'session', canEditDate = false }) {
+function SesionForm({ form, setForm, pacientes, historias, sesiones, programaciones = [], editing, onSubmit, onCancel, error, initialTab = 'session', canEditDate = false, canViewFinancial = false }) {
   const [tab, setTab] = useState(initialTab);
   useEffect(() => setTab(initialTab), [initialTab, editing]);
   const update = (key, value) => setForm({ ...form, [key]: value });
@@ -349,7 +349,7 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
         </div>
       </Section>
 
-      <Section title="Informacion de pago" icon={CreditCard} tone="blue">
+      {canViewFinancial && <Section title="Informacion de pago" icon={CreditCard} tone="blue">
         <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           <Input
             compact
@@ -384,7 +384,7 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
           <Input compact label="Observación del pago (opcional)" value={form.observacion_pago} onChange={(event) => update('observacion_pago', event.target.value.toLocaleUpperCase('es-BO'))} />
           {form.estado_pago === 'Sin costo' && <Input compact label="Motivo de la sesión sin costo" value={form.motivo_sin_costo} onChange={(event) => update('motivo_sin_costo', event.target.value.toLocaleUpperCase('es-BO'))} placeholder="Cortesía, reposición, promoción u otro" required />}
         </div>
-      </Section>
+      </Section>}
 
       {form.asistencia !== 'asistio' && <Section title="Observación administrativa" icon={CalendarSync} tone="cyan"><Input compact label="Observación (opcional)" value={form.observacion} onChange={(event) => update('observacion', event.target.value.toLocaleUpperCase('es-BO'))} multiline placeholder="Motivo de falta, cancelación, reprogramación u otra novedad administrativa" /></Section>}
       </>}

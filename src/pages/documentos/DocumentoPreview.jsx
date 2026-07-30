@@ -127,7 +127,7 @@ function SignosPreview({ documento }) {
   );
 }
 
-function FarmacosPreview({ documento }) {
+function FarmacosPreview({ documento, canViewFinancial = false }) {
   const data = documento.datos || {};
   const filas = data.filas || [];
   const total = filas.reduce((sum, fila) => sum + Number(fila.monto_bs || 0), 0);
@@ -139,7 +139,7 @@ function FarmacosPreview({ documento }) {
       <table className="w-full table-fixed border-collapse text-center text-xs">
         <thead>
           <tr>
-            {['FECHA', 'PACIENTE', 'DICLO', 'DEXA', 'COM B', '3ml', '5ml', '10ml', 'Bs.', 'Qr'].map((item, index) => (
+            {['FECHA', 'PACIENTE', 'DICLO', 'DEXA', 'COM B', '3ml', '5ml', '10ml', ...(canViewFinancial ? ['Bs.', 'Qr'] : [])].map((item, index) => (
               <th
                 key={item}
                 className={`border border-orange-500 bg-orange-500 px-2 py-3 font-black uppercase text-white ${index === 1 ? 'w-64' : ''}`}
@@ -160,24 +160,24 @@ function FarmacosPreview({ documento }) {
               <td className="border border-green-400 bg-green-50 px-2 font-bold">{fila.dosis_3ml ? 'X' : ''}</td>
               <td className="border border-green-400 bg-green-50 px-2 font-bold">{fila.dosis_5ml ? 'X' : ''}</td>
               <td className="border border-green-400 bg-green-50 px-2 font-bold">{fila.dosis_10ml ? 'X' : ''}</td>
-              <td className="border border-green-400 bg-green-50 px-2">{fila.monto_bs || ''}</td>
-              <td className="border border-green-400 bg-green-50 px-2 font-bold">{fila.qr || fila.metodo_pago === 'QR' ? 'X' : ''}</td>
+              {canViewFinancial && <td className="border border-green-400 bg-green-50 px-2">{fila.monto_bs || ''}</td>}
+              {canViewFinancial && <td className="border border-green-400 bg-green-50 px-2 font-bold">{fila.qr || fila.metodo_pago === 'QR' ? 'X' : ''}</td>}
             </tr>
           ))}
         </tbody>
       </table>
-      <div className="mt-4 flex justify-end text-sm font-black text-slate-700">
+      {canViewFinancial && <div className="mt-4 flex justify-end text-sm font-black text-slate-700">
         <span className="rounded border border-orange-300 px-4 py-2">TOTAL Bs. {total.toFixed(2)}</span>
-      </div>
+      </div>}
     </article>
   );
 }
 
-function DocumentoPreview({ documento }) {
+function DocumentoPreview({ documento, canViewFinancial = false }) {
   if (!documento) return null;
   if (documento.tipo === 'consentimiento') return <ConsentimientoPreview documento={documento} />;
   if (documento.tipo === 'signos_vitales') return <SignosPreview documento={documento} />;
-  if (documento.tipo === 'farmacos') return <FarmacosPreview documento={documento} />;
+  if (documento.tipo === 'farmacos') return <FarmacosPreview documento={documento} canViewFinancial={canViewFinancial} />;
 
   return (
     <article className="mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-8 py-7 text-sm leading-5 text-slate-900 shadow-soft print:shadow-none">
@@ -197,7 +197,7 @@ function DocumentoPreview({ documento }) {
       <section className="mt-5">
         {documento.tipo === 'consentimiento' && <ConsentimientoPreview documento={documento} />}
         {documento.tipo === 'signos_vitales' && <SignosPreview documento={documento} />}
-        {documento.tipo === 'farmacos' && <FarmacosPreview documento={documento} />}
+        {documento.tipo === 'farmacos' && <FarmacosPreview documento={documento} canViewFinancial={canViewFinancial} />}
       </section>
       <footer className="mt-8 border-t border-slate-300 pt-2 text-xs text-slate-500">
         Generado por {documento.creado_por?.nombre || 'Usuario'} - Documento vinculado al historial del paciente.

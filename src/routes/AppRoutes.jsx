@@ -19,12 +19,13 @@ import PlanillaPersonal from '../pages/personal/PlanillaPersonal';
 import DocumentosClinicos from '../pages/documentos/DocumentosClinicos';
 import EvolutivosClinicos from '../pages/evolutivosClinicos/EvolutivosClinicos';
 import PlanillaPagos from '../pages/planillaPagos/PlanillaPagos';
-import ResumenDiario from '../pages/resumenDiario/ResumenDiario';
+import ResumenDiario from '../pages/resumenDiario/ResumenDiarioPorRol';
 import ResumenPacientes from '../pages/resumenPacientes/ResumenPacientes';
 import BlogPosts from '../pages/blog/BlogPosts';
 import BlogPostForm from '../pages/blog/BlogPostForm';
 import BlogPreview from '../pages/blog/BlogPreview';
 import BlogCategories from '../pages/blog/BlogCategories';
+import WhatsappSimulator from '../pages/configuracion/WhatsappSimulator';
 
 function AppRoutes() {
   return (
@@ -50,14 +51,25 @@ function AppRoutes() {
             <Route path="documentos/signos-vitales" element={<DocumentosClinicos tipo="signos_vitales" />} />
             <Route path="documentos/administracion-farmacos" element={<DocumentosClinicos tipo="farmacos" />} />
             <Route path="personal/actividades" element={<ActividadesDiarias />} />
+            <Route path="control-diario/resumen" element={<ResumenDiario />} />
+            <Route path="control-diario/tareas" element={<Navigate to="/control-diario/resumen" replace />} />
+            <Route path="control-diario/incidencias" element={<Navigate to="/control-diario/resumen" replace />} />
+          </Route>
+        </Route>
+        <Route element={<PrivateRoute permission="finanzas" />}>
+          <Route element={<Layout />}>
             <Route path="control-financiero/planilla-pagos" element={<PlanillaPagos />} />
             <Route path="control-financiero/deudores" element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
             <Route path="control-financiero/arqueos" element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
             <Route path="control-financiero/recibos" element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
             <Route path="control-financiero/comprobantes" element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
-            <Route path="control-diario/resumen" element={<ResumenDiario />} />
-            <Route path="control-diario/tareas" element={<Navigate to="/control-diario/resumen" replace />} />
-            <Route path="control-diario/incidencias" element={<Navigate to="/control-diario/resumen" replace />} />
+            {['pagos', 'planilla-pagos', 'deudas', 'deudores', 'arqueos', 'recibos', 'comprobantes'].map((path) => (
+              <Route key={path} path={path} element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
+            ))}
+          </Route>
+        </Route>
+        <Route element={<PrivateRoute permission="blogAdministracion" />}>
+          <Route element={<Layout />}>
             <Route path="blog" element={<BlogPosts />} />
             <Route path="blog/nuevo" element={<BlogPostForm />} />
             <Route path="blog/editar/:id" element={<BlogPostForm />} />
@@ -68,8 +80,12 @@ function AppRoutes() {
           <Route element={<Layout />}>
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="roles-permisos" element={<RolesPermisos />} />
-            <Route path="personal/planilla" element={<PlanillaPersonal />} />
             <Route path="blog/categorias" element={<BlogCategories />} />
+            <Route path="personal/planilla" element={<PlanillaPersonal />} />
+            <Route path="configuracion/whatsapp/simulador" element={<WhatsappSimulator />} />
+            {['sueldos', 'roles', 'auditoria', 'configuracion/whatsapp'].map((path) => (
+              <Route key={path} path={path} element={<Navigate to="/" replace />} />
+            ))}
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
