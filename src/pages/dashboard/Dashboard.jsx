@@ -45,10 +45,10 @@ function Dashboard() {
   const fecha = useMemo(() => new Intl.DateTimeFormat('es-BO', { timeZone: BOLIVIA_TIME_ZONE, weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()), []);
   const avance = resumen.citasHoy ? Math.min(100, Math.round((resumen.atendidosHoy / resumen.citasHoy) * 100)) : 0;
   const stats = [
-    ['Pacientes activos', resumen.totalPacientes, 'Registrados en el sistema', Users, 'bg-teal-50 text-teal-700', '/pacientes'],
+    ['Pacientes activos', resumen.totalPacientes, 'Actualmente habilitados', Users, 'bg-teal-50 text-teal-700', '/pacientes'],
     ['Citas para hoy', resumen.citasHoy, `${resumen.citasPendientes} aún pendientes`, CalendarClock, 'bg-blue-50 text-blue-700', '/citas'],
     ['Sesiones de hoy', resumen.sesionesHoy, 'Actividad clínica diaria', Activity, 'bg-violet-50 text-violet-700', '/sesiones'],
-    ['Informes emitidos', resumen.informesGenerados, 'Documentos generados', FileText, 'bg-amber-50 text-amber-700', '/informes-medicos']
+    ['Informes emitidos', resumen.informesGenerados, 'Generados hoy', FileText, 'bg-amber-50 text-amber-700', '/informes-medicos']
   ];
   const quick = [['/pacientes', 'Paciente', UserPlus, 'bg-teal-50 text-teal-700'], ['/citas', 'Cita', CalendarClock, 'bg-blue-50 text-blue-700'], ['/sesiones', 'Sesión', HeartPulse, 'bg-rose-50 text-rose-700'], ['/informes-medicos', 'Informe', ClipboardPlus, 'bg-violet-50 text-violet-700']];
 

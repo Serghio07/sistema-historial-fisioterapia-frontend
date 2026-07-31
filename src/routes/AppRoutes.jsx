@@ -25,7 +25,7 @@ import BlogPosts from '../pages/blog/BlogPosts';
 import BlogPostForm from '../pages/blog/BlogPostForm';
 import BlogPreview from '../pages/blog/BlogPreview';
 import BlogCategories from '../pages/blog/BlogCategories';
-import WhatsappSimulator from '../pages/configuracion/WhatsappSimulator';
+import Notificaciones from '../pages/notificaciones/Notificaciones';
 
 function AppRoutes() {
   return (
@@ -43,6 +43,7 @@ function AppRoutes() {
             <Route path="evolutivos-clinicos" element={<EvolutivosClinicos />} />
             <Route path="sesiones" element={<Sesiones />} />
             <Route path="citas" element={<Citas />} />
+            <Route path="notificaciones" element={<Notificaciones />} />
             <Route path="sesiones-semanales" element={<SesionesSemanales />} />
             <Route path="planillas-atencion" element={<PlanillasAtencion />} />
             <Route path="informes-medicos" element={<Reportes />} />
@@ -82,8 +83,7 @@ function AppRoutes() {
             <Route path="roles-permisos" element={<RolesPermisos />} />
             <Route path="blog/categorias" element={<BlogCategories />} />
             <Route path="personal/planilla" element={<PlanillaPersonal />} />
-            <Route path="configuracion/whatsapp/simulador" element={<WhatsappSimulator />} />
-            {['sueldos', 'roles', 'auditoria', 'configuracion/whatsapp'].map((path) => (
+            {['sueldos', 'roles', 'auditoria'].map((path) => (
               <Route key={path} path={path} element={<Navigate to="/" replace />} />
             ))}
           </Route>

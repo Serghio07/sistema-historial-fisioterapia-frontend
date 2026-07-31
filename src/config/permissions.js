@@ -24,7 +24,6 @@ export const MODULE_PERMISSIONS = Object.freeze({
   blogAdministracion: ['admin', 'personal'],
   blogCategorias: ['admin'],
   auditoria: ['admin'],
-  whatsapp: ['admin'],
   configuracion: ['admin']
 });
 
@@ -128,10 +127,6 @@ export const ROLE_ACTION_PERMISSIONS = Object.freeze({
   auditoria: {
     admin: ['view', 'print', 'export', 'administer'],
     personal: []
-  },
-  whatsapp: {
-    admin: ['view', 'create', 'edit', 'administer'],
-    personal: []
   }
 });
 
@@ -158,6 +153,5 @@ export const ROLE_PERMISSION_MATRIX = Object.freeze([
   { module: 'Planillas de sueldos', permission: 'sueldos', description: 'Información laboral y salarial.' },
   { module: 'Blog y publicaciones', permission: 'blogAdministracion', description: 'El personal puede crear, editar y publicar sus propios borradores.' },
   { module: 'Categorías del blog', permission: 'blogCategorias', description: 'Crear, editar o eliminar categorías del sitio.' },
-  { module: 'Auditoría completa', permission: 'auditoria', description: 'Trazabilidad global del sistema.' },
-  { module: 'WhatsApp y configuración', permission: 'whatsapp', description: 'Simulador y configuración administrativa.' }
+  { module: 'Auditoría completa', permission: 'auditoria', description: 'Trazabilidad global del sistema.' }
 ]);

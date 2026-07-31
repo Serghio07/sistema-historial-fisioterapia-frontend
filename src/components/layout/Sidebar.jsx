@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Activity, Banknote, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Landmark, ListChecks, LogOut, MessageCircle, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
+import { Activity, Banknote, Bell, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Landmark, ListChecks, LogOut, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { canAccessModule, getRoleLabel } from '../../config/permissions';
@@ -24,6 +24,7 @@ const groups = [
     icon: CalendarClock,
     items: [
       { to: '/citas', label: 'Citas / Agenda', icon: CalendarClock },
+      { to: '/notificaciones', label: 'Notificaciones', icon: Bell },
       { to: '/sesiones', label: 'Sesiones Diarias', icon: CalendarDays },
       { to: '/sesiones-semanales', label: 'Sesiones Semanales', icon: CalendarRange }
     ]
@@ -82,8 +83,7 @@ const groups = [
     adminOnly: true,
     items: [
       { to: '/usuarios', label: 'Usuarios', icon: UserCog },
-      { to: '/roles-permisos', label: 'Roles y Permisos', icon: ShieldCheck },
-      { to: '/configuracion/whatsapp/simulador', label: 'Simulador WhatsApp', icon: MessageCircle }
+      { to: '/roles-permisos', label: 'Roles y Permisos', icon: ShieldCheck }
     ]
   }
 ];

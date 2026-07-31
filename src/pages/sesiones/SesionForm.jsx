@@ -77,9 +77,16 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
   const saldoPendiente = Math.max(montoSesion - montoPagado, 0);
   const puedeContinuar = Boolean(form.paciente_id && form.historia_clinica_id && form.fecha) && !planCompleto;
   const requiereEvolucion = form.asistencia === 'asistio';
-  const programacionesPaciente = programaciones
-    .filter((cita) => String(cita.paciente_id || cita.paciente?.id) === String(form.paciente_id))
-    .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || String(a.hora_inicio).localeCompare(String(b.hora_inicio)));
+  const proximaProgramacion = programaciones
+    .filter((cita) =>
+      String(cita.paciente_id || cita.paciente?.id) === String(form.paciente_id)
+      && (!form.historia_clinica_id || String(cita.historia_clinica_id || cita.historia_clinica?.id) === String(form.historia_clinica_id))
+    )
+    .sort((a, b) =>
+      Number(a.numero_sesion || 0) - Number(b.numero_sesion || 0)
+      || String(a.fecha).localeCompare(String(b.fecha))
+      || String(a.hora_inicio).localeCompare(String(b.hora_inicio))
+    )[0];
 
   const dolorInicialParaHistoria = (historia, historySessions) => {
     const previousPain = [...historySessions]
@@ -145,8 +152,7 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
     const pendientes = programaciones
       .filter((cita) => String(cita.paciente_id || cita.paciente?.id) === String(pacienteId))
       .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || String(a.hora_inicio).localeCompare(String(b.hora_inicio)));
-    const programadaHoy = pendientes.find((cita) => cita.fecha === new Date().toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' }));
-    const programacionAutomatica = programadaHoy || (pendientes.length === 1 ? pendientes[0] : null);
+    const programacionAutomatica = pendientes[0];
     if (programacionAutomatica) applyProgramacion(programacionAutomatica, nextForm);
     else setForm(nextForm);
   };
@@ -164,15 +170,28 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
       String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historiaId)
     );
 
-    setForm({
+    const nextForm = {
       ...form,
+      cita_id: '',
       historia_clinica_id: historiaId,
       sesiones_debe: historiaId ? contratadasHistoria : 0,
       sesiones_hizo: historiaId ? siguiente : 0,
       numero_sesion: siguiente,
       dolor_antes: historiaId ? dolorInicialParaHistoria(historia, sesionesHistoria) : '',
       dolor_despues: ''
-    });
+    };
+    const programacionAutomatica = programaciones
+      .filter((cita) =>
+        String(cita.paciente_id || cita.paciente?.id) === String(form.paciente_id)
+        && String(cita.historia_clinica_id || cita.historia_clinica?.id) === String(historiaId)
+      )
+      .sort((a, b) =>
+        Number(a.numero_sesion || 0) - Number(b.numero_sesion || 0)
+        || String(a.fecha).localeCompare(String(b.fecha))
+        || String(a.hora_inicio).localeCompare(String(b.hora_inicio))
+      )[0];
+    if (programacionAutomatica) applyProgramacion(programacionAutomatica, nextForm);
+    else setForm(nextForm);
   };
 
   const updatePago = (changes) => {
@@ -263,24 +282,12 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
             ]}
             required
             compact
-            disabled={Boolean(form.cita_id)}
+            disabled={Boolean(editing)}
           />
-          {programacionesPaciente.length > 0 && <Input
-            compact
-            label="Seleccionar sesión programada"
-            value={form.cita_id || ''}
-            onChange={(event) => {
-              const cita = programacionesPaciente.find((item) => String(item.id) === String(event.target.value));
-              if (cita) applyProgramacion(cita);
-            }}
-            options={[
-              { value: '', label: 'Seleccionar fecha programada' },
-              ...programacionesPaciente.map((cita) => ({
-                value: cita.id,
-                label: `Sesión ${cita.numero_sesion} de ${cita.total_sesiones} — ${cita.fecha} — ${cita.hora_inicio?.slice(0, 5)}`
-              }))
-            ]}
-          />}
+          {form.cita_id && proximaProgramacion && <div className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2">
+            <span className="block text-[11px] font-black uppercase text-teal-700">Sesión programada automática</span>
+            <strong className="mt-1 block text-sm text-teal-900">Sesión {proximaProgramacion.numero_sesion} de {proximaProgramacion.total_sesiones} — {proximaProgramacion.fecha} — {proximaProgramacion.hora_inicio?.slice(0, 5)}</strong>
+          </div>}
           <Input
             compact
             label="Historia clinica activa"
@@ -294,7 +301,7 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
               }))
             ]}
             required
-            disabled={!form.paciente_id || Boolean(form.cita_id)}
+            disabled={!form.paciente_id || Boolean(editing)}
           />
           <Input compact label="Fecha" type="date" value={form.fecha} onChange={(event) => update('fecha', event.target.value)} disabled={!canEditDate} required />
           <Input compact label="Numero de sesion siguiente" type="number" min="1" value={form.numero_sesion} readOnly />
