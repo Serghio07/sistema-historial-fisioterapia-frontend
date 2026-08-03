@@ -28,7 +28,8 @@ const estadoStyles = {
   Realizada: 'border-emerald-200 bg-emerald-50 text-emerald-800',
   Cancelada: 'border-red-200 bg-red-50 text-red-800',
   Reprogramada: 'border-violet-200 bg-violet-50 text-violet-800',
-  'No asistio': 'border-orange-200 bg-orange-50 text-orange-800'
+  'No asistio': 'border-orange-200 bg-orange-50 text-orange-800',
+  'No asistió': 'border-orange-200 bg-orange-50 text-orange-800'
 };
 
 const pacienteStyles = [
@@ -90,7 +91,7 @@ function Badge({ estado }) {
 const estadoVisible = (cita) =>
   cita?.origen === 'Plan de tratamiento' && cita?.estado === 'Atendida'
     ? 'Realizada'
-    : cita?.estado;
+    : cita?.estado === 'No asistio' ? 'No asistió' : cita?.estado;
 
 const getPacienteStyle = (pacienteId) => pacienteStyles[Math.abs(Number(pacienteId || 0)) % pacienteStyles.length];
 
@@ -180,6 +181,22 @@ function Citas() {
 
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    const actualizarEstados = async () => {
+      try {
+        const citasData = await getCitas();
+        setCitas(citasData);
+        setSelected((actual) => actual
+          ? citasData.find((item) => Number(item.id) === Number(actual.id)) || null
+          : null);
+      } catch {
+        // La carga principal ya muestra los errores; el refresco automatico es silencioso.
+      }
+    };
+    const intervalo = window.setInterval(actualizarEstados, 60000);
+    return () => window.clearInterval(intervalo);
   }, []);
 
   useEffect(() => {
