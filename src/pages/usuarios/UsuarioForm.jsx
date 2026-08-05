@@ -8,13 +8,13 @@ const DIAS = [
   ['lunes', 'Lun'], ['martes', 'Mar'], ['miercoles', 'Mie'], ['jueves', 'Jue'],
   ['viernes', 'Vie'], ['sabado', 'Sab'], ['domingo', 'Dom']
 ];
-const TITULOS = ['', 'Doc.', 'Dr.', 'Dra.', 'Lic.', 'Sr.', 'Sra.'];
-const CARGOS_SUGERIDOS = ['Ft.', 'Kine.', 'Adm.', 'Rec.', 'Aux.', 'Pas.'];
+const TITULOS = ['', 'Doc.', 'Dr.', 'Dra.', 'Lic.', 'Tec. Sup.', 'Sr.', 'Sra.'];
+const CARGOS_SUGERIDOS = ['Ft.', 'Kine.', 'Enfermera', 'Adm.', 'Rec.', 'Aux.', 'Pas.'];
 
 const STEPS = [
   { title: 'Datos personales', description: 'Identidad, contacto y fotografía.', icon: UserRound },
   { title: 'Datos laborales', description: 'Cargo, ingreso y forma de pago.', icon: BriefcaseBusiness },
-  { title: 'Horario', description: 'Días y horas de trabajo.', icon: Clock3 },
+  { title: 'Horario laboral', description: 'Días y horarios de ingreso y salida.', icon: Clock3 },
   { title: 'Acceso', description: 'Usuario, contraseña y estado.', icon: ShieldCheck }
 ];
 
@@ -39,11 +39,15 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
   const [confirmarPassword, setConfirmarPassword] = useState('');
   const [error, setError] = useState('');
   const update = (key, value) => setForm({ ...form, [key]: value });
+  const updateUppercase = (key, value) => update(key, String(value || '').toLocaleUpperCase('es-BO'));
   const nombreCompleto = [form.nombres, form.apellido_paterno, form.apellido_materno]
     .filter(Boolean)
     .join(' ')
     .trim();
-  const nombreMostrado = [form.titulo_profesional, form.cargo, nombreCompleto]
+  const cargoMostrado = String(form.cargo || '').trim().toLocaleUpperCase('es-BO') === 'ENFERMERA'
+    ? 'Enf.'
+    : form.cargo;
+  const nombreMostrado = [form.titulo_profesional, cargoMostrado, nombreCompleto]
     .filter(Boolean)
     .join(' ');
 
@@ -107,10 +111,10 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
           <ProfilePhotoInput value={form.foto} name={`${form.nombres || ''} ${form.apellido_paterno || ''}`} label="Foto del personal" onChange={(foto) => update('foto', foto)} />
           <section className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input label="Nombres" value={form.nombres} onChange={(e) => update('nombres', e.target.value)} required />
-              <Input label="Apellido paterno" value={form.apellido_paterno} onChange={(e) => update('apellido_paterno', e.target.value)} required />
-              <Input label="Apellido materno" value={form.apellido_materno} onChange={(e) => update('apellido_materno', e.target.value)} />
-              <Input label="Cédula de identidad" value={form.ci} onChange={(e) => update('ci', e.target.value)} required />
+              <Input label="Nombres" value={form.nombres} onChange={(e) => updateUppercase('nombres', e.target.value)} className="[&_input]:uppercase" required />
+              <Input label="Apellido paterno" value={form.apellido_paterno} onChange={(e) => updateUppercase('apellido_paterno', e.target.value)} className="[&_input]:uppercase" required />
+              <Input label="Apellido materno" value={form.apellido_materno} onChange={(e) => updateUppercase('apellido_materno', e.target.value)} className="[&_input]:uppercase" />
+              <Input label="Cédula de identidad" value={form.ci} onChange={(e) => updateUppercase('ci', e.target.value)} className="[&_input]:uppercase" required />
               <Input label="Correo electrónico" type="email" value={form.email || ''} onChange={(e) => update('email', e.target.value)} required />
               <Input label="Teléfono" value={form.telefono || ''} onChange={(e) => update('telefono', e.target.value)} />
             </div>
@@ -129,7 +133,8 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
               <Input
                 label="Cargo / Área"
                 value={form.cargo}
-                onChange={(e) => update('cargo', e.target.value)}
+                onChange={(e) => updateUppercase('cargo', e.target.value)}
+                className="[&_input]:uppercase"
                 list="cargo-area-options"
                 placeholder="Selecciona o escribe uno"
                 required
@@ -143,18 +148,22 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
             <Input label="Fecha de ingreso" type="date" value={form.fecha_ingreso} onChange={(e) => update('fecha_ingreso', e.target.value)} required />
             <Input label="Tipo de pago" value={form.tipo_pago} onChange={(e) => update('tipo_pago', e.target.value)} options={[{ value: 'mensual', label: 'Mensual' }, { value: 'por_servicio', label: 'Por servicio' }]} />
             <Input label="Sueldo base (Bs.)" type="number" min="0" step="0.01" value={form.sueldo_base} onChange={(e) => update('sueldo_base', e.target.value)} disabled={form.tipo_pago === 'por_servicio'} />
-            <Input label="Dirección" value={form.direccion} onChange={(e) => update('direccion', e.target.value)} multiline className="sm:col-span-2" />
-            <Input label="Observaciones" value={form.observaciones} onChange={(e) => update('observaciones', e.target.value)} multiline className="sm:col-span-2" />
+            <Input label="Dirección" value={form.direccion} onChange={(e) => updateUppercase('direccion', e.target.value)} multiline className="sm:col-span-2 [&_textarea]:uppercase" />
           </div>
         </section>}
 
         {step === 2 && <section className="rounded-xl border border-cyan-100 bg-cyan-50/40 p-4">
-          <p className="mb-3 text-sm font-bold text-slate-700">Días de trabajo</p>
+          <div className="mb-4 rounded-xl border border-cyan-200 bg-white p-3 text-xs leading-5 text-slate-600">
+            <strong className="block text-sm text-brand-700">Horario de atención del centro</strong>
+            <span className="mt-1 block">LUNES A VIERNES: 09:00–12:30 Y 15:00–19:30</span>
+            <span className="block">SÁBADOS: 09:00–12:30</span>
+          </div>
+          <p className="mb-3 text-sm font-bold text-slate-700">Días de trabajo del personal</p>
           <div className="mb-5 grid grid-cols-4 gap-2 sm:grid-cols-7">
             {DIAS.map(([value, label]) => <button key={value} type="button" onClick={() => toggleDia(value)} className={`rounded-xl border px-2 py-3 text-xs font-black transition ${form.dias_trabajo.includes(value) ? 'border-brand-600 bg-brand-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300'}`}>{label}</button>)}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Hora de entrada" type="time" value={form.hora_entrada} onChange={(e) => update('hora_entrada', e.target.value)} required />
+            <Input label="Hora de ingreso" type="time" value={form.hora_entrada} onChange={(e) => update('hora_entrada', e.target.value)} required />
             <Input label="Hora de salida" type="time" value={form.hora_salida} onChange={(e) => update('hora_salida', e.target.value)} required />
           </div>
         </section>}

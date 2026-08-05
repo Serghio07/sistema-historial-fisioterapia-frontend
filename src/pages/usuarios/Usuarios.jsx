@@ -41,13 +41,12 @@ const initialForm = {
   titulo_profesional: '',
   cargo: '',
   dias_trabajo: ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'],
-  hora_entrada: '08:00',
-  hora_salida: '17:00',
+  hora_entrada: '09:00',
+  hora_salida: '19:30',
   sueldo_base: '',
   tipo_pago: 'mensual',
   direccion: '',
   fecha_ingreso: boliviaDate(),
-  observaciones: '',
   usuario: '',
   email: '',
   telefono: '',
@@ -176,7 +175,7 @@ function UsuarioIdentity({ usuario, compact = false }) {
         className={compact ? '' : '!h-11 !w-11'}
       />
       <div className="min-w-0">
-        <strong className="block truncate text-sm text-slate-900">{usuario.nombre}</strong>
+        <strong className="block truncate text-sm uppercase text-slate-900">{usuario.nombre}</strong>
         <span className="block truncate text-xs text-slate-500">@{usuario.usuario}</span>
       </div>
     </div>
@@ -278,7 +277,6 @@ function Usuarios() {
       tipo_pago: form.tipo_pago,
       direccion: form.direccion?.trim() || null,
       fecha_ingreso: form.fecha_ingreso,
-      observaciones: form.observaciones?.trim() || null,
       usuario: form.usuario.trim(),
       email: form.email?.trim() || null,
       telefono: form.telefono?.trim() || null,
@@ -579,7 +577,7 @@ function Usuarios() {
               <div className="relative flex flex-wrap items-center gap-4">
                 <Avatar src={selectedUsuario.foto} name={selectedUsuario.nombre || selectedUsuario.usuario} size="lg" />
                 <div className="min-w-0 flex-1">
-                  <strong className="block truncate text-xl text-slate-900">{selectedUsuario.nombre}</strong>
+                  <strong className="block truncate text-xl uppercase text-slate-900">{selectedUsuario.nombre}</strong>
                   <span className="mt-1 block text-sm font-semibold text-slate-500">@{selectedUsuario.usuario}</span>
                   <span className="mt-2 inline-flex items-center gap-1.5 text-sm font-bold text-brand-700">
                     {selectedUsuario.rol === 'admin' ? <Stethoscope size={15} /> : <UserCog size={15} />}
@@ -665,7 +663,7 @@ function Usuarios() {
                 </div>
                 <div className="rounded-xl border border-brand-100 bg-brand-50/50 p-4 shadow-sm sm:col-span-2">
                   <dt className="text-xs font-bold text-brand-600">Nombre mostrado</dt>
-                  <dd className="mt-2 text-base font-black text-slate-900">
+                  <dd className="mt-2 text-base font-black uppercase text-slate-900">
                     {selectedUsuario.ficha_personal?.nombre_mostrado || selectedUsuario.nombre}
                   </dd>
                 </div>
