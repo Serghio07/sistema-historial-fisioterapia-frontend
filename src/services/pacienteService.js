@@ -9,6 +9,7 @@ export const getPaciente = async (id) => {
   const { data } = await api.get(`/pacientes/${id}`);
   return data;
 };
+export const getPacientesPendientesWhatsapp = async () => (await api.get('/pacientes/pendientes-whatsapp')).data;
 
 export const getResumenPaciente = async (id) => {
   const { data } = await api.get(`/pacientes/${id}/resumen`);

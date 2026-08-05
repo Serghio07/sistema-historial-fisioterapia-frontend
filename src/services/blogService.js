@@ -1,6 +1,9 @@
 import api from './api';
 
-export const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '');
+const configuredApiUrl = String(import.meta.env.VITE_API_URL || '').trim();
+if (import.meta.env.PROD && !configuredApiUrl) throw new Error('VITE_API_URL es obligatoria para compilar producción');
+const developmentApiUrl = import.meta.env.DEV ? 'http://localhost:3000/api' : '';
+export const API_ORIGIN = (configuredApiUrl || developmentApiUrl).replace(/\/api\/?$/, '');
 export const mediaUrl = (path) => path?.startsWith('http') ? path : `${API_ORIGIN}${path || ''}`;
 
 export const getBlogPosts = async (params) => (await api.get('/blogs', { params })).data;

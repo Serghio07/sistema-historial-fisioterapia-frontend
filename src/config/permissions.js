@@ -9,6 +9,8 @@ export const MODULE_PERMISSIONS = Object.freeze({
   historias: ['admin', 'personal'],
   evolutivos: ['admin', 'personal'],
   agenda: ['admin', 'personal'],
+  recepcionWhatsapp: ['admin', 'personal'],
+  monitoreoWhatsapp: ['admin'],
   sesiones: ['admin', 'personal'],
   sesionesSemanales: ['admin', 'personal'],
   documentosClinicos: ['admin', 'personal'],
@@ -67,6 +69,10 @@ export const ROLE_ACTION_PERMISSIONS = Object.freeze({
   agenda: {
     admin: allActions,
     personal: ['view', 'create', 'edit', 'print']
+  },
+  recepcionWhatsapp: {
+    admin: allActions,
+    personal: ['view', 'edit']
   },
   sesiones: {
     admin: allActions,
@@ -140,6 +146,7 @@ export const ROLE_PERMISSION_MATRIX = Object.freeze([
   { module: 'Historias clínicas', permission: 'historias', description: 'Personal trabaja con historias activas; anular y restaurar es exclusivo del Administrador.' },
   { module: 'Evolutivos clínicos', permission: 'evolutivos', description: 'Consulta y trabajo clínico activo.' },
   { module: 'Citas y agenda', permission: 'agenda', description: 'Operación de agenda; eliminación histórica y configuración protegidas.' },
+  { module: 'Solicitudes de recepción', permission: 'recepcionWhatsapp', description: 'Bandeja administrativa derivada desde WhatsApp.' },
   { module: 'Sesiones diarias', permission: 'sesiones', description: 'Personal registra únicamente información clínica.' },
   { module: 'Sesiones semanales', permission: 'sesionesSemanales', description: 'Personal no recibe ni exporta montos, pagos o deudas.' },
   { module: 'Documentos clínicos', permission: 'documentosClinicos', description: 'Personal no recibe ni modifica datos financieros de fármacos.' },

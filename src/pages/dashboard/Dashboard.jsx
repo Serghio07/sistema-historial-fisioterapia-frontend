@@ -8,6 +8,7 @@ import { getDashboardPacientesRecientes, getDashboardProximasCitas, getDashboard
 import { formatDate } from '../../utils/formatDate';
 import { nombrePaciente } from '../../utils/validators';
 import { BOLIVIA_TIME_ZONE } from '../../utils/boliviaDateTime';
+import { firstNameForUser, greetingForBolivia } from './dashboardGreeting';
 
 const emptyResumen = { totalPacientes: 0, citasHoy: 0, sesionesHoy: 0, atendidosHoy: 0, citasPendientes: 0, informesGenerados: 0 };
 const statusStyles = { atendido: 'bg-emerald-50 text-emerald-700', completada: 'bg-emerald-50 text-emerald-700', confirmado: 'bg-blue-50 text-blue-700', confirmada: 'bg-blue-50 text-blue-700', pendiente: 'bg-amber-50 text-amber-700', cancelada: 'bg-red-50 text-red-700' };
@@ -34,6 +35,7 @@ function Dashboard() {
   const [proximasCitas, setProximasCitas] = useState([]);
   const [sesionesHoy, setSesionesHoy] = useState([]);
   const [pacientesRecientes, setPacientesRecientes] = useState([]);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
 
   useEffect(() => {
     Promise.all([getDashboardResumen(), getDashboardProximasCitas(), getDashboardSesionesHoy(), getDashboardPacientesRecientes()])
@@ -41,8 +43,14 @@ function Dashboard() {
       .catch((err) => setError(`No se pudo cargar el panel principal: ${err.message}`)).finally(() => setLoading(false));
   }, []);
 
-  const nombre = user?.nombre_mostrado || user?.ficha_personal?.nombre_mostrado || user?.nombre || user?.usuario || 'Profesional';
-  const fecha = useMemo(() => new Intl.DateTimeFormat('es-BO', { timeZone: BOLIVIA_TIME_ZONE, weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()), []);
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const firstName = firstNameForUser(user);
+  const greeting = greetingForBolivia(currentTime);
+  const fecha = useMemo(() => new Intl.DateTimeFormat('es-BO', { timeZone: BOLIVIA_TIME_ZONE, weekday: 'long', day: 'numeric', month: 'long' }).format(currentTime), [currentTime]);
   const avance = resumen.citasHoy ? Math.min(100, Math.round((resumen.atendidosHoy / resumen.citasHoy) * 100)) : 0;
   const stats = [
     ['Pacientes activos', resumen.totalPacientes, 'Actualmente habilitados', Users, 'bg-teal-50 text-teal-700', '/pacientes'],
@@ -54,7 +62,7 @@ function Dashboard() {
 
   return <section className="grid gap-6">
     {loading && <Loader />}
-    <div className="dashboard-hero relative overflow-hidden rounded-2xl p-4 md:p-5"><div className="relative z-10 flex flex-wrap items-end justify-between gap-4"><div><div className="mb-2 inline-flex items-center gap-2 rounded-full border border-brand-700/15 bg-white/30 px-3 py-1 text-xs font-semibold backdrop-blur"><Sparkles size={13} /> Resumen de la jornada</div><p className="text-xs font-medium capitalize text-brand-700 md:text-sm">{fecha}</p><h2 className="mt-0.5 text-2xl font-black tracking-tight md:text-3xl">Buenos días, {nombre.split(' ')[0]}</h2><p className="mt-1 max-w-xl text-sm leading-5 text-brand-900/75">Aquí tienes el estado de la atención clínica y las actividades prioritarias de hoy.</p></div><Link to="/citas" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-brand-200 bg-white/80 px-3.5 py-2 text-sm font-black text-brand-900 shadow-md transition hover:-translate-y-0.5 hover:bg-white"><Plus size={17} /> Agendar cita</Link></div></div>
+    <div className="dashboard-hero relative overflow-hidden rounded-2xl p-4 md:p-5"><div className="relative z-10 flex flex-wrap items-end justify-between gap-4"><div><div className="mb-2 inline-flex items-center gap-2 rounded-full border border-brand-700/15 bg-white/30 px-3 py-1 text-xs font-semibold backdrop-blur"><Sparkles size={13} /> Resumen de la jornada</div><p className="text-xs font-medium capitalize text-brand-700 md:text-sm">{fecha}</p><h2 className="mt-0.5 text-2xl font-black tracking-tight md:text-3xl">{greeting}{firstName ? `, ${firstName}` : ''}.</h2><p className="mt-1 max-w-xl text-sm leading-5 text-brand-900/75">Aquí tienes el estado de la atención clínica y las actividades prioritarias de hoy.</p></div><Link to="/citas" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-brand-200 bg-white/80 px-3.5 py-2 text-sm font-black text-brand-900 shadow-md transition hover:-translate-y-0.5 hover:bg-white"><Plus size={17} /> Agendar cita</Link></div></div>
     {error && <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{stats.map(([title, value, hint, icon, color, to]) => <StatCard key={title} {...{ title, value, hint, icon, color, to }} />)}</div>
 

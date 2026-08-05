@@ -1,61 +1,20 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Bell, Menu, ShieldCheck } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bell, CheckCheck, Menu, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getNotificaciones } from '../../services/notificacionService';
+import { getNotificacionesRecientes, getResumenNotificaciones, marcarNotificacionLeida, marcarTodasNotificacionesLeidas } from '../../services/notificacionService';
 import logo from '../../assets/logos/logo.png';
 import { Avatar } from '../common/ProfilePhoto';
+import { notificationBadge, notificationDestination, INTERNAL_NOTIFICATION_POLL_MS } from '../../utils/notificationUi';
 
 function Navbar({ onMenuClick }) {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [notificationCount, setNotificationCount] = useState(0);
-  const nombreMostrado = user?.nombre_mostrado || user?.ficha_personal?.nombre_mostrado || user?.nombre || user?.usuario;
-  const loadNotifications = useCallback(async () => {
-    try {
-      const items = await getNotificaciones();
-      const read = JSON.parse(localStorage.getItem(`notificacionesLeidas:${user?.id || 'usuario'}`) || '[]');
-      setNotificationCount(items.filter((item) => !read.includes(item.id)).length);
-    } catch {
-      setNotificationCount(0);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    void loadNotifications();
-    const interval = window.setInterval(loadNotifications, 60_000);
-    window.addEventListener('notifications:updated', loadNotifications);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('notifications:updated', loadNotifications);
-    };
-  }, [loadNotifications]);
-
-  return (
-    <header className="navbar">
-      <div className="flex items-center gap-3">
-        <button type="button" className="mobile-menu-button" onClick={onMenuClick} aria-label="Abrir menu">
-          <Menu size={20} />
-        </button>
-        <img src={logo} alt="Physio Active" className="hidden h-14 w-40 rounded-lg bg-white object-contain p-1.5 shadow-sm sm:block" />
-        <div>
-          <p className="text-xs font-bold uppercase text-brand-600">Centro de Fisioterapia</p>
-          <h1 className="text-xl font-bold text-ink">Sistema de historial clinico</h1>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-      <button type="button" onClick={() => navigate('/notificaciones')} className="relative grid h-11 w-11 place-items-center rounded-xl border border-[#DCE5EC] bg-white text-slate-600 transition hover:border-brand-300 hover:bg-brand-50" aria-label={`Notificaciones${notificationCount ? `, ${notificationCount} nuevas` : ''}`}>
-        <Bell size={20} />
-        {notificationCount > 0 && <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">{notificationCount > 99 ? '99+' : notificationCount}</span>}
-      </button>
-      <div className="flex items-center gap-2 rounded-lg border border-[#DCE5EC] bg-white px-3 py-2 text-sm text-[#475569]">
-        <Avatar src={user?.foto} name={nombreMostrado} size="sm" />
-        <ShieldCheck size={15} className="text-brand-600" />
-        <span>{nombreMostrado}</span>
-      </div>
-      </div>
-    </header>
-  );
+  const { user }=useAuth(); const navigate=useNavigate(); const panelRef=useRef(null); const [open,setOpen]=useState(false); const [count,setCount]=useState(0); const [pollMs,setPollMs]=useState(INTERNAL_NOTIFICATION_POLL_MS); const [items,setItems]=useState([]); const [loading,setLoading]=useState(false); const [error,setError]=useState('');
+  const nombreMostrado=user?.nombre_mostrado||user?.ficha_personal?.nombre_mostrado||user?.nombre||user?.usuario;
+  const load=useCallback(async()=>{try{const summary=await getResumenNotificaciones();setCount(summary.no_leidas||0);setPollMs(Math.max(15,Math.min(300,Number(summary.poll_seconds)||60))*1000);if(open){setLoading(true);setItems(await getNotificacionesRecientes(5));setError('');}}catch{if(open)setError('No se pudieron cargar las notificaciones.');}finally{setLoading(false);}},[open]);
+  useEffect(()=>{void load();const interval=window.setInterval(load,pollMs);window.addEventListener('notifications:updated',load);return()=>{window.clearInterval(interval);window.removeEventListener('notifications:updated',load);};},[load,pollMs]);
+  useEffect(()=>{const close=e=>{if(panelRef.current&&!panelRef.current.contains(e.target))setOpen(false);};document.addEventListener('mousedown',close);return()=>document.removeEventListener('mousedown',close);},[]);
+  const openItem=async item=>{try{if(item.estado==='NO_LEIDA')await marcarNotificacionLeida(item.id);setOpen(false);window.dispatchEvent(new Event('notifications:updated'));const target=notificationDestination(item);if(target)navigate(target.pathname,{state:target.state});}catch{setError('No se pudo abrir la notificación.');}};
+  const markAll=async()=>{try{await marcarTodasNotificacionesLeidas();window.dispatchEvent(new Event('notifications:updated'));await load();}catch{setError('No se pudieron marcar las notificaciones.');}};
+  return <header className="navbar"><div className="flex items-center gap-3"><button type="button" className="mobile-menu-button" onClick={onMenuClick} aria-label="Abrir menú"><Menu size={20}/></button><img src={logo} alt="Physio Active" className="hidden h-14 w-40 rounded-lg bg-white object-contain p-1.5 shadow-sm sm:block"/><div><p className="text-xs font-bold uppercase text-brand-600">Centro de Fisioterapia</p><h1 className="text-xl font-bold text-ink">Sistema de historial clínico</h1></div></div><div className="flex items-center gap-2"><div className="relative" ref={panelRef}><button type="button" onClick={()=>setOpen(value=>!value)} className="relative grid h-11 w-11 place-items-center rounded-xl border border-[#DCE5EC] bg-white text-slate-600 transition hover:border-brand-300 hover:bg-brand-50" aria-label={`Notificaciones${count?`, ${count} nuevas`:''}`} aria-expanded={open}><Bell size={20}/>{notificationBadge(count)&&<span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">{notificationBadge(count)}</span>}</button>{open&&<div className="absolute right-0 top-14 z-50 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"><div className="flex items-center justify-between border-b p-3"><strong>Notificaciones</strong><button type="button" onClick={markAll} className="inline-flex items-center gap-1 text-xs font-bold text-brand-700"><CheckCheck size={15}/>Marcar todas</button></div><div className="max-h-80 overflow-y-auto">{loading&&<p className="p-4 text-sm text-slate-500">Cargando…</p>}{error&&<p className="p-4 text-sm text-red-600">{error}</p>}{!loading&&!error&&items.map(item=><button type="button" key={item.id} onClick={()=>openItem(item)} className={`block w-full border-b p-3 text-left hover:bg-slate-50 ${item.estado==='NO_LEIDA'?'bg-brand-50/40':''}`}><span className="flex items-center gap-2"><strong className="text-sm">{item.titulo}</strong>{item.estado==='NO_LEIDA'&&<i className="h-2 w-2 rounded-full bg-brand-600"/>}</span><span className="mt-1 block text-xs text-slate-600">{item.mensaje}</span><span className="mt-1 block text-[11px] text-slate-400">{new Date(item.created_at).toLocaleString('es-BO')}</span></button>)}{!loading&&!error&&!items.length&&<p className="p-6 text-center text-sm text-slate-500">No tienes notificaciones.</p>}</div><button type="button" onClick={()=>{setOpen(false);navigate('/notificaciones');}} className="w-full bg-slate-50 p-3 text-sm font-black text-brand-700">Ver todas</button></div>}</div><div className="flex items-center gap-2 rounded-lg border border-[#DCE5EC] bg-white px-3 py-2 text-sm text-[#475569]"><Avatar src={user?.foto} name={nombreMostrado} size="sm"/><ShieldCheck size={15} className="text-brand-600"/><span>{nombreMostrado}</span></div></div></header>;
 }
-
 export default Navbar;

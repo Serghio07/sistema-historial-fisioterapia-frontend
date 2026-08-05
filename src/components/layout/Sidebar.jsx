@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Activity, Banknote, Bell, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Landmark, ListChecks, LogOut, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Activity, Banknote, Bell, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Inbox, Landmark, ListChecks, LogOut, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { canAccessModule, getRoleLabel } from '../../config/permissions';
 import icono from '../../assets/images/icono.png';
+import { getReceptionSummary } from '../../services/whatsappReceptionService';
 
 const groups = [
   {
@@ -25,6 +26,8 @@ const groups = [
     items: [
       { to: '/citas', label: 'Citas / Agenda', icon: CalendarClock },
       { to: '/notificaciones', label: 'Notificaciones', icon: Bell },
+      { to: '/whatsapp/recepcion', label: 'Solicitudes de recepción', icon: Inbox, permission: 'recepcionWhatsapp', badge: 'reception' },
+      { to: '/whatsapp/monitoring', label: 'Estado de WhatsApp', icon: Activity, adminOnly: true },
       { to: '/sesiones', label: 'Sesiones Diarias', icon: CalendarDays },
       { to: '/sesiones-semanales', label: 'Sesiones Semanales', icon: CalendarRange }
     ]
@@ -99,6 +102,14 @@ function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }
       [group.key]: isGroupActive(location.pathname, group) || ['pacientes', 'atencion', 'documentos'].includes(group.key)
     }), {})
   );
+  const [pendingReception, setPendingReception] = useState(0);
+  useEffect(() => {
+    let active = true;
+    const load = () => getReceptionSummary().then((value) => { if (active) setPendingReception(Number(value.pendientes || 0)); }).catch(() => {});
+    load(); const timer = setInterval(load, 60000);
+    const refresh = () => load(); window.addEventListener('reception:updated', refresh);
+    return () => { active = false; clearInterval(timer); window.removeEventListener('reception:updated', refresh); };
+  }, []);
 
   const toggleGroup = (key) => setOpenGroups((current) => ({ ...current, [key]: !current[key] }));
 
@@ -157,6 +168,7 @@ function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }
                         <NavLink key={item.to} to={item.to} onClick={onNavigate} className={({ isActive }) => `nav-link min-h-10 pl-4 text-xs ${isActive ? 'nav-link-active' : ''}`}>
                           <ItemIcon size={16} />
                           <span className="sidebar-text">{item.label}</span>
+                          {item.badge === 'reception' && pendingReception > 0 && <span className="ml-auto rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-950">{pendingReception}</span>}
                         </NavLink>
                       );
                     })}

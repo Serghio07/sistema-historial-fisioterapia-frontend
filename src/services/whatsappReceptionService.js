@@ -1,0 +1,15 @@
+import api from './api';
+export const listReceptionReferrals = async (params) => (await api.get('/whatsapp/derivaciones', { params })).data;
+export const getReceptionReferral = async (id) => (await api.get(`/whatsapp/derivaciones/${id}`)).data;
+export const getReceptionSummary = async () => (await api.get('/whatsapp/derivaciones/resumen')).data;
+export const takeReceptionReferral = async (id) => (await api.post(`/whatsapp/derivaciones/${id}/tomar`)).data;
+export const changeReceptionPriority = async (id, prioridad) => (await api.patch(`/whatsapp/derivaciones/${id}/prioridad`, { prioridad })).data;
+export const addReceptionObservation = async (id, observacion) => (await api.post(`/whatsapp/derivaciones/${id}/observaciones`, { observacion })).data;
+export const resolveReceptionReferral = async (id, resolucion) => (await api.post(`/whatsapp/derivaciones/${id}/resolver`, { resolucion })).data;
+export const closeReceptionReferral = async (id) => (await api.post(`/whatsapp/derivaciones/${id}/cerrar`)).data;
+export const getReceptionReplyConfiguration = async (id) => (await api.get(`/whatsapp/derivaciones/${id}/respuestas/configuracion`)).data;
+export const listReceptionReplies = async (id) => (await api.get(`/whatsapp/derivaciones/${id}/respuestas`)).data;
+export const previewReceptionReply = async (id, mensaje) => (await api.post(`/whatsapp/derivaciones/${id}/respuestas/preview`, { tipo_envio: 'TEXTO_LIBRE', mensaje })).data;
+export const confirmReceptionReply = async (id, replyId) => (await api.post(`/whatsapp/derivaciones/${id}/respuestas/${replyId}/confirmar`)).data;
+export const cancelReceptionReply = async (id, replyId) => (await api.post(`/whatsapp/derivaciones/${id}/respuestas/${replyId}/cancelar`)).data;
+export const retryReceptionReply = async (id, replyId) => (await api.post(`/whatsapp/derivaciones/${id}/respuestas/${replyId}/reintentar`)).data;

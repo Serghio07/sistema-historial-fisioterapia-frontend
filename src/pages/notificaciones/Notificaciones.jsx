@@ -1,89 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Bell, CalendarClock, CalendarDays, CheckCheck, Eye, RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Bell, CheckCheck, Eye, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
-import { getNotificaciones } from '../../services/notificacionService';
-import { useAuth } from '../../context/AuthContext';
+import Pagination from '../../components/common/Pagination';
+import { getNotificaciones, marcarNotificacionLeida, marcarTodasNotificacionesLeidas } from '../../services/notificacionService';
 
-const storageKey = (userId) => `notificacionesLeidas:${userId || 'usuario'}`;
-const readIds = (userId) => {
-  try { return JSON.parse(localStorage.getItem(storageKey(userId)) || '[]'); }
-  catch { return []; }
-};
+const TYPES = ['NUEVA_DERIVACION','DERIVACION_ASIGNADA','RESPUESTA_PACIENTE','ENVIO_WHATSAPP_FALLIDO','DERIVACION_PENDIENTE_VENCIDA'];
+const labels = { NUEVA_DERIVACION:'Nueva derivación', DERIVACION_ASIGNADA:'Asignación', RESPUESTA_PACIENTE:'Respuesta del contacto', ENVIO_WHATSAPP_FALLIDO:'Fallo de envío', DERIVACION_PENDIENTE_VENCIDA:'Pendiente vencida', NO_LEIDA:'No leída', LEIDA:'Leída' };
+const initial = { estado:'', tipo:'', prioridad:'', page:1, limit:10 };
 
-function Notificaciones() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [filter, setFilter] = useState('todas');
-  const [read, setRead] = useState(() => readIds(user?.id));
-
-  const load = async () => {
-    setLoading(true);
-    setError('');
-    try { setItems(await getNotificaciones()); }
-    catch (loadError) { setError(loadError.response?.data?.message || 'No se pudieron cargar las notificaciones.'); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { void load(); }, []);
-
-  const visible = useMemo(() => items.filter((item) => {
-    if (filter === 'hoy') return item.es_hoy;
-    if (filter === 'proximas') return !item.es_hoy;
-    if (filter === 'no_leidas') return !read.includes(item.id);
-    return true;
-  }), [filter, items, read]);
-
-  const markAll = () => {
-    const ids = items.map((item) => item.id);
-    localStorage.setItem(storageKey(user?.id), JSON.stringify(ids));
-    setRead(ids);
-    window.dispatchEvent(new Event('notifications:updated'));
-  };
-
-  const open = (item) => {
-    const ids = [...new Set([...read, item.id])];
-    localStorage.setItem(storageKey(user?.id), JSON.stringify(ids));
-    setRead(ids);
-    window.dispatchEvent(new Event('notifications:updated'));
-    navigate('/citas', { state: { verCitaId: item.cita_id } });
-  };
-
-  return <div className="page-stack">
-    {loading && <Loader />}
-    <section className="hero-panel">
-      <div>
-        <p className="eyebrow">Centro de alertas</p>
-        <h2 className="mt-1 text-2xl font-black md:text-3xl">Notificaciones</h2>
-        <p className="mt-1 text-sm text-slate-500">Sesiones y citas programadas con datos actuales del sistema.</p>
-      </div>
-      <Bell size={38} className="text-brand-700" />
-    </section>
-    <section className="content-card p-4 md:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
-        <div className="flex flex-wrap gap-2">
-          {[['todas', 'Todas'], ['no_leidas', 'No leídas'], ['hoy', 'Hoy'], ['proximas', 'Próximas']].map(([value, label]) => <button key={value} type="button" onClick={() => setFilter(value)} className={`rounded-full border px-4 py-2 text-xs font-black ${filter === value ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-200 bg-white text-slate-600'}`}>{label}</button>)}
-        </div>
-        <div className="flex gap-2"><Button variant="secondary" onClick={() => void load()}><RefreshCw size={16} />Actualizar</Button><Button variant="secondary" onClick={markAll}><CheckCheck size={16} />Marcar leídas</Button></div>
-      </div>
-      {error && <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
-      <div className="mt-4 grid gap-3">
-        {visible.map((item) => {
-          const unread = !read.includes(item.id);
-          return <article key={item.id} className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left transition hover:border-brand-300 hover:bg-brand-50/40 ${unread ? 'border-brand-200 bg-brand-50/30' : 'border-slate-200 bg-white'}`}>
-            <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${item.tipo === 'sesion' ? 'bg-teal-50 text-teal-700' : 'bg-blue-50 text-blue-700'}`}>{item.tipo === 'sesion' ? <CalendarDays size={21} /> : <CalendarClock size={21} />}</span>
-            <span className="min-w-0 flex-1"><span className="flex items-center gap-2"><strong className="text-sm text-slate-900">{item.titulo}</strong>{unread && <i className="h-2 w-2 rounded-full bg-brand-600" />}</span><span className="mt-1 block text-sm font-semibold text-slate-600">{item.mensaje}</span><span className="mt-1 block text-xs text-slate-500">{item.es_hoy ? 'Hoy' : item.fecha} · {item.hora} · {item.estado}</span></span>
-            <button type="button" onClick={() => open(item)} className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg border border-brand-200 bg-white px-4 text-xs font-black text-brand-700 transition hover:border-brand-500 hover:bg-brand-50"><Eye size={16} />Ver</button>
-          </article>;
-        })}
-        {!loading && !visible.length && <div className="rounded-xl border border-dashed border-slate-200 py-14 text-center"><Bell className="mx-auto text-slate-300" /><p className="mt-3 font-semibold text-slate-500">No hay notificaciones en esta categoría.</p></div>}
-      </div>
-    </section>
-  </div>;
+export default function Notificaciones() {
+  const navigate = useNavigate(); const [filters,setFilters]=useState(initial); const [result,setResult]=useState({data:[],pagination:{}}); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
+  const load=useCallback(async()=>{setLoading(true);setError('');try{setResult(await getNotificaciones(filters));}catch(e){setError(e.response?.data?.message||'No se pudieron cargar las notificaciones.');}finally{setLoading(false);}},[filters]);
+  useEffect(()=>{void load();},[load]);
+  const notify=()=>window.dispatchEvent(new Event('notifications:updated'));
+  const read=async(item)=>{try{if(item.estado==='NO_LEIDA')await marcarNotificacionLeida(item.id);notify();await load();}catch(e){setError(e.response?.data?.message||'No se pudo marcar la notificación.');}};
+  const open=async(item)=>{await read(item);if(item.derivacion_id)navigate('/whatsapp/recepcion',{state:{derivacionId:item.derivacion_id}});};
+  const markAll=async()=>{try{await marcarTodasNotificacionesLeidas();notify();await load();}catch(e){setError(e.response?.data?.message||'No se pudieron marcar las notificaciones.');}};
+  const set=(key,value)=>setFilters(current=>({...current,[key]:value,page:key==='page'?value:1}));
+  return <div className="page-stack">{loading&&<Loader/>}<section className="hero-panel"><div><p className="eyebrow">Centro de alertas</p><h2 className="mt-1 text-2xl font-black md:text-3xl">Notificaciones</h2><p className="mt-1 text-sm text-slate-500">Seguimiento administrativo de solicitudes de WhatsApp.</p></div><Bell size={38} className="text-brand-700"/></section><section className="content-card p-4 md:p-5"><div className="grid gap-3 border-b border-slate-100 pb-4 sm:grid-cols-3 lg:grid-cols-5"><select aria-label="Estado" value={filters.estado} onChange={e=>set('estado',e.target.value)} className="rounded-lg border-slate-200"><option value="">Todos los estados</option><option value="NO_LEIDA">No leídas</option><option value="LEIDA">Leídas</option></select><select aria-label="Tipo" value={filters.tipo} onChange={e=>set('tipo',e.target.value)} className="rounded-lg border-slate-200"><option value="">Todos los tipos</option>{TYPES.map(v=><option key={v} value={v}>{labels[v]}</option>)}</select><select aria-label="Prioridad" value={filters.prioridad} onChange={e=>set('prioridad',e.target.value)} className="rounded-lg border-slate-200"><option value="">Todas las prioridades</option>{['ALTA','NORMAL','BAJA'].map(v=><option key={v}>{v}</option>)}</select><Button variant="secondary" onClick={load}><RefreshCw size={16}/>Actualizar</Button><Button variant="secondary" onClick={markAll}><CheckCheck size={16}/>Marcar todas</Button></div>{error&&<p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}<div className="mt-4 grid gap-3">{result.data.map(item=><article key={item.id} className={`flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center ${item.estado==='NO_LEIDA'?'border-brand-200 bg-brand-50/30':'border-slate-200 bg-white'}`}><span className={`h-3 w-3 shrink-0 rounded-full ${item.prioridad==='ALTA'?'bg-red-500':item.prioridad==='NORMAL'?'bg-amber-400':'bg-slate-300'}`}/><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><strong>{item.titulo}</strong>{item.estado==='NO_LEIDA'&&<span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-black text-brand-700">NUEVA</span>}</div><p className="mt-1 text-sm text-slate-600">{item.mensaje}</p><p className="mt-1 text-xs text-slate-500">{labels[item.tipo]} · {item.prioridad} · {new Date(item.created_at).toLocaleString('es-BO')}</p></div><div className="flex gap-2">{item.estado==='NO_LEIDA'&&<Button variant="secondary" onClick={()=>read(item)}>Marcar leída</Button>}<Button onClick={()=>open(item)}><Eye size={15}/>Ver solicitud</Button></div></article>)}{!loading&&!result.data.length&&<div className="rounded-xl border border-dashed border-slate-200 py-14 text-center"><Bell className="mx-auto text-slate-300"/><p className="mt-3 font-bold text-slate-500">No tienes notificaciones.</p><p className="text-sm text-slate-400">Las nuevas solicitudes y respuestas de WhatsApp aparecerán aquí.</p></div>}</div><Pagination total={result.pagination.total||0} page={result.pagination.page||1} pageSize={result.pagination.limit||10} onPageChange={v=>set('page',v)} onPageSizeChange={v=>set('limit',v)}/></section></div>;
 }
-
-export default Notificaciones;

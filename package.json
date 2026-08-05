@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "dev:whatsapp-simulator": "vite --host 0.0.0.0 --mode whatsapp-simulator",
-    "verify:whatsapp-simulator-visual": "node scripts/verifyWhatsappSimulatorVisual.mjs",
     "build": "vite build",
+    "test:notifications": "node --test tests/notificationUi.test.js",
+    "test:monitoring": "node --test tests/whatsappMonitoringUi.test.js",
+    "test:attendance": "node --test tests/attendanceSummary.test.js",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

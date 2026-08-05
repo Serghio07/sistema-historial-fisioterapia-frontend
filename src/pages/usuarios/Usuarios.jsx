@@ -333,6 +333,10 @@ function Usuarios() {
       await updateUsuarioEstado(usuario.id, estado);
       setSelectedUsuario(null);
       setConfirmation(null);
+      if (estado === 'inactivo') setActiveTab('inactivos');
+      if (estado === 'bloqueado') setActiveTab('bloqueados');
+      if (estado === 'activo') setActiveTab('activos');
+      setEstadoFilter('');
       await load();
     } catch (err) {
       setError(err.message);
@@ -345,6 +349,14 @@ function Usuarios() {
     confirmLabel: 'Bloquear cuenta',
     danger: true,
     action: () => changeStatus(usuario, 'bloqueado')
+  });
+
+  const askDeactivate = (usuario) => setConfirmation({
+    title: 'Dar de baja al personal',
+    text: `¿Deseas dar de baja a ${usuario.nombre}? Su cuenta quedará inactiva, no podrá iniciar sesión y aparecerá en la pestaña Inactivos.`,
+    confirmLabel: 'Sí, dar de baja',
+    danger: true,
+    action: () => changeStatus(usuario, 'inactivo')
   });
 
   const askReject = (usuario) => setConfirmation({
@@ -368,6 +380,7 @@ function Usuarios() {
       ) : (
         <>
           {usuario.rol !== 'admin' && <ActionButton label="Editar usuario" icon={FilePenLine} tone="edit" className="h-9 w-9" onClick={() => openEdit(usuario)} />}
+          {usuario.rol !== 'admin' && <ActionButton label="Dar de baja" icon={UserRoundX} tone="delete" className="h-9 w-9" onClick={() => askDeactivate(usuario)} />}
           {usuario.rol !== 'admin' && <ActionButton label="Bloquear cuenta" icon={Ban} tone="delete" className="h-9 w-9" onClick={() => askBlock(usuario)} />}
         </>
       )}
@@ -707,7 +720,10 @@ function Usuarios() {
                 <Button onClick={() => changeStatus(selectedUsuario, 'activo')}><ShieldCheck size={17} />Reactivar usuario</Button>
               )}
               {selectedUsuario.estado === 'activo' && selectedUsuario.rol !== 'admin' && (
-                <Button variant="danger" onClick={() => askBlock(selectedUsuario)}><Ban size={17} />Bloquear usuario</Button>
+                <>
+                  <Button variant="danger" onClick={() => askDeactivate(selectedUsuario)}><UserRoundX size={17} />Dar de baja</Button>
+                  <Button variant="danger" onClick={() => askBlock(selectedUsuario)}><Ban size={17} />Bloquear usuario</Button>
+                </>
               )}
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Activity, BriefcaseBusiness, CalendarDays, Eye, FilePenLine, Filter, Gauge, Heart, Home, IdCard, MapPin, Phone, Plus, Ruler, Scale, Search, UserRound, UserX, Users } from 'lucide-react';
 import Swal from 'sweetalert2';
 import ActionButton from '../../components/common/ActionButton';
@@ -8,7 +9,7 @@ import Modal from '../../components/common/Modal';
 import Pagination from '../../components/common/Pagination';
 import { Avatar } from '../../components/common/ProfilePhoto';
 import PacienteForm from './PacienteForm';
-import { createPaciente, deactivatePaciente, getPacientes, updatePaciente } from '../../services/pacienteService';
+import { createPaciente, deactivatePaciente, getPacientes, getPacientesPendientesWhatsapp, updatePaciente } from '../../services/pacienteService';
 import { nombrePaciente } from '../../utils/validators';
 import { formatDate } from '../../utils/formatDate';
 import { matchesSearch } from '../../utils/search';
@@ -31,7 +32,10 @@ function Detail({ icon: Icon, label, value, className = '', highlight = false })
 }
 
 function Pacientes() {
+  const navigate = useNavigate();
   const [pacientes, setPacientes] = useState([]);
+  const [pendingPatients, setPendingPatients] = useState([]);
+  const [pendingRegistration, setPendingRegistration] = useState(null);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
   const [form, setForm] = useState(initialForm);
@@ -54,7 +58,12 @@ function Pacientes() {
   const load = async () => {
     setLoading(true);
     try {
-      setPacientes(await getPacientes());
+      const [patientRows, pending] = await Promise.all([
+        getPacientes(),
+        getPacientesPendientesWhatsapp()
+      ]);
+      setPacientes(patientRows);
+      setPendingPatients(pending || []);
     } catch (error) {
       notify(error.message, 'error');
     } finally {
@@ -66,17 +75,21 @@ function Pacientes() {
 
   const filtered = useMemo(() => {
     const isActive = statusFilter === 'active';
+    if (statusFilter === 'pending') return [];
     return pacientes.filter((paciente) => {
+      if (paciente.registro_pendiente === true) return false;
       const matchesStatus = Boolean(paciente.estado) === isActive;
       const matchesQuery = matchesSearch(`${paciente.nombres || ''} ${paciente.apellidos || ''} ${paciente.ci || ''} ${paciente.telefono || ''}`, query);
       return matchesStatus && matchesQuery;
     });
   }, [pacientes, query, statusFilter]);
+  const filteredPending = useMemo(() => pendingPatients.filter((item) => matchesSearch(`${item.nombre || ''} ${item.telefono || ''} ${item.motivo || ''}`, query)), [pendingPatients, query]);
   const paginatedPatients = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   useEffect(() => { setPage(1); }, [query, statusFilter, pageSize]);
 
   const patientCounts = useMemo(() => pacientes.reduce((counts, paciente) => {
+    if (paciente.registro_pendiente === true) return counts;
     counts[paciente.estado ? 'active' : 'inactive'] += 1;
     return counts;
   }, { active: 0, inactive: 0 }), [pacientes]);
@@ -107,7 +120,8 @@ function Pacientes() {
         lugar_nacimiento: form.lugar_nacimiento?.trim().toLocaleUpperCase('es-BO') || null,
         ocupacion: form.ocupacion?.trim().toLocaleUpperCase('es-BO') || null,
         domicilio: form.domicilio?.trim().toLocaleUpperCase('es-BO') || null,
-        referencia: form.referencia?.trim().toLocaleUpperCase('es-BO') || null
+        referencia: form.referencia?.trim().toLocaleUpperCase('es-BO') || null,
+        ...(pendingRegistration ? { whatsapp_derivacion_id: pendingRegistration.id } : {})
       };
       editing ? await updatePaciente(editing, payload) : await createPaciente(payload);
       closeFormModal();
@@ -138,6 +152,14 @@ function Pacientes() {
     setShowFormModal(false);
     setEditing(null);
     setForm(initialForm);
+    setPendingRegistration(null);
+  };
+
+  const registerPending = (item) => {
+    const parts = String(item.nombre || '').trim().split(/\s+/);
+    setPendingRegistration(item);
+    setForm({ ...initialForm, nombres: parts.shift() || '', apellidos: parts.join(' '), telefono: item.telefono || '', referencia: item.motivo ? `SOLICITUD WHATSAPP: ${item.motivo}` : '' });
+    setShowFormModal(true);
   };
 
   const deactivate = async (paciente) => {
@@ -180,7 +202,7 @@ function Pacientes() {
           </div>
           <div className="min-w-28 rounded-xl border border-[rgba(15,118,110,0.14)] bg-white/75 px-4 py-2.5 text-center shadow-sm backdrop-blur">
             <span className="mx-auto grid h-8 w-8 place-items-center rounded-full bg-[#ECFDF5] text-[#0F766E]"><Users size={18} /></span>
-            <strong className="mt-1 block text-xl font-bold leading-none text-[#0F766E]">{pacientes.length}</strong>
+            <strong className="mt-1 block text-xl font-bold leading-none text-[#0F766E]">{patientCounts.active + patientCounts.inactive}</strong>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">Registrados</span>
           </div>
         </div>
@@ -192,6 +214,7 @@ function Pacientes() {
         <div className="mb-4 flex gap-2 border-b border-slate-200" role="tablist" aria-label="Estado de pacientes">
           {[
             { id: 'active', label: 'PACIENTES ACTIVOS', count: patientCounts.active },
+            { id: 'pending', label: 'PACIENTES PENDIENTES', count: pendingPatients.length },
             { id: 'inactive', label: 'PACIENTES INACTIVOS', count: patientCounts.inactive }
           ].map((tab) => {
             const selected = statusFilter === tab.id;
@@ -229,9 +252,10 @@ function Pacientes() {
         </div>
 
         {showFilters && <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-2"><span className="px-2 text-xs font-semibold text-[#64748B]">Estado:</span>{[['active', 'Activos'], ['inactive', 'Inactivos']].map(([value, label]) => <button key={value} type="button" onClick={() => setStatusFilter(value)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${statusFilter === value ? 'bg-[#0F766E] text-white' : 'bg-white text-[#64748B] hover:text-[#334155]'}`}>{label}</button>)}{query && <button type="button" onClick={() => setQuery('')} className="ml-auto px-2 text-xs font-semibold text-[#0F766E]">Limpiar búsqueda</button>}</div>}
-        <p className="mb-4 text-xs font-medium text-[#64748B]">Mostrando {paginatedPatients.length} de {filtered.length} pacientes</p>
+        <p className="mb-4 text-xs font-medium text-[#64748B]">Mostrando {statusFilter === 'pending' ? filteredPending.length : paginatedPatients.length} de {statusFilter === 'pending' ? filteredPending.length : filtered.length} pacientes</p>
 
         <div className="grid gap-3">
+          {statusFilter === 'pending' && filteredPending.map((item) => <article key={`pending-${item.id}`} className="rounded-xl border border-amber-200 bg-amber-50/40 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><strong className="text-base text-slate-900">{item.nombre}</strong><p className="mt-1 text-sm text-slate-600">{item.telefono} · {item.fecha || 'Sin fecha'} · {item.hora_inicio || 'Sin horario'}</p><p className="mt-1 text-sm text-slate-600">{item.motivo || 'Sin motivo'}</p><span className="mt-2 inline-block rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-700">{item.estado === 'EN_ATENCION' ? 'EN ATENCIÓN' : 'PENDIENTE'}</span></div><div className="flex gap-2"><Button variant="secondary" onClick={() => navigate('/whatsapp/recepcion', { state: { derivacionId: item.id } })}><Eye size={16}/>Ver solicitud</Button><Button onClick={() => registerPending(item)}><Plus size={16}/>Registrar paciente</Button></div></div></article>)}
           {paginatedPatients.map((paciente) => (
             <article key={paciente.id} className="rounded-xl border border-[#DCE5EC] bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-px hover:border-[#99F6E4] hover:shadow-[0_4px_14px_rgba(15,23,42,0.06)]">
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -262,7 +286,8 @@ function Pacientes() {
               </div>
             </article>
           ))}
-          {!filtered.length && (
+          {statusFilter === 'pending' && !filteredPending.length && <p className="empty-state">No hay pacientes pendientes de registro.</p>}
+          {statusFilter !== 'pending' && !filtered.length && (
             <p className="empty-state">
               {query.trim()
                 ? 'No se encontraron pacientes con esa búsqueda.'
@@ -272,10 +297,10 @@ function Pacientes() {
             </p>
           )}
         </div>
-        <Pagination total={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+        {statusFilter !== 'pending' && <Pagination total={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />}
       </div>
 
-      <Modal open={showFormModal} title={editing ? 'EDITAR PACIENTE' : 'NUEVO PACIENTE'} subtitle="Complete los datos generales del paciente." onClose={closeFormModal} size="lg">
+      <Modal open={showFormModal} title={editing ? 'EDITAR PACIENTE' : pendingRegistration ? 'REGISTRAR PACIENTE PENDIENTE' : 'NUEVO PACIENTE'} subtitle={pendingRegistration ? 'Complete los datos restantes. Al guardar se vinculará su cita de WhatsApp.' : 'Complete los datos generales del paciente.'} onClose={closeFormModal} size="lg">
         <PacienteForm form={form} setForm={setForm} onSubmit={submit} onCancel={closeFormModal} submitting={submitting} ciError={ciError} />
       </Modal>
 

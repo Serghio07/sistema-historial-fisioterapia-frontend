@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, FilePenLine, Plus, TableProperties, Trash2, UserRound, XCircle } from 'lucide-react';
+import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, FilePenLine, Plus, TableProperties, UserRound, XCircle } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
-import Table from '../../components/common/Table';
 import { PatientIdentity } from '../../components/common/ProfilePhoto';
 import { useAuth } from '../../context/AuthContext';
 import { createCita, deleteCita, getCitas, updateCita, updateCitaEstado } from '../../services/citaService';
@@ -16,8 +15,10 @@ import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import { matchesSearch } from '../../utils/search';
 import { BOLIVIA_TIME_ZONE, boliviaDate } from '../../utils/boliviaDateTime';
+import ListadoCitasAgrupado from './components/ListadoCitasAgrupado';
+import { agruparCitasPorPacienteEHistoria } from './utils/agruparCitas';
 
-const ESTADOS = ['Pendiente', 'Confirmada', 'Atendida', 'Cancelada', 'Reprogramada', 'No asistio'];
+const ESTADOS = ['Pendiente', 'Programada', 'Confirmada', 'Atendida', 'Cancelada', 'Reprogramada', 'No asistio', 'Falto'];
 const TIPOS = ['Primera consulta', 'Sesion de fisioterapia', 'Evaluacion', 'Control', 'Rehabilitacion', 'Otro'];
 const VISTAS = ['dia', 'semana', 'mes'];
 
@@ -95,34 +96,39 @@ const estadoVisible = (cita) =>
 
 const getPacienteStyle = (pacienteId) => pacienteStyles[Math.abs(Number(pacienteId || 0)) % pacienteStyles.length];
 
-function CitaForm({ form, setForm, pacientes, profesionales, onSubmit, onCancel, editing, error }) {
+function CitaForm({ form, setForm, pacientes, onSubmit, onCancel, editing, error, errors, registeredBy }) {
   const pacienteOptions = [
     { value: '', label: 'Seleccionar paciente' },
     ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))
   ];
-  const profesionalOptions = [{ value: '', label: 'Profesional que registra' }, ...profesionales.map((item) => ({ value: item.usuario_id, label: item.nombre_mostrado || [item.nombres, item.apellido_paterno].filter(Boolean).join(' ') }))];
+  const change = (field) => (event) => setForm({ ...form, [field]: event.target.value });
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4">
+    <form onSubmit={onSubmit} className="grid gap-5">
       {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
-      <div className="form-grid">
-        <Input label="Paciente" options={pacienteOptions} value={form.paciente_id || ''} onChange={(event) => setForm({ ...form, paciente_id: event.target.value })} />
-        <Input label="Profesional" options={profesionalOptions} value={form.profesional_id || ''} onChange={(event) => setForm({ ...form, profesional_id: event.target.value })} />
-        <Input label="Fecha" type="date" value={form.fecha || ''} onChange={(event) => setForm({ ...form, fecha: event.target.value })} />
-        <Input label="Hora inicio" type="time" value={form.hora_inicio || ''} onChange={(event) => setForm({ ...form, hora_inicio: event.target.value })} />
-        <Input label="Hora fin" type="time" value={form.hora_fin || ''} onChange={(event) => setForm({ ...form, hora_fin: event.target.value })} />
-        <Input label="Tipo de atencion" options={TIPOS.map((tipo) => ({ value: tipo, label: tipo }))} value={form.tipo_atencion || ''} onChange={(event) => setForm({ ...form, tipo_atencion: event.target.value })} />
-        <Input label="Estado" options={ESTADOS.map((estado) => ({ value: estado, label: estado }))} value={form.estado || ''} onChange={(event) => setForm({ ...form, estado: event.target.value })} />
-        <Input label="Motivo" value={form.motivo || ''} onChange={(event) => setForm({ ...form, motivo: event.target.value })} />
-        <Input label="Observacion" multiline value={form.observacion || ''} onChange={(event) => setForm({ ...form, observacion: event.target.value })} />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit">
+      <section className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+        <div><h3 className="text-sm font-black text-slate-800">Información de la cita</h3><p className="mt-0.5 text-xs text-slate-500">Selecciona el paciente y el tipo de atención.</p></div>
+        <Input id="cita-paciente" label="Paciente" options={pacienteOptions} value={form.paciente_id || ''} error={errors.paciente_id} onChange={change('paciente_id')} />
+        <Input id="cita-tipo" label="Tipo de atención" options={[{ value: '', label: 'Seleccionar tipo de atención' }, ...TIPOS.map((tipo) => ({ value: tipo, label: tipo }))]} value={form.tipo_atencion || ''} error={errors.tipo_atencion} onChange={change('tipo_atencion')} className="[&_select]:min-h-11 [&_select]:rounded-xl [&_select]:border-brand-200 [&_select]:font-semibold" />
+        {registeredBy && <p className="rounded-lg border border-brand-100 bg-white px-3 py-2 text-xs text-slate-500"><span className="font-bold text-brand-700">Registrado por:</span> {registeredBy}</p>}
+      </section>
+      <section className="grid gap-3 rounded-xl border border-slate-200 p-4">
+        <div><h3 className="text-sm font-black text-slate-800">Fecha y horario</h3><p className="mt-0.5 text-xs text-slate-500">Define cuándo se realizará la atención.</p></div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <Input id="cita-fecha" label="Fecha" type="date" value={form.fecha || ''} error={errors.fecha} onChange={change('fecha')} />
+          <Input id="cita-inicio" label="Hora de inicio" type="time" value={form.hora_inicio || ''} error={errors.hora_inicio} onChange={change('hora_inicio')} />
+          <Input id="cita-fin" label="Hora de fin" type="time" value={form.hora_fin || ''} error={errors.hora_fin} onChange={change('hora_fin')} />
+        </div>
+      </section>
+      <section className="grid gap-3 rounded-xl border border-slate-200 p-4">
+        <div><h3 className="text-sm font-black text-slate-800">Observación</h3><p className="mt-0.5 text-xs text-slate-500">Información adicional para la atención.</p></div>
+        <Input id="cita-observacion" label="Observación" multiline rows={3} placeholder="Añade información adicional sobre la cita..." value={form.observacion || ''} onChange={change('observacion')} className="[&_textarea]:min-h-24" />
+      </section>
+      <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
+        <Button variant="secondary" onClick={onCancel} className="sm:min-w-28">Cancelar</Button>
+        <Button type="submit" className="sm:min-w-36">
           <CalendarClock size={17} />
           {editing ? 'Guardar cambios' : 'Guardar cita'}
-        </Button>
-        <Button variant="ghost" onClick={onCancel}>
-          Cancelar
         </Button>
       </div>
     </form>
@@ -144,7 +150,7 @@ function EventCard({ cita, compact = false, onClick }) {
 }
 
 function Citas() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -160,9 +166,11 @@ function Citas() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [expandedPatients, setExpandedPatients] = useState({});
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [formErrors, setFormErrors] = useState({});
 
   const load = async () => {
     setLoading(true);
@@ -237,24 +245,40 @@ function Citas() {
     }, {});
   }, [filteredCitas]);
 
+  const groupedPatients = useMemo(() => agruparCitasPorPacienteEHistoria(filteredCitas), [filteredCitas]);
+
   const validate = () => {
-    if (!form.paciente_id) return 'Selecciona un paciente.';
-    if (!form.fecha) return 'La fecha es obligatoria.';
-    if (!form.hora_inicio) return 'La hora de inicio es obligatoria.';
-    if (form.hora_fin && form.hora_fin <= form.hora_inicio) return 'La hora de fin debe ser mayor que la hora de inicio.';
-    return '';
+    const errors = {};
+    if (!form.paciente_id) errors.paciente_id = 'Selecciona un paciente.';
+    if (!form.tipo_atencion) errors.tipo_atencion = 'Selecciona un tipo de atención.';
+    if (!form.fecha) errors.fecha = 'La fecha es obligatoria.';
+    if (!form.hora_inicio) errors.hora_inicio = 'La hora de inicio es obligatoria.';
+    if (!form.hora_fin) errors.hora_fin = 'La hora de fin es obligatoria.';
+    else if (form.hora_inicio && form.hora_fin <= form.hora_inicio) errors.hora_fin = 'La hora de fin debe ser posterior a la hora de inicio.';
+    return errors;
   };
 
   const resetForm = () => {
     setForm({ ...emptyForm, paciente_id: pacienteInicial });
     setEditing(null);
     setError('');
+    setFormErrors({});
   };
 
   const openNuevaCita = () => {
     resetForm();
     setShowFormModal(true);
   };
+
+  const openNuevaCitaPaciente = (patientId) => {
+    resetForm();
+    setForm({ ...emptyForm, paciente_id: String(patientId) });
+    setShowFormModal(true);
+  };
+
+  const clearFilters = () => setFilters({ paciente: '', fecha: '', estado: '', tipo_atencion: '', profesional_id: '' });
+
+  const togglePatient = (key) => setExpandedPatients((current) => (current[key] ? {} : { [key]: true }));
 
   const closeFormModal = () => {
     setShowFormModal(false);
@@ -264,12 +288,18 @@ function Citas() {
   const submit = async (event) => {
     event.preventDefault();
     setMessage('');
-    const validationError = validate();
-    setError(validationError);
-    if (validationError) return;
+    const validationErrors = validate();
+    setFormErrors(validationErrors);
+    setError('');
+    if (Object.keys(validationErrors).length) return;
 
     try {
       const payload = cleanPayload(form);
+      if (!editing) {
+        delete payload.estado;
+        delete payload.profesional_id;
+        delete payload.usuario_id;
+      }
       editing ? await updateCita(editing, payload) : await createCita(payload);
       resetForm();
       setShowFormModal(false);
@@ -481,30 +511,24 @@ function Citas() {
           <Input label="Tipo de atencion" options={[{ value: '', label: 'Todos' }, ...TIPOS.map((tipo) => ({ value: tipo, label: tipo }))]} value={filters.tipo_atencion} onChange={(event) => setFilters({ ...filters, tipo_atencion: event.target.value })} />
           <Input label="Profesional" options={[{ value: '', label: 'Todos' }, ...profesionales.map((item) => ({ value: item.usuario_id, label: item.nombre_mostrado || [item.nombres, item.apellido_paterno].filter(Boolean).join(' ') }))]} value={filters.profesional_id} onChange={(event) => setFilters({ ...filters, profesional_id: event.target.value })} />
         </div>
-        <Table
-          columns={['Paciente', 'Fecha', 'Hora', 'Profesional', 'Motivo', 'Tipo de atención', 'Estado', 'Acciones']}
-          rows={filteredCitas.map((cita) => [
-            <PatientIdentity paciente={cita.paciente} secondary={`CI: ${cita.paciente?.ci || 'Sin dato'}`} />,
-            formatDate(cita.fecha),
-            `${cita.hora_inicio?.slice(0, 5) || ''} - ${cita.hora_fin?.slice(0, 5) || ''}`,
-            cita.profesional?.nombre || cita.registrado_por?.nombre || 'Sin asignar',
-            cita.motivo || 'Sin motivo',
-            cita.tipo_atencion || 'Sin tipo',
-            <Badge estado={estadoVisible(cita)} />,
-            <div className="flex gap-2">
-              <ActionButton label="Ver detalle" icon={Eye} tone="view" onClick={() => setSelected(cita)} />
-              <ActionButton label="Editar cita" icon={FilePenLine} tone="edit" onClick={() => editCita(cita)} />
-              <ActionButton label="Cancelar cita" icon={XCircle} tone="delete" onClick={() => updateCitaEstado(cita.id, 'Cancelada').then(load)} disabled={cita.estado === 'Cancelada'} />
-              {isAdmin && <ActionButton label="Eliminar cita" icon={Trash2} tone="delete" onClick={() => deleteCita(cita.id).then(load)} />}
-            </div>
-          ])}
-          empty="No hay citas registradas."
+        <ListadoCitasAgrupado
+          groups={groupedPatients}
+          expanded={expandedPatients}
+          onToggle={togglePatient}
+          isAdmin={isAdmin}
+          onView={(cita) => setSelected(cita)}
+          onEdit={editCita}
+          onCancel={(cita) => updateCitaEstado(cita.id, 'Cancelada').then(load)}
+          onDelete={(cita) => deleteCita(cita.id).then(load)}
+          onPatient={(patientId) => navigate(`/pacientes/${patientId}`)}
+          onNewAppointment={openNuevaCitaPaciente}
+          onClearFilters={clearFilters}
         />
       </div>
       )}
 
-      <Modal open={showFormModal} title={editing ? 'Editar cita' : 'Nueva cita'} onClose={closeFormModal} size="lg">
-        <CitaForm form={form} setForm={setForm} pacientes={pacientes} profesionales={profesionales} onSubmit={submit} onCancel={closeFormModal} editing={editing} error={error} />
+      <Modal open={showFormModal} title={<span className="inline-flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-50 text-brand-700"><CalendarClock size={19} /></span>{editing ? 'Editar cita' : 'Nueva cita'}</span>} subtitle={editing ? 'Actualiza la información de la atención' : 'Programa una atención para el paciente'} onClose={closeFormModal} size="compact">
+        <CitaForm form={form} setForm={setForm} pacientes={pacientes} onSubmit={submit} onCancel={closeFormModal} editing={editing} error={error} errors={formErrors} registeredBy={user?.nombre || user?.usuario} />
       </Modal>
 
       <Modal

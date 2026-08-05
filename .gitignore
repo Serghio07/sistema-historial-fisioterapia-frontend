@@ -3,7 +3,9 @@ dist/
 .env
 .env.*
 !.env.whatsapp-simulator.example
+!.env.example
 npm-debug.log*
 *.log
+coverage/
 .vite/
 /artifacts/
