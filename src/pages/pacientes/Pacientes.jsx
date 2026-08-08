@@ -59,7 +59,7 @@ function Pacientes() {
     setLoading(true);
     try {
       const [patientRows, pending] = await Promise.all([
-        getPacientes(),
+        getPacientes({ includeTemporales: true }),
         getPacientesPendientesWhatsapp()
       ]);
       setPacientes(patientRows);

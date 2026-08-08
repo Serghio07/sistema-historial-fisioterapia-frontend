@@ -176,57 +176,67 @@
     background: white;
   }
 
-  body:has([data-historia-print]) * {
-    visibility: hidden;
+  body:has(> [data-historia-print]) > *:not([data-historia-print]) {
+    display: none !important;
   }
 
-  body:has([data-historia-print]) [data-historia-print],
-  body:has([data-historia-print]) [data-historia-print] * {
-    visibility: visible;
-  }
-
-  body:has([data-historia-print]) [data-historia-print] {
-    position: absolute;
-    inset: 0;
+  body > [data-historia-print] {
+    display: block !important;
+    position: static !important;
     width: 100%;
     page: historia-clinica;
     background: white;
   }
 
-  body:has([data-historia-print]) [data-historia-print] > article {
-    width: 216mm;
-    max-width: 216mm;
+  body:has([data-historia-print]) [data-historia-print] > .pdf-page {
+    width: 100%;
+    max-width: none;
     min-height: 0 !important;
+    box-sizing: border-box;
     margin: 0 auto !important;
-    padding: 8mm 10mm !important;
+    padding: 0 !important;
     box-shadow: none !important;
-    font-size: 9px !important;
-    line-height: 1.18 !important;
+    font-size: 8.5px !important;
+    line-height: 1.12 !important;
     break-after: auto;
+    page-break-after: auto;
+    break-before: auto;
+    page-break-before: auto;
   }
 
-  body:has([data-historia-print]) [data-historia-print] > article + article {
+  body:has([data-historia-print]) [data-historia-print] > .pdf-page-sessions {
     break-before: page;
+    page-break-before: always;
   }
 
-  body:has([data-historia-print]) [data-historia-print] section,
   body:has([data-historia-print]) [data-historia-print] tr,
-  body:has([data-historia-print]) [data-historia-print] img {
+  body:has([data-historia-print]) [data-historia-print] img,
+  body:has([data-historia-print]) [data-historia-print] .pdf-keep-together {
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
   body:has([data-historia-print]) [data-historia-print] section {
-    margin-top: 3mm !important;
+    margin-top: 2mm !important;
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
-  body:has([data-historia-print]) [data-historia-print] header {
+  body:has([data-historia-print]) [data-historia-print] [data-report-line] {
+    min-height: 3.7mm !important;
+    line-height: 3.7mm !important;
+  }
+
+  body:has([data-historia-print]) [data-historia-print] header,
+  body:has([data-historia-print]) [data-historia-print] h1,
+  body:has([data-historia-print]) [data-historia-print] h2,
+  body:has([data-historia-print]) [data-historia-print] h3 {
     break-after: avoid;
     page-break-after: avoid;
   }
 
   body:has([data-historia-print]) [data-historia-print] img[alt*="Mapa corporal"] {
-    max-height: 52mm !important;
+    max-height: 43mm !important;
   }
 
   body:has(#planilla-personal-print) * {
@@ -253,8 +263,8 @@
 }
 
 @page historia-clinica {
-  size: 216mm 279mm;
-  margin: 0;
+  size: Letter;
+  margin: 10mm 12mm;
 }
 
 @page carta-landscape {

@@ -65,7 +65,7 @@ export default function PacienteHistoriasAccordion({
   const runMenuAction = (callback) => { callback(); setShowMenu(false); };
 
   return <article className={`border transition-all duration-300 ${expanded ? 'border-teal-200 border-l-4 border-l-teal-500 bg-teal-50/55 shadow-[0_3px_12px_rgba(15,118,110,0.06)]' : 'border-transparent bg-white hover:bg-teal-50/25'}`}>
-    <div role="button" tabIndex={0} aria-expanded={expanded} onClick={activateRow} onKeyDown={activateRow} className={`group grid cursor-pointer items-center gap-4 px-4 py-4 outline-none transition-colors duration-300 md:grid-cols-[minmax(240px,1.55fr)_minmax(175px,.9fr)_minmax(140px,.7fr)_minmax(165px,.8fr)_32px] md:px-5 ${expanded ? 'bg-teal-50/70' : 'bg-white hover:bg-teal-50/30'}`}>
+    <div role="button" tabIndex={0} aria-expanded={expanded} onClick={activateRow} onKeyDown={activateRow} className={`group grid min-w-0 cursor-pointer items-center gap-4 px-4 py-4 outline-none transition-colors duration-300 xl:grid-cols-[minmax(220px,1.55fr)_minmax(150px,.9fr)_minmax(110px,.7fr)_minmax(135px,.8fr)_32px] xl:px-5 ${expanded ? 'bg-teal-50/70' : 'bg-white hover:bg-teal-50/30'}`}>
       <span className="flex min-w-0 items-center gap-3">
         <Avatar src={paciente?.foto} name={nombrePaciente(paciente)} size="sm" className="rounded-full" />
         <span className="min-w-0"><strong className={`block truncate text-sm font-black uppercase transition-colors duration-300 ${expanded ? 'text-teal-900' : 'text-slate-900'}`}>{nombrePaciente(paciente)}</strong><small className="mt-1 block text-xs text-slate-500">CI: {paciente?.ci || 'Sin dato'}</small></span>

@@ -149,6 +149,10 @@ function EventCard({ cita, compact = false, onClick }) {
   );
 }
 
+const citasVisiblesEnAgenda = (items = []) => items.filter((cita) => !(
+  cita.paciente?.registro_pendiente === true && cita.paciente?.estado === false
+));
+
 function Citas() {
   const { isAdmin, user } = useAuth();
   const location = useLocation();
@@ -178,7 +182,7 @@ function Citas() {
     try {
       const [pacientesData, citasData, personalData] = await Promise.all([getPacientes(), getCitas(), getPersonal()]);
       setPacientes(pacientesData);
-      setCitas(citasData);
+      setCitas(citasVisiblesEnAgenda(citasData));
       setProfesionales(personalData.filter((item) => item.estado === 'activo' && item.usuario_id));
     } catch (err) {
       setError(`${err.message}. Si el modulo es nuevo, ejecuta backend/docs/citas-agenda-migration.sql.`);
@@ -195,9 +199,10 @@ function Citas() {
     const actualizarEstados = async () => {
       try {
         const citasData = await getCitas();
-        setCitas(citasData);
+        const visibles = citasVisiblesEnAgenda(citasData);
+        setCitas(visibles);
         setSelected((actual) => actual
-          ? citasData.find((item) => Number(item.id) === Number(actual.id)) || null
+          ? visibles.find((item) => Number(item.id) === Number(actual.id)) || null
           : null);
       } catch {
         // La carga principal ya muestra los errores; el refresco automatico es silencioso.

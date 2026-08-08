@@ -13,7 +13,7 @@ const initial = { estado:'', tipo:'', prioridad:'', page:1, limit:10 };
 export default function Notificaciones() {
   const navigate = useNavigate(); const [filters,setFilters]=useState(initial); const [result,setResult]=useState({data:[],pagination:{}}); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
   const load=useCallback(async()=>{setLoading(true);setError('');try{setResult(await getNotificaciones(filters));}catch(e){setError(e.response?.data?.message||'No se pudieron cargar las notificaciones.');}finally{setLoading(false);}},[filters]);
-  useEffect(()=>{void load();},[load]);
+  useEffect(()=>{void load();const refresh=()=>void load();const interval=window.setInterval(refresh,30000);window.addEventListener('notifications:updated',refresh);window.addEventListener('focus',refresh);const visible=()=>{if(document.visibilityState==='visible')refresh();};document.addEventListener('visibilitychange',visible);return()=>{window.clearInterval(interval);window.removeEventListener('notifications:updated',refresh);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',visible);};},[load]);
   const notify=()=>window.dispatchEvent(new Event('notifications:updated'));
   const read=async(item)=>{try{if(item.estado==='NO_LEIDA')await marcarNotificacionLeida(item.id);notify();await load();}catch(e){setError(e.response?.data?.message||'No se pudo marcar la notificación.');}};
   const open=async(item)=>{await read(item);if(item.derivacion_id)navigate('/whatsapp/recepcion',{state:{derivacionId:item.derivacion_id}});};

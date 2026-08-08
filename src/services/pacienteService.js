@@ -1,8 +1,8 @@
 import api from './api';
 
-export const getPacientes = async () => {
+export const getPacientes = async ({ includeTemporales = false } = {}) => {
   const { data } = await api.get('/pacientes');
-  return data;
+  return includeTemporales ? data : data.filter((paciente) => paciente.estado === true && paciente.registro_pendiente !== true);
 };
 
 export const getPaciente = async (id) => {

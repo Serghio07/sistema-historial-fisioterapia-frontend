@@ -17,6 +17,12 @@ function EvaluacionFinalSection({ data, onChange }) {
         <Input label="Diagnostico kinesico CIF" value={data.diagnostico_kinesico_cif} onChange={(e) => upper('diagnostico_kinesico_cif', e.target.value)} multiline />
         <Input label="Plan tratamiento *" value={data.plan_tratamiento} onChange={(e) => upper('plan_tratamiento', e.target.value)} multiline placeholder="DESCRIBA EL PLAN DE TRATAMIENTO INDICADO" />
         <Input
+          label="Periodicidad"
+          value={data.periodicidad || ''}
+          onChange={(e) => upper('periodicidad', e.target.value)}
+          placeholder="EJ.: 3 VECES POR SEMANA"
+        />
+        <Input
           label="Sesiones indicadas *"
           type="number"
           min="1"

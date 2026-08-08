@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Ban, ClipboardPlus, Eye, FilePenLine, FileText, Filter, HeartPulse, Info, List, MoreVertical, Printer, RotateCcw, Search, Star, Stethoscope, UserRound, Users } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
@@ -165,7 +166,7 @@ function HistoriaReporte({ historia }) {
   );
 
   const Line = ({ children, className = '' }) => (
-    <p className={`min-h-6 border-b border-dotted border-slate-500 leading-6 ${className}`}>{children}</p>
+    <p data-report-line className={`min-h-6 border-b border-dotted border-slate-500 leading-6 ${className}`}>{children}</p>
   );
 
   const Area = ({ children, rows = 3 }) => (
@@ -192,7 +193,7 @@ function HistoriaReporte({ historia }) {
 
   return (
     <>
-    <article className="mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
+    <div className="pdf-page pdf-page-1 mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
       <header className="grid grid-cols-[90px_minmax(0,1fr)_90px] items-center gap-3 border-b border-slate-700 pb-3">
         <img src={logo} alt="Physio Active" className="h-16 w-24 object-contain" />
         <div className="min-w-0 text-center">
@@ -287,14 +288,19 @@ function HistoriaReporte({ historia }) {
         <Line><strong>Observacion:</strong> {examen.observacion}</Line>
         <Line><strong>Inspeccion:</strong> {examen.inspeccion}</Line>
         <Line><strong>Palpacion:</strong> {examen.palpacion}</Line>
-        <p className="mt-3 font-black">Pruebas especificas:</p>
-        <Area rows={4}>{examen.pruebas_especificas}</Area>
       </section>
 
+    </div>
+
+    <div className="pdf-page pdf-page-2 mx-auto mt-6 min-h-[279mm] w-full max-w-[216mm] bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
+      <section className="mb-4">
+        <p className="font-black">Pruebas especificas:</p>
+        <Area rows={4}>{examen.pruebas_especificas}</Area>
+      </section>
       <section className="mt-4">
         <h2 className="font-black uppercase">4. Condicion actual</h2>
         <p className="mt-2 font-bold uppercase">Mapa corporal:</p>
-        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_160px] items-start gap-5">
+        <div className="pdf-keep-together mt-2 grid grid-cols-[minmax(0,1fr)_160px] items-start gap-5">
           <div className="overflow-hidden border border-slate-500 bg-white p-1">
             <img
               src={mapaCorporalAnatomico}
@@ -319,7 +325,7 @@ function HistoriaReporte({ historia }) {
 
       <section className="mt-4">
         <h2 className="font-black uppercase">5. Intervencion clinica</h2>
-        <div className="mt-2 grid grid-cols-[190px_1fr] gap-5">
+        <div className="pdf-keep-together mt-2 grid grid-cols-[190px_1fr] gap-5">
           <div>
             <p className="text-center text-[10px] font-black">Escala de Dolor</p>
             <div className="h-4 rounded-sm border border-slate-500 bg-gradient-to-r from-sky-300 via-yellow-200 to-red-400" />
@@ -338,19 +344,28 @@ function HistoriaReporte({ historia }) {
       <section className="mt-4">
         <h2 className="font-black uppercase">6. Tono</h2>
         <Area rows={2}>{intervencion.tono}</Area>
+      </section>
+
+      <section className="mt-3">
         <h2 className="mt-3 font-black uppercase">7. Evaluacion de balance articular "Goniometria" y balance muscular</h2>
         <Area rows={5}>{`${intervencion.goniometria_balance_articular || ''} ${intervencion.balance_muscular || ''}`.trim()}</Area>
+      </section>
+
+      <section className="mt-3">
         <h2 className="mt-3 font-black uppercase">8. Trofismo <span className="ml-4 border border-slate-500 px-8 py-1 font-normal normal-case">{intervencion.trofismo || 'Conservado'}</span></h2>
         <Line><strong>Detalle:</strong> {intervencion.detalle_trofismo}</Line>
         <p className="mt-2 font-black uppercase">Observaciones:</p>
         <Area rows={3}>{intervencion.observaciones}</Area>
       </section>
 
-      <section className="mt-4">
+    </div>
+
+    <div className="pdf-page pdf-page-3 mx-auto mt-6 min-h-[279mm] w-full max-w-[216mm] bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
+      <section>
         <h2 className="font-black uppercase">9. Evaluacion de postura</h2>
         <Area rows={5}>{evaluacion.evaluacion_postura}</Area>
         <h2 className="mt-3 font-black uppercase">10. Evaluacion de la marcha</h2>
-        <div className="grid grid-cols-[190px_1fr] gap-5">
+        <div className="pdf-keep-together grid grid-cols-[190px_1fr] gap-5">
           <MarchaFigure />
           <Area rows={4}>{evaluacion.evaluacion_marcha}</Area>
         </div>
@@ -358,16 +373,19 @@ function HistoriaReporte({ historia }) {
         <Area rows={5}>{evaluacion.diagnostico_kinesico_cif}</Area>
         <h2 className="mt-3 font-black uppercase">12. Plan de tratamiento</h2>
         <Area rows={6}>{evaluacion.plan_tratamiento}</Area>
-        <Line className="mt-4"><strong>Sesiones indicadas:</strong> {evaluacion.sesiones_contratadas || ''}</Line>
-        <div className="mt-12 text-center">
+        <div className="mt-4 grid grid-cols-2 gap-x-5">
+          <Line><strong>Periodicidad:</strong> {evaluacion.periodicidad || ''}</Line>
+          <Line><strong>Sesiones indicadas:</strong> {evaluacion.sesiones_contratadas || ''}</Line>
+        </div>
+        <div className="pdf-keep-together mt-12 text-center">
           <strong className="mx-auto mb-1 block max-w-64 text-sm">
             {historia.usuario?.ficha_personal?.nombre_mostrado || historia.profesional_cargo || evaluacion.profesional_cargo || historia.usuario?.nombre || 'Profesional no registrado'}
           </strong>
           <span className="inline-block min-w-48 border-t border-slate-700 px-10 pt-2">Profesional a Cargo</span>
         </div>
       </section>
-    </article>
-    <article className="mx-auto mt-6 min-h-[279mm] w-full max-w-[216mm] break-before-page bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:mt-0 print:break-before-page print:shadow-none">
+    </div>
+    <div className="pdf-page pdf-page-sessions mx-auto mt-6 min-h-[279mm] w-full max-w-[216mm] bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
       <header className="grid grid-cols-[90px_minmax(0,1fr)_90px] items-center gap-3 border-b border-slate-700 pb-3">
         <img src={logo} alt="Physio Active" className="h-16 w-24 object-contain" />
         <div className="text-center">
@@ -405,7 +423,7 @@ function HistoriaReporte({ historia }) {
           })}
         </tbody>
       </table>
-    </article>
+    </div>
     </>
   );
 }
@@ -833,8 +851,8 @@ function HistoriasClinicas() {
       {loading && <Loader />}
 
       <div className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm">
-        <div className="module-hero">
-          <div>
+        <div className="module-hero !grid-cols-1 xl:!grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0">
             <p className="text-sm font-bold text-brand-50">Gestión clínica</p>
             <h1 className="mt-1 text-2xl font-black md:text-3xl">Historias clínicas</h1>
             <p className="mt-2 text-sm text-brand-50">Pacientes agrupados con sus evaluaciones y seguimiento clínico.</p>
@@ -848,7 +866,7 @@ function HistoriasClinicas() {
 
       <div className="panel rounded-2xl p-5 md:p-6">
         <div className="mb-4 grid gap-3">
-          <div className="grid gap-3 lg:grid-cols-[minmax(300px,1fr)_auto_auto]">
+          <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(300px,1fr)_auto_auto]">
             <div className="relative"><Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               className="w-full rounded-lg border-slate-200 bg-white py-2.5 pl-11 pr-3 text-sm shadow-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
@@ -915,7 +933,7 @@ function HistoriasClinicas() {
 
         </div>
 
-        {viewMode === 'grouped' && <div className="hidden grid-cols-[minmax(240px,1.55fr)_minmax(175px,.9fr)_minmax(140px,.7fr)_minmax(165px,.8fr)_32px] gap-4 rounded-t-xl border border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-black uppercase tracking-wide text-slate-500 md:grid"><span>Paciente</span><span>Última historia</span><span>Historias</span><span>Sesiones</span><span aria-hidden="true" /></div>}
+        {viewMode === 'grouped' && <div className="hidden grid-cols-[minmax(220px,1.55fr)_minmax(150px,.9fr)_minmax(110px,.7fr)_minmax(135px,.8fr)_32px] gap-3 rounded-t-xl border border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-black uppercase tracking-wide text-slate-500 xl:grid"><span>Paciente</span><span>Última historia</span><span>Historias</span><span>Sesiones</span><span aria-hidden="true" /></div>}
         <div className={`grid overflow-visible ${viewMode === 'grouped' ? 'divide-y divide-slate-200 rounded-b-xl border border-t-0 border-slate-200' : 'gap-3'}`}>
           {viewMode === 'grouped'
             ? paginatedItems.map((group) => {
@@ -1067,12 +1085,18 @@ function HistoriasClinicas() {
             <Button onClick={() => window.print()}><Printer size={17} />Imprimir / Guardar PDF</Button>
           </div>
           <div className="max-h-[68vh] overflow-auto bg-slate-100 p-4">
-            <div data-historia-print={previewHistoria?.id}>
+            <div>
               <HistoriaReporte historia={previewHistoria} />
             </div>
           </div>
         </div>
       </Modal>
+      {previewHistoria && createPortal(
+        <div data-historia-print={previewHistoria.id} className="hidden">
+          <HistoriaReporte historia={previewHistoria} />
+        </div>,
+        document.body
+      )}
     </section>
   );
 }
