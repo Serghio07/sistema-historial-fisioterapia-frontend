@@ -56,6 +56,8 @@ const initialForm = {
   observacion_farmacos: '',
   observacion_pago: '',
   motivo_sin_costo: '',
+  procedimiento: '',
+  procedimiento_otro: '',
   medios_fisicos: '',
   tecnicas_manuales: '',
   descripcion_tratamiento: '',
@@ -386,6 +388,8 @@ function Sesiones() {
     if (Number(form.sesiones_hizo || 0) < 0) return 'Las sesiones realizadas no pueden ser negativas.';
     if (Number(form.monto_sesion || 0) < 0) return 'El monto de la sesion no puede ser negativo.';
     if (Number(form.monto_pagado || 0) < 0) return 'El monto pagado no puede ser negativo.';
+    if (form.asistencia === 'asistio' && !form.procedimiento) return 'Selecciona el procedimiento.';
+    if (form.asistencia === 'asistio' && form.procedimiento === 'Otro' && !String(form.procedimiento_otro || '').trim()) return 'Especifica el procedimiento.';
     if (form.asistencia === 'asistio' && (form.dolor_despues === '' || form.dolor_despues == null)) return 'Registra el dolor final.';
     if (form.asistencia === 'asistio' && !String(form.descripcion_tratamiento || '').trim()) return 'Registra el procedimiento realizado.';
     if (form.estado_pago === 'Parcial' && !(Number(form.monto_pagado) > 0 && Number(form.monto_pagado) < Number(form.monto_sesion))) return 'El pago parcial debe ser mayor a cero y menor al monto de la sesión.';
@@ -473,6 +477,8 @@ function Sesiones() {
       observacion_farmacos: sesion.observacion_farmacos || '',
       observacion_pago: sesion.observacion_pago || '',
       motivo_sin_costo: sesion.motivo_sin_costo || '',
+      procedimiento: sesion.procedimiento || '',
+      procedimiento_otro: sesion.procedimiento_otro || '',
       medios_fisicos: sesion.medios_fisicos || '',
       tecnicas_manuales: sesion.tecnicas_manuales || '',
       descripcion_tratamiento: sesion.descripcion_tratamiento || '',
@@ -1011,6 +1017,7 @@ function Sesiones() {
                 <h3><CalendarDays size={19} />Sesiones</h3>
                 <div className="grid grid-cols-3 gap-2">{[['Contratadas', contratadas], ['Realizadas', realizadas], ['Restantes', restantes]].map(([label, value]) => <div key={label} className={`rounded-xl p-3 text-center ${label === 'Realizadas' ? 'border border-teal-300 bg-teal-50' : 'bg-slate-50'}`}><strong className="block text-2xl text-teal-800">{value}</strong><small className="text-[10px] font-bold uppercase text-slate-500">{label}</small></div>)}</div>
                 <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm"><span className="text-slate-500">Asistencia</span><Badge tone={asistenciaTone[selectedSesion.asistencia] || asistenciaTone.pendiente}>{labelAsistencia(selectedSesion.asistencia)}</Badge></div>
+                <Detail label="Procedimiento" value={selectedSesion.procedimiento === 'Otro' ? selectedSesion.procedimiento_otro || 'Otro' : selectedSesion.procedimiento} />
               </section>
               {isAdmin && <section className="session-detail-card">
                 <h3><CreditCard size={19} />Detalle de pago</h3>

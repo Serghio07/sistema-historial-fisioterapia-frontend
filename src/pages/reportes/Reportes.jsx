@@ -80,12 +80,12 @@ const historiaToInformeFields = (historia) => {
 };
 
 function ReportSection({ icon: Icon, title, open, onToggle, children }) {
-  return <section className="overflow-hidden rounded-xl border border-brand-100 bg-brand-50/20">
+  return <section className="shrink-0 overflow-hidden rounded-xl border border-brand-100 bg-brand-50/20">
     <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-3 bg-white px-4 py-3 text-left text-sm font-black text-brand-800">
       <span className="flex items-center gap-2"><Icon size={17} />{title}</span>
       <ChevronDown size={17} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
     </button>
-    <div className={`grid transition-[grid-template-rows] duration-200 ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}><div className="overflow-hidden"><div className="grid gap-4 border-t border-brand-100 p-4">{children}</div></div></div>
+    {open ? <div className="grid gap-4 border-t border-brand-100 p-4">{children}</div> : null}
   </section>;
 }
 
@@ -614,7 +614,7 @@ function Reportes() {
           </div>
 
           <div className="grid min-h-0 gap-6 overflow-y-auto overflow-x-hidden pr-1 xl:grid-cols-[minmax(0,52fr)_minmax(420px,48fr)] xl:overflow-hidden">
-            <div className="grid min-w-0 content-start gap-4 xl:overflow-y-auto xl:overflow-x-hidden xl:pr-2">
+            <div className="grid min-w-0 auto-rows-max content-start gap-4 xl:overflow-y-auto xl:overflow-x-hidden xl:pr-2">
               <ReportSection icon={Stethoscope} title="Datos clínicos" open={reportSections.clinical} onToggle={() => setReportSections((current) => ({ ...current, clinical: !current.clinical }))}>
                 <div className="grid gap-4 md:grid-cols-2"><Input compact className="[&_textarea]:min-h-24" label="Diagnóstico" placeholder="Ej.: Tendinopatía de hombro derecho" value={form.diagnostico} onChange={(e) => update('diagnostico', e.target.value)} multiline /><Input compact className="[&_textarea]:min-h-24" label="DX CIE / Descripción clínica" placeholder="Describe el diagnóstico clínico" value={form.dx_cie} onChange={(e) => update('dx_cie', e.target.value)} multiline /><Input compact className="md:col-span-2 [&_textarea]:min-h-24" label="Antecedentes" placeholder="Describe los antecedentes clínicos relevantes" value={form.antecedentes} onChange={(e) => update('antecedentes', e.target.value)} multiline /></div>
               </ReportSection>

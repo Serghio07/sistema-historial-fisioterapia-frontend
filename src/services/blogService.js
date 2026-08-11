@@ -2,7 +2,7 @@ import api from './api';
 
 const configuredApiUrl = String(import.meta.env.VITE_API_URL || '').trim();
 if (import.meta.env.PROD && !configuredApiUrl) throw new Error('VITE_API_URL es obligatoria para compilar producción');
-const developmentApiUrl = import.meta.env.DEV ? 'http://localhost:3000/api' : '';
+const developmentApiUrl = import.meta.env.DEV ? '/api' : '';
 export const API_ORIGIN = (configuredApiUrl || developmentApiUrl).replace(/\/api\/?$/, '');
 export const mediaUrl = (path) => path?.startsWith('http') ? path : `${API_ORIGIN}${path || ''}`;
 

@@ -3,6 +3,14 @@ import { useEffect, useState } from 'react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 
+const PROCEDIMIENTOS = [
+  'Fisioterapia', 'Kinesiología', 'Atención médica', 'Evaluación fisioterapéutica',
+  'Reevaluación', 'Terapia física', 'Rehabilitación', 'Masoterapia', 'Terapia manual',
+  'Ejercicio terapéutico', 'Electroterapia', 'Termoterapia', 'Crioterapia',
+  'Ultrasonoterapia', 'Hidroterapia', 'Curación', 'Aplicación de medicamentos',
+  'Control / seguimiento', 'Valoración médica', 'Procedimiento especial', 'Otro'
+];
+
 function Section({ title, icon: Icon, tone = 'brand', children }) {
   const colors = tone === 'blue'
     ? 'border-blue-100 bg-blue-50/45 text-blue-800'
@@ -354,6 +362,10 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
             return <button key={value} type="button" role="radio" aria-checked={selected} onClick={() => selectAsistencia(value)} className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-black transition ${selected ? 'border-blue-600 bg-blue-600 text-white shadow-sm' : 'border-blue-200 bg-white text-slate-600 hover:border-blue-400 hover:bg-blue-50'}`}>{selected && <Check size={15} />}{label}</button>;
           })}
         </div>
+        {form.asistencia === 'asistio' && <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+          <Input compact label="Procedimiento *" value={form.procedimiento} onChange={(event) => setForm({ ...form, procedimiento: event.target.value, procedimiento_otro: event.target.value === 'Otro' ? form.procedimiento_otro : '' })} options={[{ value: '', label: 'Seleccionar procedimiento' }, ...PROCEDIMIENTOS.map((value) => ({ value, label: value }))]} required />
+          {form.procedimiento === 'Otro' && <Input compact label="Especifique el procedimiento *" value={form.procedimiento_otro} onChange={(event) => update('procedimiento_otro', event.target.value.toLocaleUpperCase('es-BO'))} required />}
+        </div>}
       </Section>
 
       {canViewFinancial && <Section title="Informacion de pago" icon={CreditCard} tone="blue">

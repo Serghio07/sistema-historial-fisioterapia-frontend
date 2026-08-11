@@ -10,6 +10,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { z } from 'zod';
 import Button from '../../components/common/Button';
+import Input from '../../components/common/Input';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
 import Pagination from '../../components/common/Pagination';
@@ -169,7 +170,7 @@ function EvolutivoForm({ historias, user, initial, onClose, onSaved }) {
   const control = 'rounded-lg border-[#CBD5E1] bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm focus:border-brand-500 focus:ring-brand-500/20';
   return <form onSubmit={handleSubmit(save)} className="grid gap-4">
     <div className="grid gap-3 sm:grid-cols-2">
-      <Field label="Paciente" error={errors.paciente}><select className={control} disabled={Boolean(initial)} {...register('paciente')}><option value="">Seleccionar paciente</option>{pacientes.map(([id, p]) => <option key={id} value={id}>{nombrePaciente(p)} · CI {p?.ci || 'Sin dato'}</option>)}</select></Field>
+      <div><input type="hidden" {...register('paciente')} /><Input label="Paciente" disabled={Boolean(initial)} value={pacienteSeleccionado} onChange={(event) => setValue('paciente', String(event.target.value), { shouldValidate: true, shouldDirty: true })} options={[{ value: '', label: 'Seleccionar paciente' }, ...pacientes.map(([id, p]) => ({ value: id, label: `${nombrePaciente(p)} · CI ${p?.ci || 'Sin dato'}` }))]} error={errors.paciente?.message} /></div>
       <Field label="Historia clínica" error={errors.historia}><select className={control} disabled={!pacienteSeleccionado || Boolean(initial)} {...register('historia')}><option value="">Seleccionar historia activa</option>{disponibles.map((h, index) => <option key={h.id} value={h.id}>{historiaNombre(h, index)} · {h.diagnostico_medico || h.motivo_consulta || formatDate(h.fecha_evaluacion)}</option>)}</select></Field>
       <Field label="Fecha" error={errors.fecha}><input type="date" className={control} {...register('fecha')} /></Field>
       <Field label="Número de sesión" error={errors.numero}><input type="number" min="1" className={control} {...register('numero')} /></Field>

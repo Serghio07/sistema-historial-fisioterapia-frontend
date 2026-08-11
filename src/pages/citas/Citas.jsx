@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, FilePenLine, Plus, TableProperties, UserRound, XCircle } from 'lucide-react';
+import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, FilePenLine, Plus, Stethoscope, TableProperties, UserRound, XCircle } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -136,16 +136,39 @@ function CitaForm({ form, setForm, pacientes, onSubmit, onCancel, editing, error
 }
 
 function EventCard({ cita, compact = false, onClick }) {
+  const paciente = nombrePaciente(cita.paciente);
+  const profesional = cita.profesional?.nombre || cita.registrado_por?.nombre || 'Sin profesional asignado';
+  const estado = estadoVisible(cita);
+  const tipo = cita.tipo_atencion || cita.motivo || 'Atención sin especificar';
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`grid w-full gap-1 rounded-lg border p-2 text-left text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-sm ${getPacienteStyle(cita.paciente_id || cita.paciente?.id)}`}
-    >
-      <span className="font-black">{cita.hora_inicio?.slice(0, 5)} {compact ? '' : `- ${cita.hora_fin?.slice(0, 5) || ''}`}</span>
-      <span className="line-clamp-1">{nombrePaciente(cita.paciente)}</span>
-      {!compact && <span className="line-clamp-1">{estadoVisible(cita)} - {cita.tipo_atencion || cita.motivo || 'Sin tipo'}</span>}
-    </button>
+    <div className="group relative min-w-0">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`Ver cita de ${paciente} a las ${cita.hora_inicio?.slice(0, 5)}`}
+        className={`relative grid w-full min-w-0 gap-1 overflow-hidden rounded-xl border px-2.5 py-2 text-left text-xs font-semibold shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${getPacienteStyle(cita.paciente_id || cita.paciente?.id)}`}
+      >
+        <span className="absolute inset-y-0 left-0 w-1 bg-current opacity-50" />
+        <span className="flex items-center justify-between gap-1 pl-1">
+          <span className="inline-flex items-center gap-1 font-black"><Clock3 size={12} />{cita.hora_inicio?.slice(0, 5)}</span>
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" />
+        </span>
+        <span className="truncate pl-1 font-black uppercase tracking-tight">{paciente}</span>
+        {!compact && <span className="truncate pl-1 text-[10px] font-bold opacity-75">{estado} · {tipo}</span>}
+      </button>
+
+      <div role="tooltip" className="pointer-events-none invisible absolute bottom-[calc(100%+8px)] left-1/2 z-50 w-72 max-w-[calc(100vw-2rem)] -translate-x-1/2 translate-y-1 rounded-2xl border border-slate-200 bg-slate-900 p-3.5 text-left text-white opacity-0 shadow-2xl transition duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+        <span className="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-slate-200 bg-slate-900" />
+        <span className="block truncate text-sm font-black">{paciente}</span>
+        <span className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-cyan-200"><Clock3 size={13} />{cita.hora_inicio?.slice(0, 5)} – {cita.hora_fin?.slice(0, 5) || 'Sin hora final'}</span>
+        <span className="mt-3 grid gap-2 border-t border-white/10 pt-3 text-xs text-slate-200">
+          <span className="flex items-start gap-2"><CalendarClock className="mt-0.5 shrink-0 text-cyan-300" size={14} /><span><b className="text-white">Estado:</b> {estado}</span></span>
+          <span className="flex items-start gap-2"><Stethoscope className="mt-0.5 shrink-0 text-cyan-300" size={14} /><span><b className="text-white">Atención:</b> {tipo}</span></span>
+          <span className="flex items-start gap-2"><UserRound className="mt-0.5 shrink-0 text-cyan-300" size={14} /><span><b className="text-white">Profesional:</b> {profesional}</span></span>
+        </span>
+        <span className="mt-3 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Haz clic para ver el detalle completo</span>
+      </div>
+    </div>
   );
 }
 
@@ -430,7 +453,7 @@ function Citas() {
                 const dayCitas = citasPorFecha[iso] || [];
                 const outsideMonth = view === 'mes' && day.getMonth() !== cursor.getMonth();
                 return (
-                  <div key={iso} className={`min-h-36 rounded-lg border border-slate-200 bg-white p-3 ${outsideMonth ? 'opacity-45' : ''}`}>
+                  <div key={iso} className={`min-h-40 rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/70 p-3 shadow-sm transition hover:border-brand-200 hover:shadow-md ${outsideMonth ? 'opacity-45' : ''}`}>
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <strong className="text-sm capitalize text-ink">{day.toLocaleDateString('es-BO', { timeZone: BOLIVIA_TIME_ZONE, weekday: 'short', day: '2-digit' })}</strong>
                       <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-500">{dayCitas.length}</span>

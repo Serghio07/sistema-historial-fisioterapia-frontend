@@ -857,7 +857,7 @@ function HistoriasClinicas() {
             <h1 className="mt-1 text-2xl font-black md:text-3xl">Historias clínicas</h1>
             <p className="mt-2 text-sm text-brand-50">Pacientes agrupados con sus evaluaciones y seguimiento clínico.</p>
           </div>
-          <Button className="self-center border border-white/30 bg-white text-brand-700 hover:bg-brand-50" onClick={() => openNewHistoria()}>
+          <Button className="self-center !border-[#0F766E] !bg-[#0F766E] px-5 !text-white shadow-md hover:!border-[#115E59] hover:!bg-[#115E59] hover:shadow-lg" onClick={() => openNewHistoria()}>
             <ClipboardPlus size={17} />
             Nueva historia clínica
           </Button>

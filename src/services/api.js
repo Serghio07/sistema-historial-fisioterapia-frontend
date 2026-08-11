@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const configuredApiUrl = String(import.meta.env.VITE_API_URL || '').trim();
 if (import.meta.env.PROD && !configuredApiUrl) throw new Error('VITE_API_URL es obligatoria para compilar producción');
-const developmentApiUrl = import.meta.env.DEV ? 'http://localhost:3000/api' : '';
+const developmentApiUrl = import.meta.env.DEV ? '/api' : '';
 const api = axios.create({
   baseURL: configuredApiUrl || developmentApiUrl,
   withCredentials: true,
@@ -61,7 +61,7 @@ api.interceptors.response.use(
     if (!error.config?.hideErrorToast) {
       window.dispatchEvent(new CustomEvent('app:error', { detail: { message } }));
     }
-    return Promise.reject(new Error(message));
+    return Promise.reject(Object.assign(new Error(message), { status: error.response?.status }));
   }
 );
 

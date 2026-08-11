@@ -96,7 +96,7 @@ export const ROLE_ACTION_PERMISSIONS = Object.freeze({
   },
   actividadesPropias: {
     admin: allActions,
-    personal: ['view', 'create', 'edit']
+    personal: ['view', 'create', 'edit', 'annul']
   },
   resumenDiarioClinico: {
     admin: ['view', 'create', 'edit', 'print', 'export', 'administer'],

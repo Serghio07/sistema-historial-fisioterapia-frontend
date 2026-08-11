@@ -33,7 +33,7 @@ function MarchaAssessment({ value, onChange }) {
         <img
           src={cicloMarcha}
           alt="Ciclo de marcha con sus fases de apoyo y balanceo"
-          className="mx-auto h-auto w-full object-contain"
+          className="mx-auto h-auto max-h-56 w-auto max-w-full object-contain"
         />
       </div>
       <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4">

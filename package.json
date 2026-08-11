@@ -9,6 +9,7 @@
     "test:notifications": "node --test tests/notificationUi.test.js",
     "test:monitoring": "node --test tests/whatsappMonitoringUi.test.js",
     "test:attendance": "node --test tests/attendanceSummary.test.js",
+    "test:assistant": "node --test tests/assistant*.test.js",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
