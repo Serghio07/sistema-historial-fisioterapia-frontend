@@ -10,6 +10,22 @@ export const accessRequest = async (payload) => {
   return data;
 };
 
+export const forgotPasswordRequest = async (email) => {
+  const { data } = await api.post('/auth/forgot-password', { email }, {
+    hideErrorToast: true,
+    showSuccessToast: false
+  });
+  return data;
+};
+
+export const resetPasswordRequest = async ({ token, newPassword }) => {
+  const { data } = await api.post('/auth/reset-password', { token, newPassword }, {
+    hideErrorToast: true,
+    showSuccessToast: false
+  });
+  return data;
+};
+
 export const saveSession = ({ usuario }) => {
   localStorage.setItem('physio_user', JSON.stringify(usuario));
 };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, Banknote, Bell, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Inbox, Landmark, ListChecks, LogOut, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
+import { Activity, Banknote, Bell, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Inbox, Landmark, Link2, ListChecks, LogOut, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { canAccessModule, getRoleLabel } from '../../config/permissions';
@@ -86,7 +86,8 @@ const groups = [
     adminOnly: true,
     items: [
       { to: '/usuarios', label: 'Usuarios', icon: UserCog },
-      { to: '/roles-permisos', label: 'Roles y Permisos', icon: ShieldCheck }
+      { to: '/roles-permisos', label: 'Roles y Permisos', icon: ShieldCheck },
+      { to: '/integraciones', label: 'Integraciones', icon: Link2, permission: 'configuracion' }
     ]
   }
 ];

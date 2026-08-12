@@ -1,6 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import Login from '../pages/auth/Login';
+import ForgotPassword from '../pages/auth/ForgotPassword';
+import ResetPassword from '../pages/auth/ResetPassword';
 import Dashboard from '../pages/dashboard/Dashboard';
 import Usuarios from '../pages/usuarios/Usuarios';
 import Pacientes from '../pages/pacientes/Pacientes';
@@ -28,12 +30,15 @@ import BlogCategories from '../pages/blog/BlogCategories';
 import Notificaciones from '../pages/notificaciones/Notificaciones';
 import WhatsappReception from '../pages/whatsappReception/WhatsappReception';
 import WhatsappMonitoring from '../pages/whatsappMonitoring/WhatsappMonitoring';
+import Integraciones from '../pages/integraciones/Integraciones';
 
 function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route element={<PrivateRoute />}>
           <Route element={<Layout />}>
             <Route index element={<Dashboard />} />
@@ -87,6 +92,7 @@ function AppRoutes() {
             <Route path="blog/categorias" element={<BlogCategories />} />
             <Route path="personal/planilla" element={<PlanillaPersonal />} />
             <Route path="whatsapp/monitoring" element={<WhatsappMonitoring />} />
+            <Route path="integraciones" element={<Integraciones />} />
             {['sueldos', 'roles', 'auditoria'].map((path) => (
               <Route key={path} path={path} element={<Navigate to="/" replace />} />
             ))}

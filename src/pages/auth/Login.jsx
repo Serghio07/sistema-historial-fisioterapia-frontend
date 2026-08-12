@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -212,16 +212,12 @@ function Login() {
                         />
                       }
                     />
-                    <button
-                      type="button"
+                    <Link
+                      to="/forgot-password"
                       className="justify-self-end text-sm font-bold text-sky-700 transition hover:text-blue-800 hover:underline"
-                      onClick={() => {
-                        setError('');
-                        setMessage('Para restablecer tu contraseña, comunícate con el doctor administrador.');
-                      }}
                     >
                       ¿Olvidaste tu contraseña?
-                    </button>
+                    </Link>
                     <Button
                       type="submit"
                       disabled={loading}
