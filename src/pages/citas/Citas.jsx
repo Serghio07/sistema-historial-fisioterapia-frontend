@@ -96,7 +96,7 @@ const estadoVisible = (cita) =>
 
 const getPacienteStyle = (pacienteId) => pacienteStyles[Math.abs(Number(pacienteId || 0)) % pacienteStyles.length];
 
-function CitaForm({ form, setForm, pacientes, onSubmit, onCancel, editing, error, errors, registeredBy }) {
+function CitaForm({ form, setForm, pacientes, onSubmit, onCancel, editing, error, errors, registeredBy, saving }) {
   const pacienteOptions = [
     { value: '', label: 'Seleccionar paciente' },
     ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))
@@ -125,10 +125,10 @@ function CitaForm({ form, setForm, pacientes, onSubmit, onCancel, editing, error
         <Input id="cita-observacion" label="Observación" multiline rows={3} placeholder="Añade información adicional sobre la cita..." value={form.observacion || ''} onChange={change('observacion')} className="[&_textarea]:min-h-24" />
       </section>
       <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
-        <Button variant="secondary" onClick={onCancel} className="sm:min-w-28">Cancelar</Button>
-        <Button type="submit" className="sm:min-w-36">
+        <Button variant="secondary" onClick={onCancel} className="sm:min-w-28" disabled={saving}>Cancelar</Button>
+        <Button type="submit" className="sm:min-w-36" disabled={saving}>
           <CalendarClock size={17} />
-          {editing ? 'Guardar cambios' : 'Guardar cita'}
+          {saving ? 'Guardando...' : editing ? 'Guardar cambios' : 'Guardar cita'}
         </Button>
       </div>
     </form>
@@ -195,6 +195,7 @@ function Citas() {
   const [selected, setSelected] = useState(null);
   const [expandedPatients, setExpandedPatients] = useState({});
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [formErrors, setFormErrors] = useState({});
@@ -321,6 +322,7 @@ function Citas() {
     setError('');
     if (Object.keys(validationErrors).length) return;
 
+    setSaving(true);
     try {
       const payload = cleanPayload(form);
       if (!editing) {
@@ -328,12 +330,19 @@ function Citas() {
         delete payload.profesional_id;
         delete payload.usuario_id;
       }
-      editing ? await updateCita(editing, payload) : await createCita(payload);
+      const savedCita = editing ? await updateCita(editing, payload) : await createCita(payload);
+      setCitas((current) => citasVisiblesEnAgenda(
+        editing
+          ? current.map((item) => Number(item.id) === Number(savedCita.id) ? savedCita : item)
+          : [savedCita, ...current]
+      ));
       resetForm();
       setShowFormModal(false);
-      await load();
+      setMessage(editing ? 'Cita actualizada correctamente.' : 'Cita guardada correctamente.');
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -556,7 +565,7 @@ function Citas() {
       )}
 
       <Modal open={showFormModal} title={<span className="inline-flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-50 text-brand-700"><CalendarClock size={19} /></span>{editing ? 'Editar cita' : 'Nueva cita'}</span>} subtitle={editing ? 'Actualiza la información de la atención' : 'Programa una atención para el paciente'} onClose={closeFormModal} size="compact">
-        <CitaForm form={form} setForm={setForm} pacientes={pacientes} onSubmit={submit} onCancel={closeFormModal} editing={editing} error={error} errors={formErrors} registeredBy={user?.nombre || user?.usuario} />
+        <CitaForm form={form} setForm={setForm} pacientes={pacientes} onSubmit={submit} onCancel={closeFormModal} editing={editing} error={error} errors={formErrors} registeredBy={user?.nombre || user?.usuario} saving={saving} />
       </Modal>
 
       <Modal
