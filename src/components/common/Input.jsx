@@ -8,13 +8,19 @@ function SearchableSelect({ options, value, onChange, className, disabled, place
   const [open, setOpen] = useState(false);
   const blurTimer = useRef(null);
 
-  useEffect(() => setQuery(selected?.label || ''), [selected?.label]);
+  useEffect(() => {
+    clearTimeout(blurTimer.current);
+    setQuery(selected?.label || '');
+  }, [selected?.label]);
+
+  useEffect(() => () => clearTimeout(blurTimer.current), []);
 
   const filtered = options.filter((option, index) => {
     if (index === 0 && !option.value) return !query.trim();
     return String(option.label).toLocaleLowerCase('es-BO').includes(query.trim().toLocaleLowerCase('es-BO'));
   });
   const choose = (option) => {
+    clearTimeout(blurTimer.current);
     setQuery(option.value === '' ? '' : option.label);
     setOpen(false);
     onChange?.({ target: { value: option.value, name: props.name } });
@@ -40,7 +46,7 @@ function SearchableSelect({ options, value, onChange, className, disabled, place
       aria-autocomplete="list"
     />
     {open && !disabled && <div role="listbox" className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-xl">
-      {filtered.length ? filtered.map((option) => <button key={option.value} type="button" role="option" aria-selected={String(option.value) === String(value)} onMouseDown={() => clearTimeout(blurTimer.current)} onClick={() => choose(option)} className={`block w-full rounded-md px-3 py-2 text-left text-sm font-medium ${String(option.value) === String(value) ? 'bg-brand-50 text-brand-800' : 'text-slate-700 hover:bg-slate-50'}`}>{option.label}</button>) : <p className="px-3 py-3 text-sm font-medium text-slate-500">No se encontraron resultados.</p>}
+      {filtered.length ? filtered.map((option) => <button key={option.value} type="button" role="option" aria-selected={String(option.value) === String(value)} onPointerDown={(event) => { event.preventDefault(); clearTimeout(blurTimer.current); }} onClick={() => choose(option)} className={`block w-full rounded-md px-3 py-2 text-left text-sm font-medium ${String(option.value) === String(value) ? 'bg-brand-50 text-brand-800' : 'text-slate-700 hover:bg-slate-50'}`}>{option.label}</button>) : <p className="px-3 py-3 text-sm font-medium text-slate-500">No se encontraron resultados.</p>}
     </div>}
   </div>;
 }
