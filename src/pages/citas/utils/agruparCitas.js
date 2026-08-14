@@ -1,6 +1,12 @@
 const CANCELLED_STATES = new Set(['Cancelada', 'Reprogramada']);
 const FINISHED_STATES = new Set(['Atendida', 'No asistio', 'Falto']);
 
+export const estadoCitaVisible = (appointment) => {
+  if (appointment?.sesion_clinica?.asistencia === 'asistio' || appointment?.estado === 'Atendida') return 'Asistió';
+  if (appointment?.estado === 'No asistio') return 'No asistió';
+  return appointment?.estado;
+};
+
 const appointmentTime = (cita) => new Date(`${cita.fecha}T${String(cita.hora_inicio || '00:00').slice(0, 5)}:00-04:00`).getTime();
 const ascending = (a, b) => appointmentTime(a) - appointmentTime(b) || Number(a.id) - Number(b.id);
 const descending = (a, b) => ascending(b, a);
@@ -12,7 +18,7 @@ const splitAppointments = (appointments, now) => {
   const cancelled = [];
   appointments.forEach((appointment) => {
     if (CANCELLED_STATES.has(appointment.estado)) cancelled.push(appointment);
-    else if (FINISHED_STATES.has(appointment.estado) || appointmentTime(appointment) < timestamp) previous.push(appointment);
+    else if (appointment.sesion_clinica?.asistencia === 'asistio' || FINISHED_STATES.has(appointment.estado) || appointmentTime(appointment) < timestamp) previous.push(appointment);
     else upcoming.push(appointment);
   });
   return { upcoming: upcoming.sort(ascending), previous: previous.sort(descending), cancelled: cancelled.sort(descending) };

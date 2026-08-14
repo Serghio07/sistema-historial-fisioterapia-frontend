@@ -40,6 +40,14 @@ test('separa proximas, anteriores y canceladas respetando estados', () => {
   assert.equal(section.cancelled.length, 2);
 });
 
+test('una cita con sesión asistida deja de figurar como próxima aunque conserve estado antiguo', () => {
+  const section = agruparCitasPorPacienteEHistoria([
+    cita({ estado: 'Programada', sesion_clinica: { id: 20, asistencia: 'asistio' } })
+  ], now)[0].historias[0];
+  assert.equal(section.upcoming.length, 0);
+  assert.equal(section.previous.length, 1);
+});
+
 test('el progreso usa sesiones reales asistidas y evita inventar contratadas', () => {
   const withoutContract = { historia: {}, citas: [] };
   assert.equal(progresoHistoria(withoutContract), null);
