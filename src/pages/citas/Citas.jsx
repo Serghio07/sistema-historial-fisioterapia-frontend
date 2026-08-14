@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, FilePenLine, Plus, Stethoscope, TableProperties, UserRound, XCircle } from 'lucide-react';
+import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, FilePenLine, Plus, Stethoscope, TableProperties, UserRound, XCircle } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -91,7 +91,7 @@ function Badge({ estado }) {
 
 const estadoVisible = (cita) =>
   cita?.sesion_clinica?.asistencia === 'asistio' || cita?.estado === 'Atendida'
-    ? 'Asistió'
+    ? 'Atendida'
     : cita?.estado === 'No asistio' ? 'No asistió' : cita?.estado;
 
 const getPacienteStyle = (pacienteId) => pacienteStyles[Math.abs(Number(pacienteId || 0)) % pacienteStyles.length];
@@ -616,12 +616,14 @@ function Citas() {
                   <span className="text-[10px] font-black uppercase tracking-wide text-brand-700">Observación</span>
                   <p className="mt-2 min-h-10 whitespace-pre-wrap text-sm leading-6 text-slate-700">{selected.observacion || 'Sin observaciones registradas para esta cita.'}</p>
                 </section>
+                {selected.sesion_clinica && <section className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 md:col-span-2"><span className="text-[10px] font-black uppercase tracking-wide text-emerald-700">Sesión vinculada</span><p className="mt-2 text-sm font-bold text-ink">Sesión {selected.sesion_clinica.numero_sesion || selected.numero_sesion}{selected.total_sesiones ? ` de ${selected.total_sesiones}` : ''} · {selected.sesion_clinica.asistencia === 'asistio' ? 'Realizada' : 'No asistió'}</p></section>}
               </div>
             </div>
 
             <footer className="flex flex-wrap items-center gap-2 border-t border-slate-200 bg-slate-50/80 px-5 py-4">
               {location.state?.returnTo && <Button variant="secondary" onClick={() => navigate(location.state.returnTo, { state: { resumenState: location.state.resumenState } })}><ChevronLeft size={17} />Volver al resumen</Button>}
               <div className="ml-auto flex flex-wrap gap-2">
+                {selected.sesion_clinica?.id && <Button variant="secondary" onClick={() => { setSelected(null); navigate('/sesiones', { state: { verSesionId: selected.sesion_clinica.id } }); }}><Eye size={17} />Ver sesión</Button>}
                 {selected.origen === 'Plan de tratamiento' && ['Programada', 'Confirmada'].includes(selected.estado) && selected.sesion_clinica?.asistencia !== 'asistio' && <Button onClick={() => navigate('/sesiones', { state: { programacion: selected } })}><CalendarClock size={17} />Registrar sesión</Button>}
                 {!['Atendida', 'Cancelada'].includes(selected.estado) && selected.sesion_clinica?.asistencia !== 'asistio' && <Button variant="secondary" onClick={() => editCita(selected)}><FilePenLine size={17} />{selected.origen === 'Plan de tratamiento' ? 'Reprogramar' : 'Editar cita'}</Button>}
                 {!['Atendida', 'Cancelada'].includes(selected.estado) && selected.sesion_clinica?.asistencia !== 'asistio' && <Button variant="danger" onClick={() => updateCitaEstado(selected.id, 'Cancelada').then(() => { setSelected(null); load(); })}><XCircle size={17} />Cancelar cita</Button>}

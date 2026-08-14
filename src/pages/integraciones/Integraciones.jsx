@@ -113,13 +113,16 @@ function Integraciones() {
   };
 
   const openGoogleDetails = async () => {
+    // La tarjeta ya contiene el último estado real consultado. Abrimos primero
+    // para que una revalidación lenta no deje al botón sin respuesta visual.
+    setGoogleDetailsOpen(true);
     setBusy('google-details');
     try {
       const currentStatus = await getGoogleStatus();
       setGoogle(currentStatus);
-      setGoogleDetailsOpen(true);
     } catch (requestError) {
-      notify('error', requestError.message || 'No se pudieron cargar los detalles de Google Calendar.');
+      // Se conservan los datos seguros que ya estaban visibles en la tarjeta.
+      if (!google) notify('error', requestError.message || 'No se pudieron cargar los detalles de Google Calendar.');
     } finally { setBusy(''); }
   };
 

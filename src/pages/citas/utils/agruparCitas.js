@@ -2,7 +2,7 @@ const CANCELLED_STATES = new Set(['Cancelada', 'Reprogramada']);
 const FINISHED_STATES = new Set(['Atendida', 'No asistio', 'Falto']);
 
 export const estadoCitaVisible = (appointment) => {
-  if (appointment?.sesion_clinica?.asistencia === 'asistio' || appointment?.estado === 'Atendida') return 'Asistió';
+  if (appointment?.sesion_clinica?.asistencia === 'asistio' || appointment?.estado === 'Atendida') return 'Atendida';
   if (appointment?.estado === 'No asistio') return 'No asistió';
   return appointment?.estado;
 };
