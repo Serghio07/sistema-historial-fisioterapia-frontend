@@ -616,7 +616,7 @@ function Citas() {
                   <span className="text-[10px] font-black uppercase tracking-wide text-brand-700">Observación</span>
                   <p className="mt-2 min-h-10 whitespace-pre-wrap text-sm leading-6 text-slate-700">{selected.observacion || 'Sin observaciones registradas para esta cita.'}</p>
                 </section>
-                {selected.sesion_clinica && <section className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 md:col-span-2"><span className="text-[10px] font-black uppercase tracking-wide text-emerald-700">Sesión vinculada</span><p className="mt-2 text-sm font-bold text-ink">Sesión {selected.sesion_clinica.numero_sesion || selected.numero_sesion}{selected.total_sesiones ? ` de ${selected.total_sesiones}` : ''} · {selected.sesion_clinica.asistencia === 'asistio' ? 'Realizada' : 'No asistió'}</p></section>}
+                {selected.sesion_clinica && <section className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 md:col-span-2"><span className="text-[10px] font-black uppercase tracking-wide text-emerald-700">Sesión vinculada</span><p className="mt-2 text-sm font-bold text-ink">Sesión {selected.numero_sesion || selected.sesion_clinica.numero_sesion}{selected.total_sesiones ? ` de ${selected.total_sesiones}` : ''} · {selected.sesion_clinica.asistencia === 'asistio' ? 'Realizada' : 'No asistió'}</p></section>}
               </div>
             </div>
 
