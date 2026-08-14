@@ -245,6 +245,7 @@ function Sesiones() {
     const historia = historias.find((item) => String(item.id) === String(cita.historia_clinica_id || cita.historia_clinica?.id));
     if (!historia) return setError('La historia clínica vinculada a esta programación no está disponible.');
     const hechas = sesiones.filter((item) => String(item.historia_clinica_id) === String(historia.id) && item.asistencia === 'asistio' && !item.anulada).length;
+    const sesionesHistoria = sesiones.filter((item) => String(item.historia_clinica_id || item.historia_clinica?.id) === String(historia.id));
     setEditing(null);
     setFormTab('session');
     setForm({
@@ -252,7 +253,8 @@ function Sesiones() {
       historia_clinica_id: historia.id, fecha: cita.fecha, numero_sesion: cita.numero_sesion,
       sesiones_debe: cita.total_sesiones || historia.evaluacion_final?.sesiones_contratadas || 0,
       sesiones_hizo: hechas + 1, profesional_responsable: cita.profesional?.nombre || profesionalActual,
-      asistencia: 'asistio'
+      asistencia: 'asistio',
+      dolor_antes: dolorInicialParaHistoria(historia, sesionesHistoria)
     });
     setShowFormModal(true);
     navigate('/sesiones', { replace: true, state: null });
@@ -446,6 +448,11 @@ function Sesiones() {
   };
 
   const editSesion = (sesion, tab = 'session') => {
+    const historia = sesion.historia_clinica || historias.find((item) => String(item.id) === String(sesion.historia_clinica_id));
+    const evolution = sessionEvolution(historia, sesion);
+    const dolorInicialGuardado = sesion.dolor_antes ?? evolution?.dolor_inicial
+      ?? (Number(sesion.numero_sesion || 1) === 1 ? historia?.intervencion_clinica?.escala_dolor : '');
+    const dolorFinalGuardado = sesion.dolor_despues ?? evolution?.dolor_final ?? '';
     setFormTab(tab);
     setEditing(sesion.id);
     setForm({
@@ -483,8 +490,8 @@ function Sesiones() {
       tecnicas_manuales: sesion.tecnicas_manuales || '',
       descripcion_tratamiento: sesion.descripcion_tratamiento || '',
       evolucion_observada: sesion.evolucion_observada || '',
-      dolor_antes: sesion.dolor_antes ?? '',
-      dolor_despues: sesion.dolor_despues ?? '',
+      dolor_antes: dolorInicialGuardado,
+      dolor_despues: dolorFinalGuardado,
       inyectable_nombre: sesion.inyectable_nombre || '',
       inyectable_dosis: sesion.inyectable_dosis || '',
       profesional_responsable: sesion.profesional_responsable || '',

@@ -36,7 +36,11 @@ function SearchableSelect({ options, value, onChange, className, disabled, place
       value={query}
       onFocus={() => { if (!hasValue) setQuery(''); setOpen(true); }}
       onBlur={() => { blurTimer.current = setTimeout(() => { setOpen(false); setQuery(selected?.label || ''); }, 120); }}
-      onChange={(event) => { setQuery(event.target.value); setOpen(true); if (!event.target.value) onChange?.({ target: { value: '', name: props.name } }); }}
+      onChange={(event) => {
+        setQuery(event.target.value);
+        setOpen(true);
+        if (hasValue) onChange?.({ target: { value: '', name: props.name } });
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter' && open && filtered.length) { event.preventDefault(); choose(filtered[0]); }
         if (event.key === 'Escape') setOpen(false);

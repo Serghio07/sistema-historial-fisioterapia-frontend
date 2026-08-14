@@ -41,7 +41,9 @@ function ActionButtons({ session, group, history, evolution, onViewSession, onEd
 
 function HistorySessions({ group, history, onBack, onViewHistory, onNewSession, onViewSession, onEditSession, onAnnulSession, onRegisterEvolution, onViewEvolution }) {
   const { isAdmin } = useAuth();
-  const sessions = group.sesiones.filter((session) => String(session.historia_clinica_id || session.historia_clinica?.id) === String(history.id));
+  const sessions = group.sesiones
+    .filter((session) => String(session.historia_clinica_id || session.historia_clinica?.id) === String(history.id))
+    .sort((a, b) => Number(a.numero_sesion || 0) - Number(b.numero_sesion || 0) || String(a.fecha || '').localeCompare(String(b.fecha || '')) || Number(a.id) - Number(b.id));
   const completed = sessions.filter((session) => session.asistencia === 'asistio' && !session.anulada).length;
   const contracted = Number(history.evaluacion_final?.sesiones_contratadas || 0);
   const planCompleted = contracted > 0 && completed >= contracted;

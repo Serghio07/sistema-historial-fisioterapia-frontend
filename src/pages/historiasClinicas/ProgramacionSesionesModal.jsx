@@ -18,6 +18,7 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
   const [repeat, setRepeat] = useState({ fecha: '', dias: [], hora_inicio: '09:00', hora_fin: '10:00', cantidad: 1 });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [activeRow, setActiveRow] = useState(0);
 
   const load = async () => {
@@ -26,6 +27,7 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
       setError('');
       const data = await getProgramacionHistoria(historia.id);
       setSummary(data);
+      setSaved(false);
       const used = new Set(data.programaciones.filter((x) => !['Cancelada', 'Reprogramada'].includes(x.estado)).map((x) => Number(x.numero_sesion)));
       const pending = Array.from({ length: data.indicadas }, (_, i) => i + 1).filter((n) => n > data.realizadas && !used.has(n));
       setRows(pending.map(emptyRow));
@@ -65,7 +67,13 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
     setSaving(true); setError('');
     try {
       await createProgramacionHistoria(historia.id, selected);
-      await load();
+      const data = await getProgramacionHistoria(historia.id);
+      setSummary(data);
+      const used = new Set(data.programaciones.filter((x) => !['Cancelada', 'Reprogramada'].includes(x.estado)).map((x) => Number(x.numero_sesion)));
+      const pending = Array.from({ length: data.indicadas }, (_, i) => i + 1).filter((n) => n > data.realizadas && !used.has(n));
+      setRows(pending.map(emptyRow));
+      setActiveRow(0);
+      setSaved(true);
       onSaved?.();
     } catch (e) {
       setError(e.response?.data?.message || 'No se pudo guardar la programación');
@@ -74,7 +82,9 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
     }
   };
 
-  const next = useMemo(() => summary?.programaciones?.filter((x) => ['Programada', 'Confirmada'].includes(x.estado)).slice(0, 3) || [], [summary]);
+  const next = useMemo(() => [...(summary?.programaciones || [])]
+    .filter((x) => ['Programada', 'Confirmada'].includes(x.estado))
+    .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || Number(a.numero_sesion) - Number(b.numero_sesion)), [summary]);
   const calendarDate = new Date(`${active?.fecha || new Date().toLocaleDateString('en-CA')}T12:00:00`);
   const monthStart = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1);
   const calendarCells = Array.from({ length: 42 }, (_, index) => {
@@ -154,8 +164,8 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
       </div>
       </div>
 
-      {summary && !rows.length && !error && <p className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700"><CheckCircle2 className="mr-2 inline" size={18} />Todas las sesiones están programadas o el tratamiento fue completado.</p>}
-      {next.length > 0 && <section className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4"><h4 className="text-sm font-black text-blue-800">Próximas sesiones programadas</h4>{next.map((x) => <p key={x.id} className="mt-2 text-sm text-slate-700"><CalendarClock className="mr-2 inline text-blue-600" size={15} />{formatDate(x.fecha)} · {x.hora_inicio?.slice(0, 5)}–{x.hora_fin?.slice(0, 5)} · Sesión {x.numero_sesion}</p>)}</section>}
+      {summary && !rows.length && !error && <p className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700"><CheckCircle2 className="mr-2 inline" size={18} />{saved ? 'Programación guardada correctamente. Estos son los días agendados:' : 'Todas las sesiones están programadas o el tratamiento fue completado.'}</p>}
+      {next.length > 0 && <section className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4"><h4 className="text-sm font-black text-blue-800">Días de sesiones programadas ({next.length})</h4><div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{next.map((x) => <p key={x.id} className="rounded-lg border border-blue-100 bg-white p-3 text-sm text-slate-700"><CalendarClock className="mr-2 inline text-blue-600" size={15} /><strong>Sesión {x.numero_sesion}</strong><span className="mt-1 block pl-6">{formatDate(x.fecha)} · {x.hora_inicio?.slice(0, 5)}–{x.hora_fin?.slice(0, 5)}</span></p>)}</div></section>}
       {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
     </div>
     <footer className="flex shrink-0 justify-between gap-2 border-t border-slate-200 bg-white p-4"><div className="flex gap-2"><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button variant="secondary" onClick={() => setRows((current) => current.map((row) => ({ ...row, fecha: '', estado: 'Pendiente' })))}><Trash2 size={15} />Limpiar</Button></div><Button disabled={saving || !selected.length} onClick={save}><Save size={16} />{saving ? 'Guardando…' : 'Guardar programación'}</Button></footer>
