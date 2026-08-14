@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 
 const sizes = {
@@ -12,13 +13,20 @@ const sizes = {
   xl: 'max-w-6xl'
 };
 
-function Modal({ open, title, subtitle, children, onClose, size = 'md', patientStyle = false }) {
+function Modal({ open, title, subtitle, children, onClose, size = 'md', patientStyle = false, closeOnBackdrop = false, closeOnEscape = false }) {
+  useEffect(() => {
+    if (!open || !closeOnEscape) return undefined;
+    const close = (event) => { if (event.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [closeOnEscape, onClose, open]);
+
   if (!open) return null;
   const structuredBody = patientStyle || size === 'planilla';
   const compactPlanilla = size === 'planilla';
 
   return (
-    <div data-modal-scroll className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 p-3">
+    <div data-modal-scroll onMouseDown={(event) => { if (closeOnBackdrop && event.target === event.currentTarget) onClose?.(); }} className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 p-3">
       <section className={`my-3 flex w-full flex-col overflow-hidden border border-white/80 bg-white ${compactPlanilla ? 'max-h-[85vh] rounded-xl shadow-[0_24px_60px_rgba(15,23,42,0.22)]' : patientStyle ? 'max-h-[90vh] rounded-2xl shadow-[0_24px_60px_rgba(15,23,42,0.22)]' : 'max-h-[92vh] rounded-xl shadow-[0_18px_55px_rgba(15,23,42,0.18)]'} ${sizes[size] || sizes.md}`}>
         <header className={`flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 ${compactPlanilla ? 'px-5 py-3' : patientStyle ? 'px-6 py-5' : 'px-4 py-3'}`}>
           <div className="min-w-0">

@@ -90,8 +90,8 @@ function Badge({ estado }) {
 }
 
 const estadoVisible = (cita) =>
-  cita?.origen === 'Plan de tratamiento' && cita?.estado === 'Atendida'
-    ? 'Realizada'
+  cita?.sesion_clinica?.asistencia === 'asistio' || cita?.estado === 'Atendida'
+    ? 'Asistió'
     : cita?.estado === 'No asistio' ? 'No asistió' : cita?.estado;
 
 const getPacienteStyle = (pacienteId) => pacienteStyles[Math.abs(Number(pacienteId || 0)) % pacienteStyles.length];
@@ -622,9 +622,9 @@ function Citas() {
             <footer className="flex flex-wrap items-center gap-2 border-t border-slate-200 bg-slate-50/80 px-5 py-4">
               {location.state?.returnTo && <Button variant="secondary" onClick={() => navigate(location.state.returnTo, { state: { resumenState: location.state.resumenState } })}><ChevronLeft size={17} />Volver al resumen</Button>}
               <div className="ml-auto flex flex-wrap gap-2">
-                {selected.origen === 'Plan de tratamiento' && ['Programada', 'Confirmada'].includes(selected.estado) && <Button onClick={() => navigate('/sesiones', { state: { programacion: selected } })}><CalendarClock size={17} />Registrar sesión</Button>}
-                {!['Atendida', 'Cancelada'].includes(selected.estado) && <Button variant="secondary" onClick={() => editCita(selected)}><FilePenLine size={17} />{selected.origen === 'Plan de tratamiento' ? 'Reprogramar' : 'Editar cita'}</Button>}
-                {!['Atendida', 'Cancelada'].includes(selected.estado) && <Button variant="danger" onClick={() => updateCitaEstado(selected.id, 'Cancelada').then(() => { setSelected(null); load(); })}><XCircle size={17} />Cancelar cita</Button>}
+                {selected.origen === 'Plan de tratamiento' && ['Programada', 'Confirmada'].includes(selected.estado) && selected.sesion_clinica?.asistencia !== 'asistio' && <Button onClick={() => navigate('/sesiones', { state: { programacion: selected } })}><CalendarClock size={17} />Registrar sesión</Button>}
+                {!['Atendida', 'Cancelada'].includes(selected.estado) && selected.sesion_clinica?.asistencia !== 'asistio' && <Button variant="secondary" onClick={() => editCita(selected)}><FilePenLine size={17} />{selected.origen === 'Plan de tratamiento' ? 'Reprogramar' : 'Editar cita'}</Button>}
+                {!['Atendida', 'Cancelada'].includes(selected.estado) && selected.sesion_clinica?.asistencia !== 'asistio' && <Button variant="danger" onClick={() => updateCitaEstado(selected.id, 'Cancelada').then(() => { setSelected(null); load(); })}><XCircle size={17} />Cancelar cita</Button>}
               </div>
             </footer>
           </div>

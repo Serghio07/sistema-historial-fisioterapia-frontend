@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CalendarDays, CheckCircle2, Link2, MessageCircle, RefreshCw, Send, Unplug, XCircle } from 'lucide-react';
+import { ArrowRight, CalendarDays, CheckCircle2, Link2, MessageCircle, RefreshCw, Send, Unplug, XCircle } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import Button from '../../components/common/Button';
@@ -55,6 +55,7 @@ function Integraciones() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const [testOpen, setTestOpen] = useState(false);
+  const [googleDetailsOpen, setGoogleDetailsOpen] = useState(false);
   const [phone, setPhone] = useState('');
   const [phoneError, setPhoneError] = useState('');
 
@@ -111,6 +112,17 @@ function Integraciones() {
     } finally { setBusy(''); }
   };
 
+  const openGoogleDetails = async () => {
+    setBusy('google-details');
+    try {
+      const currentStatus = await getGoogleStatus();
+      setGoogle(currentStatus);
+      setGoogleDetailsOpen(true);
+    } catch (requestError) {
+      notify('error', requestError.message || 'No se pudieron cargar los detalles de Google Calendar.');
+    } finally { setBusy(''); }
+  };
+
   const checkWhatsApp = async () => {
     setBusy('whatsapp-verify');
     try {
@@ -150,7 +162,7 @@ function Integraciones() {
       <article className="content-card flex flex-col gap-5 p-5">
         <header className="flex items-start justify-between gap-3"><div className="flex gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700"><CalendarDays size={23} /></span><div><h2 className="text-lg font-black">Google Calendar</h2><p className="mt-1 text-sm text-slate-500">Sincroniza las citas de Physio Active con el calendario del consultorio.</p></div></div>{google && <StatusBadge active={google.connected} />}</header>
         {!google && !loading ? <p className="text-sm text-slate-500">No se pudo consultar la conexión.</p> : google && <div className="grid gap-2 rounded-xl bg-slate-50 p-4 text-sm"><p><b>Estado:</b> {google.connected ? 'Conectado' : google.reason === 'AUTHORIZATION_INVALID' ? 'Autorización inválida' : 'Desconectado'}</p>{google.connected && <><p><b>Calendario:</b> {google.calendarId || 'Sin datos'}</p><p><b>Conectado desde:</b> {formatDate(google.connectedAt)}</p></>}</div>}
-        <div className="mt-auto flex flex-wrap gap-2">{google?.connected ? <><Button variant="secondary" onClick={loadStatuses} disabled={Boolean(busy)}><RefreshCw size={16} />Ver detalles</Button><Button variant="danger" onClick={removeGoogle} disabled={Boolean(busy)}><Unplug size={16} />{busy === 'google-disconnect' ? 'Desconectando...' : 'Desconectar'}</Button></> : <Button onClick={connectGoogle} disabled={Boolean(busy) || !google}><Link2 size={16} />{busy === 'google-connect' ? 'Preparando conexión...' : 'Conectar Google Calendar'}</Button>}</div>
+        <div className="mt-auto flex flex-wrap gap-2">{google?.connected ? <><Button variant="secondary" onClick={openGoogleDetails} disabled={Boolean(busy)}><RefreshCw size={16} />{busy === 'google-details' ? 'Cargando...' : 'Ver detalles'}</Button><Button variant="danger" onClick={removeGoogle} disabled={Boolean(busy)}><Unplug size={16} />{busy === 'google-disconnect' ? 'Desconectando...' : 'Desconectar'}</Button></> : <Button onClick={connectGoogle} disabled={Boolean(busy) || !google}><Link2 size={16} />{busy === 'google-connect' ? 'Preparando conexión...' : 'Conectar Google Calendar'}</Button>}</div>
         <p className="text-xs text-slate-400">Sincronización unidireccional: Physio Active → Google Calendar.</p>
       </article>
 
@@ -160,6 +172,34 @@ function Integraciones() {
         <div className="mt-auto flex flex-wrap gap-2"><Button variant="secondary" onClick={checkWhatsApp} disabled={Boolean(busy) || !whatsapp}><RefreshCw size={16} />{busy === 'whatsapp-verify' ? 'Verificando...' : 'Verificar conexión'}</Button><Button onClick={() => { setPhoneError(''); setTestOpen(true); }} disabled={Boolean(busy) || !whatsapp?.enabled || !whatsapp?.configured}><Send size={16} />Enviar prueba</Button></div>
       </article>
     </section>
+    <Modal open={googleDetailsOpen} title="Detalles de Google Calendar" subtitle="Configuración y estado de la sincronización" onClose={() => setGoogleDetailsOpen(false)} size="md" closeOnBackdrop closeOnEscape>
+      <div className="grid gap-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+          <span className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-white text-blue-700 shadow-sm"><CalendarDays size={23} /></span><strong className="text-base text-slate-900">Google Calendar</strong></span>
+          <StatusBadge active={Boolean(google?.connected)} />
+        </div>
+
+        <dl className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 p-4"><dt className="text-xs font-black uppercase tracking-wide text-slate-400">Estado</dt><dd className="mt-1 font-bold text-slate-800">{google?.connected ? 'Conectado' : 'Desconectado'}</dd></div>
+          <div className="rounded-xl border border-slate-200 p-4"><dt className="text-xs font-black uppercase tracking-wide text-slate-400">Cuenta conectada</dt><dd className="mt-1 break-all font-bold text-slate-800">{google?.accountEmail || 'No disponible'}</dd></div>
+          <div className="rounded-xl border border-slate-200 p-4"><dt className="text-xs font-black uppercase tracking-wide text-slate-400">Calendario</dt><dd className="mt-1 font-bold text-slate-800">{google?.calendarId ? `${google.calendarId}${google.calendarId === 'primary' ? ' (Calendario principal)' : ''}` : 'No disponible'}</dd></div>
+          <div className="rounded-xl border border-slate-200 p-4"><dt className="text-xs font-black uppercase tracking-wide text-slate-400">Conectado desde</dt><dd className="mt-1 font-bold text-slate-800">{formatDate(google?.connectedAt).replace('Sin datos', 'No disponible')}</dd></div>
+          <div className="rounded-xl border border-slate-200 p-4 sm:col-span-2"><dt className="text-xs font-black uppercase tracking-wide text-slate-400">Última sincronización</dt><dd className="mt-1 font-bold text-slate-800">{google?.lastSyncAt ? formatDate(google.lastSyncAt) : 'No disponible'}</dd></div>
+        </dl>
+
+        <section className="border-t border-slate-200 pt-5">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Tipo de sincronización</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-slate-50 p-4 font-black text-slate-800"><span>Physio Active</span><ArrowRight size={18} className="text-brand-600" /><span>Google Calendar</span></div>
+          <h3 className="mt-4 font-black text-slate-900">Sincronización unidireccional</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-500">Las citas administradas desde Physio Active se sincronizan con Google Calendar. Los cambios realizados directamente desde Google Calendar no modifican la información de Physio Active.</p>
+          <ul className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+            {['Creación de citas', 'Actualización de citas', 'Reprogramación', 'Cancelación o eliminación del evento'].map((operation) => <li key={operation} className="flex items-center gap-2"><CheckCircle2 size={15} className="shrink-0 text-emerald-600" />{operation}</li>)}
+          </ul>
+        </section>
+
+        <div className="flex justify-end border-t border-slate-200 pt-4"><Button variant="secondary" onClick={() => setGoogleDetailsOpen(false)}>Cerrar</Button></div>
+      </div>
+    </Modal>
     <Modal open={testOpen} title="Enviar mensaje de prueba" subtitle="El número se utilizará únicamente para esta prueba." onClose={() => { if (!busy) { setTestOpen(false); setPhoneError(''); } }} size="sm">
       <form onSubmit={submitTest} className="grid gap-4"><Input label="Número de WhatsApp" type="tel" inputMode="tel" autoComplete="tel" placeholder="76543210 o 59176543210" value={phone} onChange={(event) => setPhone(event.target.value)} error={phoneError} /><p className="text-xs text-slate-500">Meta puede rechazar texto libre fuera de la ventana de conversación de 24 horas.</p><div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setTestOpen(false)} disabled={busy === 'whatsapp-test'}>Cancelar</Button><Button type="submit" disabled={busy === 'whatsapp-test'}><Send size={16} />{busy === 'whatsapp-test' ? 'Enviando...' : 'Enviar prueba'}</Button></div></form>
     </Modal>
