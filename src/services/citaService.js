@@ -41,7 +41,10 @@ export const getProgramacionHistoria = async (historiaId) => {
 };
 
 export const validarDisponibilidadCita = async (payload) => {
-  const { data } = await api.post('/citas/disponibilidad', payload);
+  const { data } = await api.post('/citas/disponibilidad', payload, {
+    hideErrorToast: true,
+    showSuccessToast: false
+  });
   return data;
 };
 

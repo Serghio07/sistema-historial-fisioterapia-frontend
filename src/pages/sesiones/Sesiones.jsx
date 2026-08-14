@@ -212,24 +212,22 @@ function Sesiones() {
     setLoading(true);
     setError('');
     try {
-      const [pacientesData, historiasData, programacionesData] = await Promise.all([
-        getPacientes(),
+      const [historiasData, sesionesData] = await Promise.all([
         getHistoriasClinicas(),
+        getSesiones()
+      ]);
+      setHistorias(historiasData);
+      setSesiones(sesionesData);
+      setLoading(false);
+
+      const [pacientesData, programacionesData] = await Promise.all([
+        getPacientes(),
         getCitas({ origen: 'Plan de tratamiento' })
       ]);
       setPacientes(pacientesData);
-      setHistorias(historiasData);
       setProgramaciones(programacionesData.filter((cita) => ['Programada', 'Confirmada'].includes(cita.estado)));
     } catch (err) {
-      setError(`No se pudieron cargar pacientes: ${err.message}`);
-    }
-
-    try {
-      const sesionesData = await getSesiones();
-      setSesiones(sesionesData);
-    } catch (err) {
-      setSesiones([]);
-      setError(`Los pacientes cargaron, pero las sesiones fallaron: ${err.message}.`);
+      setError(`No se pudo cargar el módulo de sesiones: ${err.message}`);
     } finally {
       setLoading(false);
     }

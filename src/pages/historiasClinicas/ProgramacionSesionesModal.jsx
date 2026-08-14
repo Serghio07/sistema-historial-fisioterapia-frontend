@@ -114,7 +114,7 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
         <Info icon={CalendarDays} label="Programadas / Pendientes" value={`${summary?.programadas || 0} / ${summary?.pendientes_programar || 0}`} />
       </section>
 
-      <div className="mt-4 overflow-x-auto pb-1">
+      {rows.length > 0 && <div className="mt-4 overflow-x-auto pb-1">
       <div className="grid min-w-[930px] gap-4" style={{ gridTemplateColumns: 'minmax(0, 1fr) 270px' }}>
         <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-50">
@@ -162,7 +162,7 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
           <div className={`mt-3 rounded-lg border p-3 ${active?.estado === 'Disponible' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : active?.estado === 'No disponible' ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}><strong className="flex items-center gap-2 text-xs"><CheckCircle2 size={17} />{active?.estado === 'Disponible' ? 'Horario disponible' : active?.estado === 'No disponible' ? 'Horario no disponible' : 'Seleccione fecha y horario'}</strong><p className="mt-1 text-[10px]">{active?.message || 'La disponibilidad se validará automáticamente.'}</p></div>
         </aside>
       </div>
-      </div>
+      </div>}
 
       {summary && !rows.length && !error && <p className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700"><CheckCircle2 className="mr-2 inline" size={18} />{saved ? 'Programación guardada correctamente. Estos son los días agendados:' : 'Todas las sesiones están programadas o el tratamiento fue completado.'}</p>}
       {next.length > 0 && <section className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4"><h4 className="text-sm font-black text-blue-800">Días de sesiones programadas ({next.length})</h4><div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{next.map((x) => <p key={x.id} className="rounded-lg border border-blue-100 bg-white p-3 text-sm text-slate-700"><CalendarClock className="mr-2 inline text-blue-600" size={15} /><strong>Sesión {x.numero_sesion}</strong><span className="mt-1 block pl-6">{formatDate(x.fecha)} · {x.hora_inicio?.slice(0, 5)}–{x.hora_fin?.slice(0, 5)}</span></p>)}</div></section>}

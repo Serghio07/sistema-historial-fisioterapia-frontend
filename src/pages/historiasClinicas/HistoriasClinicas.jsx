@@ -635,13 +635,14 @@ function HistoriasClinicas() {
   const load = async () => {
     setLoading(true);
     try {
-      const [historiasData, pacientesData, profesionalesData, sesionesData] = await Promise.all([
-        getHistoriasClinicas({ incluirAnuladas: true }),
+      const historiasData = await getHistoriasClinicas({ incluirAnuladas: true });
+      setHistorias(historiasData);
+      setLoading(false);
+      const [pacientesData, profesionalesData, sesionesData] = await Promise.all([
         getPacientes(),
         getProfesionalesActivos(),
-        getSesiones()
+        getSesiones({ resumen: true })
       ]);
-      setHistorias(historiasData);
       setPacientes(pacientesData);
       setProfesionales(profesionalesData);
       setSesiones(sesionesData);
