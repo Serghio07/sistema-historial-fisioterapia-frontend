@@ -24,6 +24,7 @@ export const MODULE_PERMISSIONS = Object.freeze({
   rolesPermisos: ['admin'],
   sueldos: ['admin'],
   blogAdministracion: ['admin', 'personal'],
+  galeria: ['admin', 'personal'],
   blogCategorias: ['admin'],
   auditoria: ['admin'],
   configuracion: ['admin']
@@ -126,6 +127,10 @@ export const ROLE_ACTION_PERMISSIONS = Object.freeze({
     admin: allActions,
     personal: ['view', 'create', 'edit', 'publish']
   },
+  galeria: {
+    admin: allActions,
+    personal: allActions
+  },
   blogCategorias: {
     admin: allActions,
     personal: []
@@ -159,6 +164,7 @@ export const ROLE_PERMISSION_MATRIX = Object.freeze([
   { module: 'Roles y permisos', permission: 'rolesPermisos', description: 'Matriz informativa de la política aplicada en código.' },
   { module: 'Planillas de sueldos', permission: 'sueldos', description: 'Información laboral y salarial.' },
   { module: 'Blog y publicaciones', permission: 'blogAdministracion', description: 'El personal puede crear, editar y publicar sus propios borradores.' },
+  { module: 'Galería web', permission: 'galeria', description: 'Administrador y Personal gestionan las fotografías públicas.' },
   { module: 'Categorías del blog', permission: 'blogCategorias', description: 'Crear, editar o eliminar categorías del sitio.' },
   { module: 'Auditoría completa', permission: 'auditoria', description: 'Trazabilidad global del sistema.' }
 ]);

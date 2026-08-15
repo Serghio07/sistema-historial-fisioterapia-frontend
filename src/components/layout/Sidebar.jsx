@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, Banknote, Bell, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Inbox, Landmark, Link2, ListChecks, LogOut, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
+import { Activity, Banknote, Bell, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Images, Inbox, Landmark, Link2, ListChecks, LogOut, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { canAccessModule, getRoleLabel } from '../../config/permissions';
@@ -76,6 +76,7 @@ const groups = [
     permission: 'blogAdministracion',
     items: [
       { to: '/blog', label: 'Blog y publicaciones', icon: Newspaper },
+      { to: '/galeria', label: 'Galería', icon: Images, permission: 'galeria' },
       { to: '/blog/categorias', label: 'Categorías', icon: Tags, permission: 'blogCategorias' }
     ]
   },

@@ -31,6 +31,7 @@ import Notificaciones from '../pages/notificaciones/Notificaciones';
 import WhatsappReception from '../pages/whatsappReception/WhatsappReception';
 import WhatsappMonitoring from '../pages/whatsappMonitoring/WhatsappMonitoring';
 import Integraciones from '../pages/integraciones/Integraciones';
+import Galeria from '../pages/galeria/Galeria';
 
 function AppRoutes() {
   return (
@@ -84,6 +85,9 @@ function AppRoutes() {
             <Route path="blog/editar/:id" element={<BlogPostForm />} />
             <Route path="blog/vista-previa/:id" element={<BlogPreview />} />
           </Route>
+        </Route>
+        <Route element={<PrivateRoute permission="galeria" />}>
+          <Route element={<Layout />}><Route path="galeria" element={<Galeria />} /></Route>
         </Route>
         <Route element={<PrivateRoute adminOnly />}>
           <Route element={<Layout />}>
