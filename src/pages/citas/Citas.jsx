@@ -10,7 +10,7 @@ import { PatientIdentity } from '../../components/common/ProfilePhoto';
 import { useAuth } from '../../context/AuthContext';
 import { createCita, deleteCita, getCitas, updateCita, updateCitaEstado } from '../../services/citaService';
 import { getPacientes } from '../../services/pacienteService';
-import { getPersonal } from '../../services/personalService';
+import { getProfesionalesActivos } from '../../services/usuarioService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import { matchesSearch } from '../../utils/search';
@@ -214,12 +214,12 @@ function Citas() {
     setLoading(true);
     setError('');
     try {
-      const [pacientesData, citasData, personalData] = await Promise.all([getPacientes(), getCitas(), getPersonal()]);
+      const [pacientesData, citasData, profesionalesData] = await Promise.all([getPacientes(), getCitas(), getProfesionalesActivos()]);
       setPacientes(pacientesData);
       setCitas(citasVisiblesEnAgenda(citasData));
-      setProfesionales(personalData.filter((item) => item.estado === 'activo' && item.usuario_id));
+      setProfesionales(profesionalesData.map((item) => ({ ...item, usuario_id: item.id })));
     } catch (err) {
-      setError(`${err.message}. Si el modulo es nuevo, ejecuta backend/docs/citas-agenda-migration.sql.`);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -557,7 +557,7 @@ function Citas() {
           groups={groupedPatients}
           expanded={expandedPatients}
           onToggle={togglePatient}
-          isAdmin={isAdmin}
+          canDelete={isAdmin || user?.rol === 'personal'}
           onView={(cita) => setSelected(cita)}
           onEdit={editCita}
           onCancel={(cita) => cambiarEstado(cita, 'Cancelada')}

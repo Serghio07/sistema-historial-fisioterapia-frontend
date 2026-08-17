@@ -69,7 +69,7 @@ export const ROLE_ACTION_PERMISSIONS = Object.freeze({
   },
   agenda: {
     admin: allActions,
-    personal: ['view', 'create', 'edit', 'print']
+    personal: allActions
   },
   recepcionWhatsapp: {
     admin: allActions,
