@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, FilePenLine, Plus, Stethoscope, TableProperties, UserRound, XCircle } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
@@ -14,12 +14,17 @@ import { getPersonal } from '../../services/personalService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import { matchesSearch } from '../../utils/search';
-import { BOLIVIA_TIME_ZONE, boliviaDate } from '../../utils/boliviaDateTime';
+import { BOLIVIA_TIME_ZONE, boliviaDate, boliviaTime } from '../../utils/boliviaDateTime';
 import ListadoCitasAgrupado from './components/ListadoCitasAgrupado';
 import { agruparCitasPorPacienteEHistoria } from './utils/agruparCitas';
+import CalendarHeader from './components/calendar/CalendarHeader';
+import { MonthView, TimeGridView } from './components/calendar/CalendarViews';
+import DragAppointmentOverlay from './components/calendar/DragAppointmentOverlay';
+import QuickCreateAppointmentModal from './components/calendar/QuickCreateAppointmentModal';
+import { appendCreatedAppointment, createNewAppointment, draftFromAppointmentDrop, emptySlotDraft, sortAppointments } from './utils/appointmentCreation';
 
 const ESTADOS = ['Pendiente', 'Programada', 'Confirmada', 'Atendida', 'Cancelada', 'Reprogramada', 'No asistio', 'Falto'];
-const TIPOS = ['Primera consulta', 'Sesion de fisioterapia', 'Evaluacion', 'Control', 'Rehabilitacion', 'Otro'];
+const TIPOS = ['Primera consulta', 'Sesion de fisioterapia', 'Sesion de tratamiento', 'Evaluacion', 'Control', 'Rehabilitacion', 'Otro'];
 const VISTAS = ['dia', 'semana', 'mes'];
 
 const estadoStyles = {
@@ -199,6 +204,11 @@ function Citas() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [formErrors, setFormErrors] = useState({});
+  const [quickDraft, setQuickDraft] = useState(null);
+  const [quickError, setQuickError] = useState('');
+  const [dragOverlay, setDragOverlay] = useState(null);
+  const suppressAppointmentOpenUntil = useRef(0);
+  const quickSaveInFlight = useRef(false);
 
   const load = async () => {
     setLoading(true);
@@ -218,6 +228,12 @@ function Citas() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!message) return undefined;
+    const timeoutId = window.setTimeout(() => setMessage(''), 2000);
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
 
   useEffect(() => {
     const actualizarEstados = async () => {
@@ -267,7 +283,11 @@ function Citas() {
   const miniDays = useMemo(() => monthDays(cursor), [cursor]);
 
   const citasPorFecha = useMemo(() => {
-    return filteredCitas.reduce((data, cita) => {
+    const today = boliviaDate();
+    const currentTime = boliviaTime();
+    return filteredCitas.filter((cita) => (
+      cita.fecha !== today || String(cita.hora_inicio || '').slice(0, 5) >= currentTime
+    )).reduce((data, cita) => {
       data[cita.fecha] = data[cita.fecha] || [];
       data[cita.fecha].push(cita);
       return data;
@@ -312,6 +332,69 @@ function Citas() {
   const closeFormModal = () => {
     setShowFormModal(false);
     resetForm();
+  };
+
+  const openCalendarAppointment = (appointment) => {
+    if (Date.now() < suppressAppointmentOpenUntil.current) return;
+    setSelected(appointment);
+  };
+
+  const openQuickDraft = (draft) => {
+    setQuickError('');
+    setQuickDraft(draft);
+  };
+
+  const startAppointmentDrag = (pointerEvent, appointment) => {
+    if (pointerEvent.button !== 0) return;
+    const startX = pointerEvent.clientX;
+    const startY = pointerEvent.clientY;
+    let dragging = false;
+    const patientName = nombrePaciente(appointment.paciente);
+
+    const move = (event) => {
+      if (!dragging && Math.hypot(event.clientX - startX, event.clientY - startY) < 7) return;
+      dragging = true;
+      event.preventDefault();
+      setDragOverlay({ x: event.clientX, y: event.clientY, patientName });
+    };
+    const finish = (event) => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', finish);
+      document.removeEventListener('pointercancel', cancel);
+      setDragOverlay(null);
+      if (!dragging) return;
+      suppressAppointmentOpenUntil.current = Date.now() + 400;
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest?.('[data-calendar-drop]');
+      if (!target) return;
+      openQuickDraft(draftFromAppointmentDrop(appointment, { fecha: target.dataset.date, hora_inicio: target.dataset.time || '' }));
+    };
+    const cancel = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', finish);
+      document.removeEventListener('pointercancel', cancel);
+      setDragOverlay(null);
+    };
+    document.addEventListener('pointermove', move, { passive: false });
+    document.addEventListener('pointerup', finish);
+    document.addEventListener('pointercancel', cancel);
+  };
+
+  const createQuickAppointment = async () => {
+    if (quickSaveInFlight.current || !quickDraft) return;
+    quickSaveInFlight.current = true;
+    setSaving(true);
+    setQuickError('');
+    try {
+      const created = await createNewAppointment({ draft: quickDraft, createAppointment: createCita });
+      setCitas((current) => sortAppointments(citasVisiblesEnAgenda(appendCreatedAppointment(current, created))));
+      setQuickDraft(null);
+      setMessage(`Nueva cita creada correctamente · ${created.paciente ? nombrePaciente(created.paciente) : quickDraft.pacienteNombre} - ${formatDate(created.fecha)} a las ${String(created.hora_inicio).slice(0, 5)}`);
+    } catch (err) {
+      setQuickError(err.message);
+    } finally {
+      quickSaveInFlight.current = false;
+      setSaving(false);
+    }
   };
 
   const submit = async (event) => {
@@ -364,13 +447,18 @@ function Citas() {
   };
 
   const moveCalendar = (direction) => {
-    const days = view === 'dia' ? 1 : view === 'semana' ? 7 : 30;
-    setCursor(addDays(cursor, days * direction));
+    if (view === 'mes') {
+      setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + direction, 1, 12));
+      return;
+    }
+    setCursor(addDays(cursor, (view === 'dia' ? 1 : 7) * direction));
   };
 
   const title = view === 'mes'
     ? cursor.toLocaleDateString('es-BO', { timeZone: BOLIVIA_TIME_ZONE, month: 'long', year: 'numeric' })
-    : `${formatDate(toISODate(visibleDays[0]))} - ${formatDate(toISODate(visibleDays[visibleDays.length - 1]))}`;
+    : view === 'dia'
+      ? formatDate(toISODate(visibleDays[0]))
+      : `${formatDate(toISODate(visibleDays[0]))} - ${formatDate(toISODate(visibleDays[visibleDays.length - 1]))}`;
 
   return (
     <section className="grid gap-5">
@@ -415,117 +503,22 @@ function Citas() {
       </div>
 
       {activeTab === 'calendario' && (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="panel">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-bold text-ink">Calendario de citas</h3>
-                <p className="text-sm text-slate-500">{filteredCitas.length} citas visibles.</p>
-              </div>
-              <Button onClick={openNuevaCita}>
-                <Plus size={17} />
-                Nueva cita
-              </Button>
-            </div>
-
-            <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <Input label="Buscar por paciente" value={filters.paciente} onChange={(event) => setFilters({ ...filters, paciente: event.target.value })} />
-              <Input label="Filtrar por fecha" type="date" value={filters.fecha} onChange={(event) => setFilters({ ...filters, fecha: event.target.value })} />
-              <Input label="Estado" options={[{ value: '', label: 'Todos' }, ...ESTADOS.map((estado) => ({ value: estado, label: estado }))]} value={filters.estado} onChange={(event) => setFilters({ ...filters, estado: event.target.value })} />
-              <Input label="Tipo de atencion" options={[{ value: '', label: 'Todos' }, ...TIPOS.map((tipo) => ({ value: tipo, label: tipo }))]} value={filters.tipo_atencion} onChange={(event) => setFilters({ ...filters, tipo_atencion: event.target.value })} />
-              <Input label="Profesional" options={[{ value: '', label: 'Todos' }, ...profesionales.map((item) => ({ value: item.usuario_id, label: item.nombre_mostrado || [item.nombres, item.apellido_paterno].filter(Boolean).join(' ') }))]} value={filters.profesional_id} onChange={(event) => setFilters({ ...filters, profesional_id: event.target.value })} />
-            </div>
-
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex gap-2">
-                {VISTAS.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setView(item)}
-                    className={`min-h-10 rounded-lg px-4 text-sm font-black capitalize transition ${view === item ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-700'}`}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <ActionButton label="Anterior" icon={ChevronLeft} tone="print" onClick={() => moveCalendar(-1)} />
-                <strong className="min-w-48 text-center text-sm capitalize text-ink">{title}</strong>
-                <ActionButton label="Siguiente" icon={ChevronRight} tone="print" onClick={() => moveCalendar(1)} />
-              </div>
-            </div>
-
-            <div className={`grid gap-2 ${view === 'dia' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-7'}`}>
-              {visibleDays.map((day) => {
-                const iso = toISODate(day);
-                const dayCitas = citasPorFecha[iso] || [];
-                const outsideMonth = view === 'mes' && day.getMonth() !== cursor.getMonth();
-                return (
-                  <div key={iso} className={`min-h-40 rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/70 p-3 shadow-sm transition hover:border-brand-200 hover:shadow-md ${outsideMonth ? 'opacity-45' : ''}`}>
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <strong className="text-sm capitalize text-ink">{day.toLocaleDateString('es-BO', { timeZone: BOLIVIA_TIME_ZONE, weekday: 'short', day: '2-digit' })}</strong>
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-500">{dayCitas.length}</span>
-                    </div>
-                    <div className="grid gap-2">
-                      {dayCitas.slice(0, view === 'mes' ? 3 : 20).map((cita) => (
-                        <EventCard key={cita.id} cita={cita} compact={view === 'mes'} onClick={() => setSelected(cita)} />
-                      ))}
-                      {view === 'mes' && dayCitas.length > 3 && <span className="text-xs font-bold text-slate-500">+{dayCitas.length - 3} mas</span>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        <div className="panel overflow-hidden">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div><h3 className="text-lg font-bold text-ink">Calendario de citas</h3><p className="text-sm text-slate-500">Arrastra una cita para usarla como referencia y crear otra. La original no se mueve.</p></div>
+            <Button onClick={openNuevaCita}><Plus size={17} />Nueva cita</Button>
           </div>
-
-          <aside className="panel">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-black text-ink">Calendario rapido</h3>
-              <strong className="text-xs capitalize text-slate-500">{cursor.toLocaleDateString('es-BO', { timeZone: BOLIVIA_TIME_ZONE, month: 'long', year: 'numeric' })}</strong>
-            </div>
-            <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-black text-slate-500">
-              {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map((day) => <span key={day}>{day}</span>)}
-              {miniDays.map((day) => {
-                const iso = toISODate(day);
-                const dayCitas = citasPorFecha[iso] || [];
-                const active = iso === toISODate(cursor);
-                return (
-                  <button
-                    key={iso}
-                    type="button"
-                    onClick={() => {
-                      setCursor(day);
-                      setView('dia');
-                    }}
-                    className={`grid h-9 place-items-center rounded-lg text-xs font-black transition ${
-                      active ? 'bg-brand-600 text-white' : dayCitas.length ? 'bg-brand-50 text-brand-700 hover:bg-brand-100' : 'text-slate-500 hover:bg-slate-100'
-                    }`}
-                  >
-                    {day.getDate()}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-6">
-              <div className="mb-3 flex items-center justify-between">
-                <h4 className="text-sm font-black text-ink">Citas del dia</h4>
-                <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-500">{(citasPorFecha[toISODate(cursor)] || []).length}</span>
-              </div>
-              <div className="grid gap-2">
-                {(citasPorFecha[toISODate(cursor)] || []).slice(0, 6).map((cita) => (
-                  <button key={cita.id} type="button" onClick={() => setSelected(cita)} className="grid grid-cols-[52px_1fr] gap-2 rounded-lg border border-slate-200 bg-white p-2 text-left text-xs hover:bg-slate-50">
-                    <strong className="text-ink">{cita.hora_inicio?.slice(0, 5)}</strong>
-                    <span>
-                      <strong className="block text-ink">{nombrePaciente(cita.paciente)}</strong>
-                      <span className="text-slate-500">{cita.tipo_atencion || cita.motivo || 'Sin tipo'}</span>
-                    </span>
-                  </button>
-                ))}
-                {(citasPorFecha[toISODate(cursor)] || []).length === 0 && <p className="empty-state">Sin citas para este dia.</p>}
-              </div>
-            </div>
-          </aside>
+          <div className="mb-3 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+            <Input compact label="Paciente" value={filters.paciente} onChange={(event) => setFilters({ ...filters, paciente: event.target.value })} />
+            <Input compact label="Fecha" type="date" value={filters.fecha} onChange={(event) => setFilters({ ...filters, fecha: event.target.value })} />
+            <Input compact label="Estado" options={[{ value: '', label: 'Todos' }, ...ESTADOS.map((estado) => ({ value: estado, label: estado }))]} value={filters.estado} onChange={(event) => setFilters({ ...filters, estado: event.target.value })} />
+            <Input compact label="Atención" options={[{ value: '', label: 'Todos' }, ...TIPOS.map((tipo) => ({ value: tipo, label: tipo }))]} value={filters.tipo_atencion} onChange={(event) => setFilters({ ...filters, tipo_atencion: event.target.value })} />
+            <Input compact label="Profesional" options={[{ value: '', label: 'Todos' }, ...profesionales.map((item) => ({ value: item.usuario_id, label: item.nombre_mostrado || [item.nombres, item.apellido_paterno].filter(Boolean).join(' ') }))]} value={filters.profesional_id} onChange={(event) => setFilters({ ...filters, profesional_id: event.target.value })} />
+          </div>
+          <CalendarHeader view={view} title={title} onView={setView} onMove={moveCalendar} onToday={() => setCursor(new Date(`${boliviaDate()}T12:00:00-04:00`))} />
+          {view === 'mes'
+            ? <MonthView days={visibleDays} cursor={cursor} appointmentsByDate={citasPorFecha} onOpen={openCalendarAppointment} onPointerDrag={startAppointmentDrag} onEmptyDay={(destination) => openQuickDraft(emptySlotDraft(destination))} />
+            : <TimeGridView days={visibleDays} appointmentsByDate={citasPorFecha} onOpen={openCalendarAppointment} onPointerDrag={startAppointmentDrag} onEmptySlot={(destination) => openQuickDraft(emptySlotDraft(destination))} />}
         </div>
       )}
 
@@ -567,6 +560,19 @@ function Citas() {
       <Modal open={showFormModal} title={<span className="inline-flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-50 text-brand-700"><CalendarClock size={19} /></span>{editing ? 'Editar cita' : 'Nueva cita'}</span>} subtitle={editing ? 'Actualiza la información de la atención' : 'Programa una atención para el paciente'} onClose={closeFormModal} size="compact">
         <CitaForm form={form} setForm={setForm} pacientes={pacientes} onSubmit={submit} onCancel={closeFormModal} editing={editing} error={error} errors={formErrors} registeredBy={user?.nombre || user?.usuario} saving={saving} />
       </Modal>
+
+      <QuickCreateAppointmentModal
+        draft={quickDraft}
+        setDraft={setQuickDraft}
+        patients={pacientes}
+        professionalName={user?.nombre || user?.usuario}
+        saving={saving}
+        error={quickError}
+        onCancel={() => { setQuickDraft(null); setQuickError(''); }}
+        onCreate={createQuickAppointment}
+      />
+
+      <DragAppointmentOverlay drag={dragOverlay} />
 
       <Modal
         open={Boolean(selected)}

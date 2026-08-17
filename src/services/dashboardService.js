@@ -19,3 +19,8 @@ export const getDashboardPacientesRecientes = async () => {
   const { data } = await api.get('/dashboard/pacientes-recientes');
   return data;
 };
+
+export const getDashboardResumenJornada = async () => {
+  const { data } = await api.get('/dashboard/resumen-jornada');
+  return data;
+};

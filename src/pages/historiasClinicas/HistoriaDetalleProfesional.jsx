@@ -71,12 +71,12 @@ export default function HistoriaDetalleProfesional({ historia, onClose, onEvolut
 
       <footer className="sticky bottom-0 flex flex-wrap gap-2 border-t border-slate-200 bg-white pt-3">
         {active && <button className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-700 px-4 text-xs font-black text-white hover:bg-emerald-800" onClick={() => onEvolutivo(historia)}><FilePenLine size={16} />Registrar evolución</button>}
+        {historia.estado !== 'anulada' && <button className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-emerald-200 px-4 text-xs font-bold text-emerald-700 hover:bg-emerald-50" onClick={() => onEdit(historia)}><FilePenLine size={16} />Editar historia</button>}
         <button className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-blue-200 px-4 text-xs font-bold text-blue-700 hover:bg-blue-50" onClick={() => onPreview(historia)}><FileText size={16} />Vista previa PDF</button>
         <button className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-violet-200 px-4 text-xs font-bold text-violet-700 hover:bg-violet-50" onClick={onPatient}><UserRound size={16} />Datos del paciente</button>
         <div className="relative ml-auto">
           <button type="button" onClick={() => setShowActions((current) => !current)} aria-expanded={showActions} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50"><MoreHorizontal size={17} />Más acciones</button>
           {showActions && <div className="absolute bottom-full right-0 z-30 mb-2 grid w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-            {historia.estado !== 'anulada' && <button className="menu-action" onClick={() => { setShowActions(false); onEdit(historia); }}><FilePenLine size={15} />Editar historia</button>}
             <button className="menu-action" onClick={() => { setShowActions(false); onPrint(historia); }}><FileText size={15} />Imprimir historia</button>
             {isAdmin && historia.estado !== 'anulada' && <button className="menu-action text-red-600 hover:bg-red-50" onClick={() => { setShowActions(false); onAnular(historia); }}>Anular historia</button>}
           </div>}
