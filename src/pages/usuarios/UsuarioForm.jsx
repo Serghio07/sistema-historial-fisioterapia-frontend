@@ -77,7 +77,9 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
     return '';
   };
 
-  const next = () => {
+  const next = (event) => {
+    event?.preventDefault();
+    event?.stopPropagation();
     const validation = validateStep();
     setError(validation);
     if (!validation) setStep((value) => Math.min(value + 1, STEPS.length - 1));
@@ -85,6 +87,10 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
 
   const submit = (event) => {
     event.preventDefault();
+    if (step < STEPS.length - 1) {
+      next(event);
+      return;
+    }
     const validation = validateStep();
     setError(validation);
     if (!validation) onSubmit(event);
@@ -191,11 +197,11 @@ function UsuarioForm({ form, setForm, editing, onSubmit, onCancel }) {
 
       {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
       <div className="flex items-center justify-between border-t border-slate-200 pt-4">
-        <Button variant="ghost" onClick={step === 0 ? onCancel : () => { setError(''); setStep(step - 1); }}>
+        <Button type="button" variant="ghost" onClick={step === 0 ? onCancel : () => { setError(''); setStep(step - 1); }}>
           {step > 0 && <ArrowLeft size={17} />}{step === 0 ? 'Cancelar' : 'Anterior'}
         </Button>
         {step < STEPS.length - 1
-          ? <Button onClick={next}>Siguiente<ArrowRight size={17} /></Button>
+          ? <Button type="button" onClick={next}>Siguiente<ArrowRight size={17} /></Button>
           : <Button type="submit"><Save size={17} />{editing ? 'Guardar cambios' : 'Crear personal'}</Button>}
       </div>
     </form>
