@@ -106,7 +106,7 @@ test('la segunda hoja de historia cabe en A4 sin expulsar observaciones a una ho
   const history = read('../src/pages/historiasClinicas/HistoriasClinicas.jsx');
   const secondPage = history.slice(history.indexOf('pdf-page pdf-page-2'), history.indexOf('pdf-page pdf-page-3'));
   assert.match(secondPage, /px-7 py-4/);
-  assert.match(secondPage, /max-h-56/);
+  assert.match(secondPage, /max-h-64/);
   assert.match(secondPage, /<Area rows=\{2\}>\{condicion\.estudios_imagenologicos\}/);
   assert.match(secondPage, /<Area rows=\{2\}>\{condicion\.descripcion\}/);
   assert.match(secondPage, /<Area rows=\{4\}>\{`\$\{intervencion\.goniometria_balance_articular/);

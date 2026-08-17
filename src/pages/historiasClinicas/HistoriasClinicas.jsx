@@ -316,7 +316,7 @@ function HistoriaReporte({ historia }) {
             <img
               src={mapaCorporalAnatomico}
               alt="Mapa corporal anatómico masculino y femenino, vistas anterior y posterior"
-            className="h-auto max-h-56 w-full object-contain"
+              className="h-auto max-h-64 w-full object-contain"
             />
           </div>
           <div className="border border-slate-500 p-2 leading-5">
