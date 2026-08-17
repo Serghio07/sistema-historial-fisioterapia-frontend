@@ -7,7 +7,7 @@ function PlanillaDocumento({ planilla, paciente }) {
   const sesiones = [...(planilla?.sesiones || [])].sort((a, b) => Number(a.numero_sesion || 0) - Number(b.numero_sesion || 0));
 
   return (
-    <article className="mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-8 py-7 font-sans text-[14px] text-slate-900 shadow-soft print:shadow-none">
+    <article className="mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white px-7 py-6 font-sans text-[14px] text-slate-900 shadow-soft print:shadow-none">
       <header className="grid grid-cols-[112px_minmax(0,1fr)_112px] items-center gap-3 border-b-2 border-slate-800 pb-4">
         <img src={logo} alt="Physio Active" className="h-20 w-28 object-contain" />
         <div className="min-w-0 text-center">

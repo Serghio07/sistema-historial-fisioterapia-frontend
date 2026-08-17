@@ -43,7 +43,7 @@ const blankClose = { fecha_desde: firstDay, fecha_hasta: today, efectivo_contado
 
 const downloadReceipt = async (concept, movement) => {
   const { jsPDF } = await import('jspdf');
-  const pdf = new jsPDF({ unit: 'mm', format: 'a5' });
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
   const patient = `${concept.paciente?.nombres || ''} ${concept.paciente?.apellidos || ''}`.trim();
   pdf.setTextColor(15, 118, 110); pdf.setFontSize(17); pdf.text('PHYSIO ACTIVE', 18, 18);
   pdf.setTextColor(30, 41, 59); pdf.setFontSize(13); pdf.text('RECIBO DE PAGO', 18, 29);
@@ -57,7 +57,7 @@ const downloadReceipt = async (concept, movement) => {
     `Recibido por: ${movement.recibido_por?.nombre || 'Sin registrar'}`
   ];
   let y = 49; lines.forEach((line) => { const wrapped = pdf.splitTextToSize(line, 110); pdf.text(wrapped, 18, y); y += wrapped.length * 5 + 2; });
-  pdf.line(72, 132, 126, 132); pdf.text('Firma responsable', 83, 138);
+  pdf.line(118, 270, 192, 270); pdf.text('Firma responsable', 136, 276);
   pdf.save(`${movement.numero_recibo || 'Recibo_Physio_Active'}.pdf`);
 };
 

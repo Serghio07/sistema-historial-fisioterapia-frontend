@@ -138,7 +138,7 @@
   position: absolute;
   top: 0;
   left: 50%;
-  width: 279mm !important;
+  width: 297mm !important;
   transform: translateX(-50%) scale(0.88) !important;
   transform-origin: top center !important;
 }
@@ -160,6 +160,70 @@
 }
 
 @media print {
+  body:has([data-clinical-print]) * {
+    visibility: hidden !important;
+  }
+
+  body:has([data-clinical-print]) [data-clinical-print],
+  body:has([data-clinical-print]) [data-clinical-print] * {
+    visibility: visible !important;
+  }
+
+  body:has([data-clinical-print]) [data-clinical-print] {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: white !important;
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body:has([data-clinical-print]) [data-clinical-print] > article {
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body:has([data-clinical-print]) [data-clinical-print] > article[style*="carta-landscape"] {
+    width: 297mm !important;
+    max-width: 297mm !important;
+    min-height: 210mm !important;
+  }
+
+  body:has([data-clinical-print]) [data-clinical-print] header,
+  body:has([data-clinical-print]) [data-clinical-print] h1,
+  body:has([data-clinical-print]) [data-clinical-print] h2,
+  body:has([data-clinical-print]) [data-clinical-print] h3,
+  body:has([data-clinical-print]) [data-clinical-print] table,
+  body:has([data-clinical-print]) [data-clinical-print] tr,
+  body:has([data-clinical-print]) [data-clinical-print] img,
+  body:has([data-clinical-print]) [data-clinical-print] [data-print-keep] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body:has([data-clinical-print]) [data-clinical-print] h1,
+  body:has([data-clinical-print]) [data-clinical-print] h2,
+  body:has([data-clinical-print]) [data-clinical-print] h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  body:has([data-clinical-print]) [data-clinical-print] p,
+  body:has([data-clinical-print]) [data-clinical-print] li {
+    orphans: 3;
+    widows: 3;
+  }
+
   body:has([data-evolutivo-print]) * {
     visibility: hidden;
   }
@@ -176,37 +240,63 @@
     background: white;
   }
 
-  body:has(> [data-historia-print]) > *:not([data-historia-print]) {
-    display: none !important;
+  body:has([data-historia-print]) * {
+    visibility: hidden !important;
   }
 
-  body > [data-historia-print] {
-    display: block !important;
+  body:has([data-historia-print]) [data-historia-print],
+  body:has([data-historia-print]) [data-historia-print] * {
+    visibility: visible !important;
+  }
+
+  body:has([data-historia-print]) [data-modal-scroll],
+  body:has([data-historia-print]) [data-modal-scroll] > section,
+  body:has([data-historia-print]) [data-modal-scroll] > section > div {
     position: static !important;
-    width: 100%;
+    display: block !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: white !important;
+    box-shadow: none !important;
+  }
+
+  body:has([data-historia-print]) [data-historia-print] {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 190mm !important;
+    max-width: 190mm !important;
+    margin: 0 !important;
     page: historia-clinica;
     background: white;
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   body:has([data-historia-print]) [data-historia-print] > .pdf-page {
-    width: 100%;
-    max-width: none;
+    width: 190mm !important;
+    max-width: 190mm !important;
     min-height: 0 !important;
     box-sizing: border-box;
-    margin: 0 auto !important;
-    padding: 0 !important;
+    margin: 0 !important;
     box-shadow: none !important;
-    font-size: 8.5px !important;
-    line-height: 1.12 !important;
-    break-after: auto;
-    page-break-after: auto;
-    break-before: auto;
-    page-break-before: auto;
+    break-after: page;
+    page-break-after: always;
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
-  body:has([data-historia-print]) [data-historia-print] > .pdf-page-sessions {
+  body:has([data-historia-print]) [data-historia-print] > .pdf-page + .pdf-page {
     break-before: page;
     page-break-before: always;
+  }
+
+  body:has([data-historia-print]) [data-historia-print] > .pdf-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 
   body:has([data-historia-print]) [data-historia-print] tr,
@@ -216,27 +306,12 @@
     page-break-inside: avoid;
   }
 
-  body:has([data-historia-print]) [data-historia-print] section {
-    margin-top: 2mm !important;
-    break-inside: auto;
-    page-break-inside: auto;
-  }
-
-  body:has([data-historia-print]) [data-historia-print] [data-report-line] {
-    min-height: 3.7mm !important;
-    line-height: 3.7mm !important;
-  }
-
   body:has([data-historia-print]) [data-historia-print] header,
   body:has([data-historia-print]) [data-historia-print] h1,
   body:has([data-historia-print]) [data-historia-print] h2,
   body:has([data-historia-print]) [data-historia-print] h3 {
     break-after: avoid;
     page-break-after: avoid;
-  }
-
-  body:has([data-historia-print]) [data-historia-print] img[alt*="Mapa corporal"] {
-    max-height: 43mm !important;
   }
 
   body:has(#planilla-personal-print) * {
@@ -257,17 +332,17 @@
   }
 
   @page {
-    size: 216mm 279mm;
-    margin: 10mm;
+    size: A4 portrait;
+    margin: 0;
   }
 }
 
 @page historia-clinica {
-  size: Letter;
-  margin: 10mm 12mm;
+  size: A4 portrait;
+  margin: 10mm;
 }
 
 @page carta-landscape {
-  size: 279mm 216mm;
-  margin: 10mm;
+  size: A4 landscape;
+  margin: 8mm;
 }

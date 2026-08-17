@@ -29,7 +29,7 @@ function EvolutivoSection({ data = [], onChange }) {
             </div>
             <div className="grid gap-4 p-4 md:grid-cols-2 lg:grid-cols-4">
               <Input label="Número de sesión" value={session.numero || index + 1} readOnly />
-              <Input label="Fecha de sesión" type="date" value={session.fecha || ''} onChange={(e) => update(index, 'fecha', e.target.value)} />
+              <Input label="Fecha de sesión" type="date" value={session.fecha_sesion || session.fecha || ''} onChange={(e) => update(index, 'fecha', e.target.value)} />
               <Input label="Dolor inicial (0-10)" type="number" min="0" max="10" value={session.dolor_inicial ?? ''} onChange={(e) => update(index, 'dolor_inicial', e.target.value)} />
               <Input label="Dolor final (0-10)" type="number" min="0" max="10" value={session.dolor_final ?? ''} onChange={(e) => update(index, 'dolor_final', e.target.value)} />
               <Input className="md:col-span-2" label="Procedimiento realizado" value={session.aplicacion || ''} onChange={(e) => update(index, 'aplicacion', e.target.value.toLocaleUpperCase('es-BO'))} multiline />

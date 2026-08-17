@@ -28,6 +28,7 @@ import {
   updateDocumentoClinico
 } from '../../services/documentoClinicoService';
 import DocumentoPreview from './DocumentoPreview';
+import { addCanvasToA4Pdf } from '../../utils/pdfPagination';
 
 const today = boliviaDate();
 
@@ -636,20 +637,9 @@ function DocumentosClinicos({ tipo }) {
   const downloadPdf = async (documento = previewDocumento) => {
     const { wrapper, rootElement, root } = await renderDocumentForExport(documento);
     const canvas = await html2canvas(rootElement.firstElementChild, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-    const pdf = new jsPDF('p', 'mm', [216, 279]);
-    const pageWidth = 216;
-    const pageHeight = 279;
-    const imgHeight = (canvas.height * pageWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, pageWidth, imgHeight);
-    heightLeft -= pageHeight;
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, pageWidth, imgHeight);
-      heightLeft -= pageHeight;
-    }
+    const landscape = documento.tipo === 'farmacos';
+    const pdf = new jsPDF({ orientation: landscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
+    addCanvasToA4Pdf({ canvas, pdf, orientation: landscape ? 'landscape' : 'portrait' });
     pdf.save(fileName(tipo, documento.paciente, documento.fecha, 'pdf'));
     root.unmount();
     document.body.removeChild(wrapper);
@@ -1268,7 +1258,7 @@ function DocumentosClinicos({ tipo }) {
             Imprimir
           </Button>
         </div>
-        <div ref={previewRef} className="max-h-[75vh] overflow-auto bg-slate-100 p-4">
+        <div ref={previewRef} data-clinical-print className="max-h-[75vh] overflow-auto bg-slate-100 p-4">
           <DocumentoPreview documento={preview} canViewFinancial={isAdmin} />
         </div>
       </Modal>

@@ -16,6 +16,7 @@ import { anularPlanillaPersonal, cerrarPlanillaPersonal, createPlanillaPersonal,
 import { exportPlanillaExcel, exportPlanillasGeneralExcel, MESES } from '../../utils/exportPlanillaExcel';
 import { formatDate } from '../../utils/formatDate';
 import { boliviaDate } from '../../utils/boliviaDateTime';
+import { addCanvasToA4Pdf } from '../../utils/pdfPagination';
 import PlanillaSueldoDocumento from './PlanillaSueldoDocumento';
 
 const today = boliviaDate();
@@ -119,7 +120,7 @@ function PlanillaPersonal() {
 
   const deletePlan = async (plan) => { const result = await Swal.fire({ icon: 'warning', title: '¿Eliminar planilla?', text: `${MESES[plan.mes]} ${plan.anio}. Esta acción eliminará únicamente el borrador.`, showCancelButton: true, reverseButtons: true, confirmButtonText: 'Eliminar', cancelButtonText: 'Cancelar', confirmButtonColor: '#DC2626' }); if (!result.isConfirmed) return; try { await deletePlanillaPersonal(plan.id); await load(); await Swal.fire({ icon: 'success', title: 'Planilla eliminada correctamente.', confirmButtonColor: '#0F766E' }); } catch (errorDelete) { await Swal.fire({ icon: 'error', title: 'No se pudo eliminar la planilla.', text: errorDelete.message, confirmButtonColor: '#0F766E' }); } };
 
-  const downloadPdf = async (plan) => { const planActual = planillaConCargosActuales(plan); const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1054px;background:white'; document.body.appendChild(host); const root = createRoot(host); root.render(<PlanillaSueldoDocumento planilla={planActual} />); await new Promise((resolve) => setTimeout(resolve, 250)); const canvas = await html2canvas(host.firstElementChild, { scale: 2, backgroundColor: '#fff', useCORS: true }); const pdf = new jsPDF('l', 'mm', [279, 216]); const height = canvas.height * 279 / canvas.width; pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 279, height); pdf.save(`Planilla_Sueldos_${MESES[plan.mes]}_${plan.anio}.pdf`); root.unmount(); host.remove(); };
+  const downloadPdf = async (plan) => { const planActual = planillaConCargosActuales(plan); const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1123px;background:white'; document.body.appendChild(host); const root = createRoot(host); root.render(<PlanillaSueldoDocumento planilla={planActual} />); await new Promise((resolve) => setTimeout(resolve, 250)); const canvas = await html2canvas(host.firstElementChild, { scale: 2, backgroundColor: '#fff', useCORS: true }); const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }); addCanvasToA4Pdf({ canvas, pdf, orientation: 'landscape' }); pdf.save(`Planilla_Sueldos_${MESES[plan.mes]}_${plan.anio}.pdf`); root.unmount(); host.remove(); };
   const printPlan = (plan) => { setPreview(planillaConCargosActuales(plan)); setTimeout(() => window.print(), 150); };
 
   return <section className="grid gap-5">

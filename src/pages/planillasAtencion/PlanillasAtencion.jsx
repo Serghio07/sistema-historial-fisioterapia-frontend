@@ -21,6 +21,7 @@ import { matchesSearch } from '../../utils/search';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import PlanillaDocumento from './PlanillaDocumento';
 import { boliviaDate } from '../../utils/boliviaDateTime';
+import { addCanvasToA4Pdf } from '../../utils/pdfPagination';
 
 const today = boliviaDate();
 
@@ -278,20 +279,8 @@ function PlanillasAtencion() {
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     const canvas = await html2canvas(root.firstElementChild, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-    const pdf = new jsPDF('p', 'mm', [216, 279]);
-    const pageWidth = 216;
-    const pageHeight = 279;
-    const imgHeight = (canvas.height * pageWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, pageWidth, imgHeight);
-    heightLeft -= pageHeight;
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, pageWidth, imgHeight);
-      heightLeft -= pageHeight;
-    }
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    addCanvasToA4Pdf({ canvas, pdf });
     pdf.save(`planilla-atencion-${nombrePaciente(planilla?.paciente || pacienteSeleccionado).replaceAll(' ', '-') || 'paciente'}.pdf`.toLowerCase());
     pdfRoot.unmount();
     document.body.removeChild(wrapper);
@@ -442,7 +431,7 @@ function PlanillasAtencion() {
               </div>
               <div className="relative min-h-[420px] max-h-[620px] flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200 bg-slate-200/60 p-2">
                 <div className="relative mx-auto h-[552px] w-full overflow-hidden">
-                  <div ref={printRef} className="absolute left-1/2 top-0 w-[216mm] origin-top -translate-x-1/2 scale-[0.52]">
+                  <div ref={printRef} className="absolute left-1/2 top-0 w-[210mm] origin-top -translate-x-1/2 scale-[0.52]">
                     <PlanillaDocumento planilla={previewPlanilla} paciente={pacienteSeleccionado} />
                   </div>
                 </div>
@@ -466,7 +455,7 @@ function PlanillasAtencion() {
       </Modal>
 
       <Modal open={Boolean(selectedPlanilla)} title="Planilla de atencion" onClose={() => setSelectedPlanilla(null)} size="lg">
-        <div className="max-h-[75vh] overflow-auto bg-slate-100 p-4">
+        <div data-clinical-print className="max-h-[75vh] overflow-auto bg-slate-100 p-4">
           <PlanillaDocumento planilla={selectedPlanilla} />
         </div>
       </Modal>

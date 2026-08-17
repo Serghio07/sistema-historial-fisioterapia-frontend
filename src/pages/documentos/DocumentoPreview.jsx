@@ -9,11 +9,11 @@ const labelTipo = {
 };
 
 const consentimientoLegalText = [
-  'Manifiesto que he leido y entendido la hoja de informacion que se me ha entregado, que he hecho las preguntas que me surgieron sobre el procedimiento de Cirugia Minimo Invasiva y que he recibido informacion suficiente sobre el mismo.',
-  'Comprendo que mi participacion es totalmente voluntaria, que puedo retirarme antes del procedimiento, cuando quiera sin tener que dar explicaciones y sin que esto repercuta en mis cuidados medicos.',
-  'Presto libremente mi conformidad para participar en el procedimiento medico de Cirugia Minimo Invasiva.',
-  'He sido tambien informado/a de que mis datos personales seran protegidos e incluidos en un fichero que debera estar sometido a y con las garantias del Reglamento General de Proteccion de Datos (RGPD), de La Paz Bolivia, que entro en vigor el 25 de mayo de 2018 que supone la derogacion de Ley Organica 15/1999, de 13 de diciembre referidos a la proteccion de las personas fisicas en lo que respecta al tratamiento de datos personales.',
-  'Tomando ello en consideracion, OTORGO mi CONSENTIMIENTO para cubrir los objetivos especificados por el personal de salud.'
+  'Declaro que el profesional me explicó de manera clara el diagnóstico, los objetivos del tratamiento de fisioterapia y kinesiología, los procedimientos propuestos, sus beneficios esperados, posibles molestias o riesgos y las alternativas disponibles.',
+  'He tenido la oportunidad de realizar preguntas y considero que recibí información suficiente y comprensible para tomar una decisión libre sobre mi atención.',
+  'Comprendo que mi participación es voluntaria y que puedo solicitar aclaraciones, rechazar un procedimiento o retirar este consentimiento antes o durante el tratamiento, sin perder mi derecho a recibir atención.',
+  'Autorizo al personal de salud de Physio Active a realizar el tratamiento descrito, respetando el plan indicado, mi seguridad, privacidad y confidencialidad clínica.',
+  'Con la información recibida, OTORGO libremente mi CONSENTIMIENTO para la evaluación y el tratamiento de fisioterapia y kinesiología señalados en este documento.'
 ];
 
 const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -32,19 +32,31 @@ const DotLine = ({ children, className = '' }) => (
   <span className={`inline-block min-h-5 border-b border-dotted border-slate-500 px-2 ${className}`}>{children || ''}</span>
 );
 
+function ConsentField({ label, children, checked = true }) {
+  return (
+    <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', margin: 0 }}>
+      <tbody><tr>
+        <td style={{ width: '20px', verticalAlign: 'top', padding: '1px 6px 0 0' }}>{checked ? '✓' : ''}</td>
+        <td style={{ width: '180px', verticalAlign: 'top', padding: '0 10px 3px 0', fontWeight: 700 }}>{label}</td>
+        <td style={{ verticalAlign: 'top', padding: '0 6px 3px', borderBottom: '1px dotted #475569', lineHeight: 1.55, whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{children || ' '}</td>
+      </tr></tbody>
+    </table>
+  );
+}
+
 function ConsentimientoPreview({ documento }) {
   const data = documento.datos || {};
   return (
-    <article className="mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-10 py-7 text-[13px] leading-6 text-slate-950 shadow-soft print:shadow-none">
+    <article className="mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white px-8 py-6 text-[13px] leading-6 text-slate-950 shadow-soft print:shadow-none">
       <img src={logo} alt="Physio Active" className="mb-3 h-24 w-36 object-contain" />
-      <h1 className="bg-blue-700 px-3 py-1.5 text-center text-sm font-black uppercase tracking-wide text-white">Declaracion de Consentimiento Informado</h1>
+      <h1 className="bg-blue-700 px-3 py-1.5 text-center text-sm font-black uppercase tracking-wide text-white">Declaración de Consentimiento Informado</h1>
 
-      <section className="mt-6 grid gap-2 pl-3">
-        <p><span className="mr-3">✓</span><strong>PACIENTE</strong> <span className="border-b border-dotted border-slate-600 px-2">{data.nombre_completo || nombrePaciente(documento.paciente) || ' '}</span> de <span className="border-b border-dotted border-slate-600 px-2">{data.edad || ' '}</span> anos de edad y con</p>
-        <p className="pl-8">CI N° <span className="border-b border-dotted border-slate-600 px-2">{data.ci || ' '}</span></p>
-        <p><span className="mr-3">✓</span>Tutor o Padre de familia <span className="border-b border-dotted border-slate-600 px-2">{data.tutor_nombre || ' '}</span></p>
-        <p><span className="mr-3">✓</span>Diagnostico <span className="border-b border-dotted border-slate-600 px-2">{data.diagnostico || ' '}</span></p>
-        <p><span className="mr-3">✓</span>Tratamiento <span className="border-b border-dotted border-slate-600 px-2">{data.tratamiento || ' '}</span></p>
+      <section className="mt-6 grid gap-3 pl-3">
+        <ConsentField label="PACIENTE">{`${data.nombre_completo || nombrePaciente(documento.paciente) || ' '}, de ${data.edad || ' '} años de edad`}</ConsentField>
+        <ConsentField label="CI N.º" checked={false}>{data.ci}</ConsentField>
+        <ConsentField label="Tutor o Padre de familia">{data.tutor_nombre}</ConsentField>
+        <ConsentField label="Diagnóstico">{data.diagnostico}</ConsentField>
+        <ConsentField label="Tratamiento">{data.tratamiento}</ConsentField>
       </section>
 
       <section className="mt-5 space-y-4 text-justify">
@@ -53,8 +65,10 @@ function ConsentimientoPreview({ documento }) {
         ))}
       </section>
 
-      <p className="mt-6 italic">Firma del representante legal <span className="inline-block min-w-60 border-b border-dotted border-slate-700 px-4">{data.firma_representante || ''}</span></p>
-      <p className="mt-7 text-center">{longDate(documento.fecha, data.ciudad || 'La Paz')}</p>
+      <div data-print-keep className="mt-5">
+        <p className="italic">Firma del representante legal <span className="inline-block min-w-60 border-b border-dotted border-slate-700 px-4">{data.firma_representante || ''}</span></p>
+        <p className="mt-5 text-center">{longDate(documento.fecha, data.ciudad || 'La Paz')}</p>
+      </div>
     </article>
   );
 }
@@ -73,7 +87,7 @@ function SignosPreview({ documento }) {
     </span>
   );
   return (
-    <article className="relative mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-10 py-8 font-mono text-[13px] leading-6 text-slate-950 shadow-soft print:shadow-none">
+    <article className="relative mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white px-8 py-6 font-mono text-[13px] leading-6 text-slate-950 shadow-soft print:shadow-none">
       <img src={logo} alt="Physio Active" className="absolute right-8 top-6 h-16 w-24 object-contain" />
       <h1 className="border border-slate-900 px-4 py-4 text-center text-2xl font-black uppercase tracking-wide">Ficha de Signos Vitales</h1>
 
@@ -89,9 +103,9 @@ function SignosPreview({ documento }) {
         </div>
       </section>
 
-      <section className="mt-6">
+      <section className="mt-5">
         <h2 className="mb-3 font-black uppercase">Antecedentes Patologicos</h2>
-        <ul className="grid min-h-32 gap-2 pl-8">
+        <ul className="grid gap-1.5 pl-8">
           {Array.from({ length: 4 }).map((_, index) => (
             <li key={index} className="list-disc">
               <DotLine className="w-[85%]">{antecedentes[index]}</DotLine>
@@ -100,15 +114,15 @@ function SignosPreview({ documento }) {
         </ul>
       </section>
 
-      <section className="mt-8">
-        <h2 className="mb-5 font-black uppercase">Signos Vitales:</h2>
+      <section className="mt-6">
+        <h2 className="mb-4 font-black uppercase">Signos Vitales:</h2>
         {[
           ['PRE - PROCEDIMIENTO', data.pre],
           ['DURANTE PROCEDIMIENTO', data.durante],
           ['POST - PROCEDIMIENTO', data.post]
         ].map(([title, values]) => (
-          <div key={title} className="mb-8">
-            <h3 className="mb-4 font-black uppercase">{title}</h3>
+          <div key={title} data-print-keep className="mb-5">
+            <h3 className="mb-2.5 font-black uppercase">{title}</h3>
             <div className="grid grid-cols-4 gap-3">
               <VitalLine label="P/A" value={values?.presion_arterial} />
               <VitalLine label="FC" value={values?.frecuencia_cardiaca} />
@@ -119,7 +133,7 @@ function SignosPreview({ documento }) {
         ))}
       </section>
 
-      <div className="absolute bottom-8 right-10 text-right text-[11px] text-slate-500">
+      <div data-print-keep className="mt-6 text-right text-[11px] text-slate-500">
         <p>{formatDate(documento.fecha)}</p>
         <p>{data.responsable_nombre || documento.creado_por?.nombre || ''}</p>
       </div>
@@ -133,7 +147,7 @@ function FarmacosPreview({ documento, canViewFinancial = false }) {
   const total = filas.reduce((sum, fila) => sum + Number(fila.monto_bs || 0), 0);
   const rows = Array.from({ length: Math.max(14, filas.length) }, (_, index) => filas[index] || {});
   return (
-    <article className="relative mx-auto min-h-[216mm] w-full max-w-[279mm] bg-white px-8 py-7 text-sm text-slate-950 shadow-soft print:shadow-none" style={{ page: 'carta-landscape' }}>
+    <article className="relative mx-auto min-h-[210mm] w-full max-w-[297mm] bg-white px-7 py-6 text-sm text-slate-950 shadow-soft print:shadow-none" style={{ page: 'carta-landscape' }}>
       <img src={logo} alt="Physio Active" className="absolute right-8 top-5 h-16 w-24 object-contain" />
       <h1 className="mb-5 pr-28 text-center text-3xl font-black uppercase tracking-wide text-orange-700">Administracion de Farmacos</h1>
       <table className="w-full table-fixed border-collapse text-center text-xs">
@@ -180,7 +194,7 @@ function DocumentoPreview({ documento, canViewFinancial = false }) {
   if (documento.tipo === 'farmacos') return <FarmacosPreview documento={documento} canViewFinancial={canViewFinancial} />;
 
   return (
-    <article className="mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-8 py-7 text-sm leading-5 text-slate-900 shadow-soft print:shadow-none">
+    <article className="mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white px-8 py-6 text-sm leading-5 text-slate-900 shadow-soft print:shadow-none">
       <header className="grid grid-cols-[90px_minmax(0,1fr)_90px] items-center gap-3 border-b border-slate-700 pb-3">
         <img src={logo} alt="Physio Active" className="h-16 w-24 object-contain" />
         <div className="text-center">

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { useNavigate } from 'react-router-dom';
-import { Ban, ClipboardPlus, Eye, FilePenLine, FileText, Filter, HeartPulse, Info, List, MoreVertical, Printer, RotateCcw, Search, Star, Stethoscope, UserRound, Users } from 'lucide-react';
+import { Ban, ClipboardPlus, Download, Eye, FilePenLine, FileText, Filter, HeartPulse, Info, List, MoreVertical, Printer, RotateCcw, Search, Star, Stethoscope, UserRound, Users } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
@@ -15,6 +16,7 @@ import { getProfesionalesActivos } from '../../services/usuarioService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import { matchesSearch } from '../../utils/search';
+import { addCanvasToA4Pdf } from '../../utils/pdfPagination';
 import HistoriaClinicaForm, { initialHistoria } from './HistoriaClinicaForm';
 import EvolutivoSection from './sections/EvolutivoSection';
 import PacienteHistoriasAccordion from './PacienteHistoriasAccordion';
@@ -135,7 +137,7 @@ function HistoriaDetalleModalLegacy({ historia, onClose }) {
             {(historia.evolutivo || []).map((session, index) => (
               <div key={index} className="grid gap-2 rounded-lg bg-slate-50 p-3 md:grid-cols-[70px_110px_1fr_180px]">
                 <strong>Sesión {index + 1}</strong>
-                <span>{session.fecha ? formatDate(session.fecha) : 'Sin fecha'}</span>
+                <span>{session.fecha_sesion || session.fecha ? formatDate(session.fecha_sesion || session.fecha) : 'Sin fecha'}</span>
                 <span>{session.aplicacion || 'Sin detalle'}</span>
                 <span>{session.inyectables || 'Sin inyectables'}</span>
               </div>
@@ -160,7 +162,7 @@ function HistoriaReporte({ historia }) {
   const dolor = Number(intervencion.escala_dolor || 0);
 
   const Check = ({ checked }) => (
-    <span className="mx-1 inline-grid h-3 w-3 place-items-center border border-slate-700 text-[9px] leading-none">
+    <span className="mx-1 inline-flex h-3 w-3 shrink-0 align-middle items-center justify-center border border-slate-700 text-[8px] leading-[10px]">
       {checked ? 'X' : ''}
     </span>
   );
@@ -170,10 +172,18 @@ function HistoriaReporte({ historia }) {
   );
 
   const Area = ({ children, rows = 3 }) => (
-    <div className="grid gap-1">
-      {Array.from({ length: rows }).map((_, index) => (
-        <Line key={index}>{index === 0 ? children : null}</Line>
-      ))}
+    <div
+      data-report-area
+      className="whitespace-pre-wrap leading-6"
+      style={{
+        minHeight: `${rows * 24}px`,
+        backgroundImage: 'radial-gradient(circle at 1px 23px, rgb(100 116 139) 0.7px, transparent 0.9px)',
+        backgroundPosition: '0 0',
+        backgroundRepeat: 'repeat',
+        backgroundSize: '3px 24px'
+      }}
+    >
+      {children}
     </div>
   );
 
@@ -193,7 +203,7 @@ function HistoriaReporte({ historia }) {
 
   return (
     <>
-    <div className="pdf-page pdf-page-1 mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
+    <div className="pdf-page pdf-page-1 mx-auto w-full max-w-[190mm] bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
       <header className="grid grid-cols-[90px_minmax(0,1fr)_90px] items-center gap-3 border-b border-slate-700 pb-3">
         <img src={logo} alt="Physio Active" className="h-16 w-24 object-contain" />
         <div className="min-w-0 text-center">
@@ -292,12 +302,12 @@ function HistoriaReporte({ historia }) {
 
     </div>
 
-    <div className="pdf-page pdf-page-2 mx-auto mt-6 min-h-[279mm] w-full max-w-[216mm] bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
-      <section className="mb-4">
+    <div className="pdf-page pdf-page-2 mx-auto mt-6 w-full max-w-[190mm] bg-white px-7 py-4 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
+      <section className="mb-3">
         <p className="font-black">Pruebas especificas:</p>
         <Area rows={4}>{examen.pruebas_especificas}</Area>
       </section>
-      <section className="mt-4">
+      <section className="mt-3">
         <h2 className="font-black uppercase">4. Condicion actual</h2>
         <p className="mt-2 font-bold uppercase">Mapa corporal:</p>
         <div className="pdf-keep-together mt-2 grid grid-cols-[minmax(0,1fr)_160px] items-start gap-5">
@@ -305,7 +315,7 @@ function HistoriaReporte({ historia }) {
             <img
               src={mapaCorporalAnatomico}
               alt="Mapa corporal anatómico masculino y femenino, vistas anterior y posterior"
-              className="h-auto max-h-64 w-full object-contain"
+            className="h-auto max-h-56 w-full object-contain"
             />
           </div>
           <div className="border border-slate-500 p-2 leading-5">
@@ -319,8 +329,8 @@ function HistoriaReporte({ historia }) {
         </div>
         <Line className="mt-2"><strong>Zona:</strong> {condicion.zona_cuerpo} <span className="ml-4"><strong>Tipo:</strong> {condicion.tipo_lesion}</span></Line>
         <p className="mt-2 font-black uppercase">Estudios imagenologicos:</p>
-        <Area rows={3}>{condicion.estudios_imagenologicos}</Area>
-        <Area rows={3}>{condicion.descripcion}</Area>
+        <Area rows={2}>{condicion.estudios_imagenologicos}</Area>
+        <Area rows={2}>{condicion.descripcion}</Area>
       </section>
 
       <section className="mt-4">
@@ -341,14 +351,14 @@ function HistoriaReporte({ historia }) {
         </div>
       </section>
 
-      <section className="mt-4">
+      <section className="mt-3">
         <h2 className="font-black uppercase">6. Tono</h2>
         <Area rows={2}>{intervencion.tono}</Area>
       </section>
 
       <section className="mt-3">
         <h2 className="mt-3 font-black uppercase">7. Evaluacion de balance articular "Goniometria" y balance muscular</h2>
-        <Area rows={5}>{`${intervencion.goniometria_balance_articular || ''} ${intervencion.balance_muscular || ''}`.trim()}</Area>
+        <Area rows={4}>{`${intervencion.goniometria_balance_articular || ''} ${intervencion.balance_muscular || ''}`.trim()}</Area>
       </section>
 
       <section className="mt-3">
@@ -360,7 +370,7 @@ function HistoriaReporte({ historia }) {
 
     </div>
 
-    <div className="pdf-page pdf-page-3 mx-auto mt-6 min-h-[279mm] w-full max-w-[216mm] bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
+    <div className="pdf-page pdf-page-3 mx-auto mt-6 w-full max-w-[190mm] bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
       <section>
         <h2 className="font-black uppercase">9. Evaluacion de postura</h2>
         <Area rows={5}>{evaluacion.evaluacion_postura}</Area>
@@ -385,7 +395,7 @@ function HistoriaReporte({ historia }) {
         </div>
       </section>
     </div>
-    <div className="pdf-page pdf-page-sessions mx-auto mt-6 min-h-[279mm] w-full max-w-[216mm] bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
+    <div className="pdf-page pdf-page-sessions mx-auto mt-6 w-full max-w-[190mm] bg-white px-7 py-6 font-sans text-[11px] leading-tight text-slate-900 shadow-soft print:shadow-none">
       <header className="grid grid-cols-[90px_minmax(0,1fr)_90px] items-center gap-3 border-b border-slate-700 pb-3">
         <img src={logo} alt="Physio Active" className="h-16 w-24 object-contain" />
         <div className="text-center">
@@ -410,7 +420,7 @@ function HistoriaReporte({ historia }) {
             return (
               <tr key={index} className="align-top">
                 <td className="border border-slate-700 px-1 py-2 text-center font-bold">{index + 1}</td>
-                <td className="border border-slate-700 px-2 py-2 text-center">{session.fecha ? formatDate(session.fecha) : ''}</td>
+                <td className="border border-slate-700 px-2 py-2 text-center">{session.fecha_sesion || session.fecha ? formatDate(session.fecha_sesion || session.fecha) : ''}</td>
                 <td className="h-16 whitespace-pre-wrap border border-slate-700 px-2 py-2 leading-5">{[
                   session.dolor_inicial !== '' && session.dolor_inicial != null ? `DOLOR INICIAL: ${session.dolor_inicial}/10` : '',
                   session.dolor_final !== '' && session.dolor_final != null ? `DOLOR FINAL: ${session.dolor_final}/10` : '',
@@ -622,6 +632,8 @@ function HistoriasClinicas() {
   const [historyGroup, setHistoryGroup] = useState(null);
   const [selectedHistoria, setSelectedHistoria] = useState(null);
   const [previewHistoria, setPreviewHistoria] = useState(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const historiaPrintRef = useRef(null);
   const [evolutivoHistoria, setEvolutivoHistoria] = useState(null);
   const [evolutivoData, setEvolutivoData] = useState([]);
   const [historiaAAnular, setHistoriaAAnular] = useState(null);
@@ -631,6 +643,50 @@ function HistoriasClinicas() {
   const [expandedPatientId, setExpandedPatientId] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  const downloadHistoriaPdf = async () => {
+    if (!previewHistoria || !historiaPrintRef.current || downloadingPdf) return;
+
+    setDownloadingPdf(true);
+    try {
+      const pages = [...historiaPrintRef.current.querySelectorAll(':scope > .pdf-page')];
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      for (let index = 0; index < pages.length; index += 1) {
+        const previewBounds = pages[index].getBoundingClientRect();
+        const canvas = await html2canvas(pages[index], {
+          // Aumenta solamente la resolucion de la captura; el tamano fisico se conserva en 190 mm.
+          scale: 2,
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          logging: false
+        });
+        if (import.meta.env.DEV) {
+          console.info('Historia clinica - vista previa/PDF', {
+            preview: previewBounds,
+            pdfSource: pages[index].getBoundingClientRect()
+          });
+        }
+        addCanvasToA4Pdf({
+          canvas,
+          pdf,
+          orientation: 'portrait',
+          margin: 10,
+          addFirstPage: index > 0
+        });
+      }
+
+      const patientName = nombrePaciente(previewHistoria.paciente)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '_')
+        .replace(/^_|_$/g, '')
+        .toLowerCase() || 'paciente';
+      pdf.save(`historia_clinica_${patientName}_${previewHistoria.fecha_evaluacion || 'sin_fecha'}.pdf`);
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -1081,23 +1137,22 @@ function HistoriasClinicas() {
 
       <Modal open={Boolean(previewHistoria)} title="Vista previa de historia clinica" onClose={() => setPreviewHistoria(null)} size="lg">
         <div className="grid gap-3">
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
             <p className="text-sm text-slate-500">Revise el documento antes de imprimirlo o guardarlo como PDF.</p>
-            <Button onClick={() => window.print()}><Printer size={17} />Imprimir / Guardar PDF</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={downloadHistoriaPdf} disabled={downloadingPdf}>
+                <Download size={17} />{downloadingPdf ? 'Generando PDF...' : 'Descargar PDF'}
+              </Button>
+              <Button onClick={() => window.print()}><Printer size={17} />Imprimir / Guardar PDF</Button>
+            </div>
           </div>
           <div className="max-h-[68vh] overflow-auto bg-slate-100 p-4">
-            <div>
+            <div ref={historiaPrintRef} data-historia-print={previewHistoria?.id || undefined} className="print-document mx-auto w-full max-w-[190mm]">
               <HistoriaReporte historia={previewHistoria} />
             </div>
           </div>
         </div>
       </Modal>
-      {previewHistoria && createPortal(
-        <div data-historia-print={previewHistoria.id} className="hidden">
-          <HistoriaReporte historia={previewHistoria} />
-        </div>,
-        document.body
-      )}
     </section>
   );
 }

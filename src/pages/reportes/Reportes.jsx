@@ -21,6 +21,7 @@ import { matchesSearch } from '../../utils/search';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import logo from '../../assets/logos/logo.png';
 import { boliviaDate } from '../../utils/boliviaDateTime';
+import { addCanvasToA4Pdf } from '../../utils/pdfPagination';
 
 const initialForm = {
   paciente_id: '',
@@ -102,7 +103,7 @@ function PrintableReport({ informe, pacientes }) {
     .filter(Boolean);
 
   return (
-    <article className="mx-auto min-h-[279mm] w-full max-w-[216mm] bg-white px-12 py-10 font-sans text-[15px] leading-6 text-slate-900 shadow-soft print:shadow-none">
+    <article className="mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white px-10 py-8 font-sans text-[15px] leading-6 text-slate-900 shadow-soft print:shadow-none">
       <header className="relative border-b border-slate-900 pb-2">
         <img src={logo} alt="Physio Active" className="absolute left-0 top-0 h-28 w-32 object-contain" />
         <div className="pt-28 text-center">
@@ -164,8 +165,10 @@ function PrintableReport({ informe, pacientes }) {
           ) : null}
         </div>
 
-        <p className="mt-8 whitespace-pre-wrap text-justify">{informe?.estado_actual || 'Paciente a la actualidad dado de alta post recuperacion funcional de su patologia.'}</p>
-        <p>{informe?.observacion_final || 'Es cuanto debo informar para fines del interesado'}</p>
+        <div data-print-keep className="mt-5">
+          <p className="whitespace-pre-wrap text-justify">{informe?.estado_actual || 'Paciente a la actualidad dado de alta post recuperacion funcional de su patologia.'}</p>
+          <p className="mt-3">{informe?.observacion_final || 'Es cuanto debo informar para fines del interesado'}</p>
+        </div>
       </section>
     </article>
   );
@@ -413,7 +416,7 @@ function Reportes() {
       .filter(Boolean);
     const sesionesRealizadas = Number(informe?.sesiones_realizadas || 0);
     return `
-      <article style="width: 216mm; min-height: 279mm; padding: 18mm 20mm; font-family: Arial, sans-serif; color: #0f172a; font-size: 16px; line-height: 1.42;">
+      <article style="width: 210mm; min-height: 297mm; padding: 14mm 16mm; font-family: Arial, sans-serif; color: #0f172a; font-size: 16px; line-height: 1.42;">
         <header style="position: relative; border-bottom: 1px solid #0f172a; padding-bottom: 8px;">
           <img src="${logo}" style="position: absolute; left: 0; top: 0; height: 110px; width: 130px; object-fit: contain;" />
           <div style="padding-top: 112px; text-align: center;">
@@ -444,8 +447,10 @@ function Reportes() {
               : `<p style="margin: 8px 0 10px;">Sin tratamiento registrado.</p>`
           }
           ${informe?.medicamentos ? `<p style="white-space: pre-wrap; text-align: justify; margin: 0 0 28px;"><strong>Farmacologicamente:</strong> ${escapeHtml(informe.medicamentos)}</p>` : ''}
-          <p style="white-space: pre-wrap; text-align: justify; margin: 46px 0 18px;">${escapeHtml(informe?.estado_actual || 'Paciente a la actualidad dado de alta post recuperacion funcional de su patologia.')}</p>
-          <p style="margin: 0;">${escapeHtml(informe?.observacion_final || 'Es cuanto debo informar para fines del interesado')}</p>
+          <div style="break-inside: avoid; page-break-inside: avoid; margin-top: 24px;">
+            <p style="white-space: pre-wrap; text-align: justify; margin: 0 0 12px;">${escapeHtml(informe?.estado_actual || 'Paciente a la actualidad dado de alta post recuperacion funcional de su patologia.')}</p>
+            <p style="margin: 0;">${escapeHtml(informe?.observacion_final || 'Es cuanto debo informar para fines del interesado')}</p>
+          </div>
         </section>
       </article>
     `;
@@ -460,22 +465,37 @@ function Reportes() {
     }
     const html = renderPrintableHtml(informe);
     const win = window.open('', '_blank');
+    if (!win) {
+      setError('El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.');
+      return;
+    }
     win.document.write(`
-      <html>
+      <!doctype html><html>
         <head>
           <title>Informe medico</title>
           <style>
             body { margin: 0; font-family: Arial, sans-serif; }
-            @page { size: 216mm 279mm; margin: 12mm; }
+            @page { size: A4 portrait; margin: 0; }
             * { box-sizing: border-box; }
+            h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+            h1, h2, h3, img { break-inside: avoid; page-break-inside: avoid; }
+            p, li { orphans: 3; widows: 3; }
           </style>
         </head>
         <body>${html}</body>
       </html>
     `);
     win.document.close();
-    win.focus();
-    win.print();
+    const printWhenReady = async () => {
+      const images = Array.from(win.document.images || []);
+      await Promise.all(images.map((image) => image.complete
+        ? Promise.resolve()
+        : new Promise((resolve) => { image.onload = resolve; image.onerror = resolve; })));
+      win.focus();
+      win.print();
+    };
+    if (win.document.readyState === 'complete') void printWhenReady();
+    else win.addEventListener('load', () => { void printWhenReady(); }, { once: true });
   };
 
   const downloadInformePdf = async (informe = previewInforme) => {
@@ -498,24 +518,8 @@ function Reportes() {
       useCORS: true
     });
 
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', [216, 279]);
-    const pageWidth = 216;
-    const pageHeight = 279;
-    const imgHeight = (canvas.height * pageWidth) / canvas.width;
-
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    pdf.addImage(imgData, 'PNG', 0, position, pageWidth, imgHeight);
-    heightLeft -= pageHeight;
-
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, pageWidth, imgHeight);
-      heightLeft -= pageHeight;
-    }
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    addCanvasToA4Pdf({ canvas, pdf });
 
     const paciente = informe?.paciente || pacientes.find((item) => Number(item.id) === Number(informe?.paciente_id));
     const fileName = `informe-${nombrePaciente(paciente).replaceAll(' ', '-') || 'paciente'}.pdf`.toLowerCase();

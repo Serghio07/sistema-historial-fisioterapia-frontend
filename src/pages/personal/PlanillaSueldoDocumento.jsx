@@ -8,7 +8,7 @@ function PlanillaSueldoDocumento({ planilla }) {
   const detalles = planilla?.detalles || [];
   const total = detalles.reduce((sum, item) => sum + amount(item), 0);
   return (
-    <article className="mx-auto min-h-[216mm] w-full max-w-[279mm] bg-white px-7 py-6 text-[11px] text-slate-900 shadow-soft print:shadow-none">
+    <article className="mx-auto min-h-[210mm] w-full max-w-[297mm] bg-white px-7 py-6 text-[11px] text-slate-900 shadow-soft print:shadow-none">
       <header className="grid grid-cols-[90px_1fr_90px] items-center border-b-2 border-teal-700 pb-3">
         <img src={logo} alt="Physio Active" className="h-16 w-20 object-contain" />
         <div className="text-center"><h1 className="text-base font-black uppercase">Centro de Fisioterapia y Kinesiología Integral</h1><p className="mt-1 font-black uppercase text-teal-700">Planilla de sueldos — {MESES[planilla?.mes]} {planilla?.anio}</p></div><div />
