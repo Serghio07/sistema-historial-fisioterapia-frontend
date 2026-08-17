@@ -7,6 +7,7 @@ import { Avatar } from '../../components/common/ProfilePhoto';
 import { useAuth } from '../../context/AuthContext';
 import { formatDate } from '../../utils/formatDate';
 import { nombrePaciente } from '../../utils/validators';
+import { historyProgress } from './sessionProgress';
 
 const attendanceLabel = { asistio: 'Asistió', no_asistio: 'Faltó', pendiente: 'Pendiente', cancelada: 'Cancelada', reprogramada: 'Reprogramada' };
 const attendanceTone = { asistio: 'bg-emerald-50 text-emerald-700', no_asistio: 'bg-rose-50 text-rose-700', pendiente: 'bg-amber-50 text-amber-700', cancelada: 'bg-slate-100 text-slate-600', reprogramada: 'bg-blue-50 text-blue-700' };
@@ -44,9 +45,8 @@ function HistorySessions({ group, history, onBack, onViewHistory, onNewSession, 
   const sessions = group.sesiones
     .filter((session) => String(session.historia_clinica_id || session.historia_clinica?.id) === String(history.id))
     .sort((a, b) => Number(a.numero_sesion || 0) - Number(b.numero_sesion || 0) || String(a.fecha || '').localeCompare(String(b.fecha || '')) || Number(a.id) - Number(b.id));
-  const completed = sessions.filter((session) => session.asistencia === 'asistio' && !session.anulada).length;
-  const contracted = Number(history.evaluacion_final?.sesiones_contratadas || 0);
-  const planCompleted = contracted > 0 && completed >= contracted;
+  const progress = historyProgress(history, sessions);
+  const { completed, contracted, isComplete: planCompleted } = progress;
 
   return (
     <div>
@@ -82,7 +82,7 @@ function HistorySessions({ group, history, onBack, onViewHistory, onNewSession, 
 
       <div className="mt-3 flex flex-wrap gap-2">
         <button className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 text-xs font-bold text-emerald-700" onClick={() => onViewHistory(history)}><ClipboardList size={15} />Ver historia clínica</button>
-        <button disabled={planCompleted} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-emerald-700 px-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => onNewSession({ ...group, historia: history })}><PlusCircle size={15} />{planCompleted ? 'Plan completado' : 'Nueva sesión'}</button>
+        <button disabled={planCompleted} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-emerald-700 px-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => onNewSession({ ...group, historia: history })}><PlusCircle size={15} />{planCompleted ? 'Sesiones completadas' : 'Completar sesión pendiente'}</button>
         <span className="inline-flex items-center gap-2 px-3 text-xs text-slate-500"><CalendarDays size={15} />{sessions.length} sesiones</span>
       </div>
     </div>
@@ -114,13 +114,13 @@ export default function SesionesPacienteAccordion({ groups, expandedKey, onToggl
                 {!selected ? <div className="grid gap-2">
                   {group.historias.map((history) => {
                     const sessions = group.sesiones.filter((session) => String(session.historia_clinica_id || session.historia_clinica?.id) === String(history.id));
-                    const completed = sessions.filter((session) => session.asistencia === 'asistio').length;
-                    const contracted = Number(history.evaluacion_final?.sesiones_contratadas || 0);
+                    const progress = historyProgress(history, sessions);
+                    const { completed, contracted } = progress;
                     const balance = sessions.reduce((sum, session) => sum + Number(session.saldo_pendiente || 0), 0);
                     return (
                       <article key={history.id} className="grid items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-[minmax(240px,1.4fr)_140px_150px_auto]">
                         <div className="min-w-0"><strong className="text-sm">{formatDate(history.fecha_evaluacion)}</strong><h4 className="mt-1 truncate text-sm font-black uppercase text-emerald-800">{history.condicion_actual?.zona_cuerpo || history.motivo_consulta || 'Historia clínica'}</h4><small className="flex items-center gap-1 text-slate-500"><Stethoscope size={12} />{history.profesional_cargo || 'Sin profesional'}</small></div>
-                        <div><span className="text-[10px] font-black uppercase text-slate-400">Plan</span><strong className="block">{completed} de {contracted}</strong></div>
+                        <div><span className="text-[10px] font-black uppercase text-slate-400">Estado</span><strong className={`block ${progress.isComplete ? 'text-emerald-700' : 'text-amber-700'}`}>{progress.isComplete ? 'Sesiones completadas' : `${progress.remaining} pendiente${progress.remaining === 1 ? '' : 's'}`}</strong><small className="text-slate-500">{completed} de {contracted}</small></div>
                         {isAdmin && <div><span className="text-[10px] font-black uppercase text-slate-400">Saldo</span><strong className={balance > 0 ? 'block text-amber-700' : 'block text-emerald-700'}>{balance.toFixed(0)} Bs</strong></div>}
                         <button type="button" onClick={() => chooseHistory(group.key, history.id)} className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-xs font-black text-white"><Eye size={15} />Ver sesiones</button>
                       </article>

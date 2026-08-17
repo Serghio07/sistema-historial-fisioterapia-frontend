@@ -36,6 +36,7 @@ import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import { boliviaDate } from '../../utils/boliviaDateTime';
 import SesionForm from './SesionForm';
 import SesionesPacienteAccordion, { sessionEvolution } from './SesionesPacienteAccordion';
+import { nextIncompleteHistory } from './sessionProgress';
 
 const initialForm = {
   cita_id: '',
@@ -565,6 +566,15 @@ function Sesiones() {
     setShowFormModal(true);
   };
 
+  const openNuevaSesionPendiente = (group) => {
+    const historiaPendiente = nextIncompleteHistory(group.historias, group.sesiones);
+    if (!historiaPendiente) {
+      setMessage('El paciente ya completó las sesiones de todas sus historias clínicas activas.');
+      return;
+    }
+    openNuevaSesionGrupo({ ...group, historia: historiaPendiente });
+  };
+
   const closeFormModal = () => {
     setShowFormModal(false);
     setFormTab('session');
@@ -839,9 +849,9 @@ function Sesiones() {
                         {expanded ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
                         {expanded ? 'Ocultar sesiones' : 'Ver sesiones'}
                       </Button>
-                      <Button variant="ghost" disabled={group.contratadas > 0 && group.realizadas >= group.contratadas} onClick={() => openNuevaSesionGrupo(group)}>
+                      <Button variant="ghost" disabled={!nextIncompleteHistory(group.historias, group.sesiones)} onClick={() => openNuevaSesionPendiente(group)}>
                         <PlusCircle size={17} />
-                        {group.contratadas > 0 && group.realizadas >= group.contratadas ? 'Plan completado' : 'Nueva sesión'}
+                        {nextIncompleteHistory(group.historias, group.sesiones) ? 'Completar sesión pendiente' : 'Sesiones completadas'}
                       </Button>
                       <Button variant="ghost" onClick={() => setSelectedHistoria(group.historia)}>
                         <ClipboardList size={17} />

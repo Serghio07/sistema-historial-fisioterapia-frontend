@@ -2,6 +2,7 @@ import { Activity, ArrowLeft, CalendarDays, CalendarSync, Check, ChevronRight, C
 import { useEffect, useState } from 'react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
+import { historyProgress, isCompletedSession } from './sessionProgress';
 
 const PROCEDIMIENTOS = [
   'Fisioterapia', 'Kinesiología', 'Atención médica', 'Evaluación fisioterapéutica',
@@ -29,8 +30,7 @@ function Section({ title, icon: Icon, tone = 'brand', children }) {
 }
 
 const toMoney = (value) => Math.max(Number(value || 0), 0);
-const isSesionActivaRealizada = (sesion) =>
-  !sesion?.anulada && String(sesion?.estado || '').toLowerCase() !== 'anulada' && sesion.asistencia === 'asistio';
+const isSesionActivaRealizada = isCompletedSession;
 const cleanClinicalText = (value, fallback = 'Sin dato') => {
   const text = String(value || '').trim();
   return text && text.toLowerCase() !== 'ninguna' ? text : fallback;
@@ -39,8 +39,13 @@ const historiaZona = (historia) =>
   cleanClinicalText(historia?.condicion_actual?.zona_cuerpo || historia?.motivo_consulta || historia?.diagnostico_medico, 'Historia activa');
 const historiaDx = (historia) =>
   cleanClinicalText(historia?.diagnostico_medico || historia?.evaluacion_final?.diagnostico_kinesico_cif);
-const historiaOptionLabel = (historia) =>
-  `${historia?.fecha_evaluacion || 'Sin fecha'} - ${historiaZona(historia)} - Activa`;
+const historiaOptionLabel = (historia, sesiones = []) => {
+  const progress = historyProgress(historia, sesiones);
+  const status = progress.isComplete
+    ? `Sesiones completadas (${progress.completed}/${progress.contracted})`
+    : `${progress.remaining} pendiente${progress.remaining === 1 ? '' : 's'} (${progress.completed}/${progress.contracted})`;
+  return `${historia?.fecha_evaluacion || 'Sin fecha'} - ${historiaZona(historia)} - ${status}`;
+};
 const emptyFarmaco = () => ({
   nombre: '',
   nombre_otro: '',
@@ -133,7 +138,11 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
     const activeHistories = historias
       .filter((historia) => historia.estado === 'activa' && !historia.anulada && String(historia.paciente_id || historia.paciente?.id) === String(pacienteId))
       .sort((a, b) => String(b.fecha_evaluacion || '').localeCompare(String(a.fecha_evaluacion || '')) || Number(b.id || 0) - Number(a.id || 0));
-    const autoHistoria = activeHistories.length === 1 ? activeHistories[0] : null;
+    const incompleteHistories = activeHistories.filter((historia) => {
+      const progress = historyProgress(historia, sesiones, editing);
+      return progress.contracted > 0 && !progress.isComplete;
+    });
+    const autoHistoria = incompleteHistories.length === 1 ? incompleteHistories[0] : activeHistories.length === 1 ? activeHistories[0] : null;
     const autoContratadas = Number(autoHistoria?.evaluacion_final?.sesiones_contratadas || 0);
     const autoRealizadas = autoHistoria
       ? sesiones.filter((sesion) =>
@@ -305,7 +314,7 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
               { value: '', label: form.paciente_id ? 'Seleccionar historia activa' : 'Seleccione un paciente' },
               ...historiasActivas.map((historia) => ({
                 value: historia.id,
-                label: historiaOptionLabel(historia)
+                label: historiaOptionLabel(historia, sesiones)
               }))
             ]}
             required
@@ -317,7 +326,7 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
         {selectedHistoria && (
           <div className="mt-2 rounded-lg border border-brand-100 bg-white/80 p-3 text-xs font-semibold text-slate-600">
             <strong className="block text-sm text-brand-900">
-              {historiaOptionLabel(selectedHistoria)}
+              {historiaOptionLabel(selectedHistoria, sesiones)}
             </strong>
             <span>
               Dx: {historiaDx(selectedHistoria)} | Zona: {cleanClinicalText(selectedHistoria.condicion_actual?.zona_cuerpo)}
