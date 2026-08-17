@@ -21,6 +21,37 @@ function Card({ title, icon: Icon, color = 'text-brand-700', children, className
   return <section className={`rounded-xl border border-slate-200 bg-white p-3 ${className}`}><h3 className={`mb-2 flex items-center gap-2 text-xs font-black ${color}`}><Icon size={17} />{title}</h3><dl>{children}</dl></section>;
 }
 
+const hasEvolutionData = (session) => session && session.estado !== 'anulado' && [
+  session.sesion_id, session.fecha_sesion, session.fecha, session.procedimiento_realizado,
+  session.aplicacion, session.medios_fisicos, session.tecnicas_manuales,
+  session.descripcion_tratamiento, session.evolucion_observada, session.dolor_inicial,
+  session.dolor_final, session.inyectables, session.inyectable_nombre,
+  session.observaciones, session.profesional_responsable
+].some((item) => item !== undefined && item !== null && item !== '');
+
+function EvolutionCard({ session, index }) {
+  const date = session.fecha_sesion || session.fecha;
+  const treatment = session.procedimiento_realizado || session.aplicacion
+    || [session.medios_fisicos, session.tecnicas_manuales, session.descripcion_tratamiento].filter(Boolean).join(' · ');
+  const drugs = session.inyectables || session.inyectable_nombre
+    || (Array.isArray(session.farmacos) ? session.farmacos.map((item) => item.nombre).filter(Boolean).join(', ') : '');
+  const pain = (amount) => amount === undefined || amount === null || amount === '' ? 'Sin dato' : `${amount}/10`;
+  return <article className="overflow-hidden rounded-xl border border-amber-100 bg-amber-50/30">
+    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-100 bg-white px-3 py-2.5">
+      <strong className="text-xs text-slate-900">Sesión {session.numero_sesion || index + 1}</strong>
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600"><CalendarDays size={13} />{formatDate(date)}</span>
+    </header>
+    <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="sm:col-span-2 lg:col-span-4"><span className="block text-[9px] font-black uppercase tracking-wide text-amber-700">Tratamiento realizado</span><p className="mt-1 text-xs leading-5 text-slate-700">{value(treatment, 'Sin tratamiento registrado')}</p></div>
+      <div><span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Dolor inicial</span><strong className="mt-1 block text-xs text-slate-800">{pain(session.dolor_inicial)}</strong></div>
+      <div><span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Dolor final</span><strong className="mt-1 block text-xs text-slate-800">{pain(session.dolor_final)}</strong></div>
+      <div><span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Profesional</span><p className="mt-1 text-xs text-slate-700">{value(session.profesional_responsable, 'Sin registrar')}</p></div>
+      <div><span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Fármacos / inyectables</span><p className="mt-1 text-xs text-slate-700">{value(drugs, 'No aplicados')}</p></div>
+      {(session.evolucion_observada || session.observaciones) && <div className="sm:col-span-2 lg:col-span-4"><span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Evolución y observaciones</span><p className="mt-1 text-xs leading-5 text-slate-700">{[session.evolucion_observada, session.observaciones].filter(Boolean).join(' · ')}</p></div>}
+    </div>
+  </article>;
+}
+
 export default function HistoriaDetalleProfesional({ historia, onClose, onEvolutivo, onPreview, onPatient, onEdit, onPrint, onAnular, isAdmin }) {
   const [showActions, setShowActions] = useState(false);
   if (!historia) return null;
@@ -28,7 +59,7 @@ export default function HistoriaDetalleProfesional({ historia, onClose, onEvolut
   const examen = historia.examen_kinesico || {};
   const intervencion = historia.intervencion_clinica || {};
   const evaluacion = historia.evaluacion_final || {};
-  const sessions = Array.isArray(historia.evolutivo) ? historia.evolutivo : [];
+  const sessions = Array.isArray(historia.evolutivo) ? historia.evolutivo.filter(hasEvolutionData) : [];
   const active = historia.estado === 'activa';
 
   return <Modal open title={`Historia clínica  |  ${nombrePaciente(historia.paciente)}`} subtitle={`${active ? 'Activa' : historia.estado} · ${formatDate(historia.fecha_evaluacion)} · ${historia.profesional_cargo || 'Sin profesional'}`} onClose={onClose} size="lg">
@@ -66,7 +97,7 @@ export default function HistoriaDetalleProfesional({ historia, onClose, onEvolut
             {[['Postura', evaluacion.evaluacion_postura], ['Marcha', evaluacion.evaluacion_marcha], ['Diagnóstico CIF', evaluacion.diagnostico_kinesico_cif], ['Plan de tratamiento', evaluacion.plan_tratamiento], ['Sesiones indicadas', evaluacion.sesiones_contratadas]].map(([label, content]) => <div key={label} className="min-w-0 rounded-lg bg-slate-50 px-3 py-2.5"><span className="block text-[10px] font-black uppercase text-slate-500">{label}</span><p className="mt-1 break-words text-[11px] leading-5 text-slate-700">{value(content, '-')}</p></div>)}
           </div>
         </Card>
-        <Card title="Evolución y plan de tratamiento" icon={ClipboardList} color="text-amber-700" className="md:col-span-2">{sessions.length ? sessions.map((session, index) => <Row key={index} label={`Sesión ${index + 1}`}>{`${formatDate(session.fecha)} · ${value(session.aplicacion)}`}</Row>) : <p className="text-xs text-slate-500">Sin sesiones evolutivas registradas.</p>}</Card>
+        <Card title="Evolución y plan de tratamiento" icon={ClipboardList} color="text-amber-700" className="md:col-span-2"><div className="grid gap-3">{sessions.length ? sessions.map((session, index) => <EvolutionCard key={session.id || session.sesion_id || index} session={session} index={index} />) : <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-500">Aún no se registraron evoluciones para esta historia clínica.</p>}</div></Card>
       </div>
 
       <footer className="sticky bottom-0 flex flex-wrap gap-2 border-t border-slate-200 bg-white pt-3">
