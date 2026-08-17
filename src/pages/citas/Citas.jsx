@@ -319,6 +319,28 @@ function Citas() {
     setShowFormModal(true);
   };
 
+  const cambiarEstado = async (cita, estado, { closeDetail = false } = {}) => {
+    setSaving(true);
+    setError('');
+    try {
+      const actualizada = await updateCitaEstado(cita.id, estado);
+      setCitas((actuales) => actuales.map((item) => (
+        Number(item.id) === Number(actualizada.id) ? actualizada : item
+      )));
+      setSelected((actual) => {
+        if (!actual || Number(actual.id) !== Number(actualizada.id)) return actual;
+        return closeDetail ? null : actualizada;
+      });
+      setMessage(`Cita ${estado.toLowerCase()} correctamente.`);
+      return actualizada;
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'No se pudo actualizar la cita.');
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const openNuevaCitaPaciente = (patientId) => {
     resetForm();
     setForm({ ...emptyForm, paciente_id: String(patientId) });
@@ -548,7 +570,7 @@ function Citas() {
           isAdmin={isAdmin}
           onView={(cita) => setSelected(cita)}
           onEdit={editCita}
-          onCancel={(cita) => updateCitaEstado(cita.id, 'Cancelada').then(load)}
+          onCancel={(cita) => cambiarEstado(cita, 'Cancelada')}
           onDelete={(cita) => deleteCita(cita.id).then(load)}
           onPatient={(patientId) => navigate(`/pacientes/${patientId}`)}
           onNewAppointment={openNuevaCitaPaciente}
@@ -632,7 +654,7 @@ function Citas() {
                 {selected.sesion_clinica?.id && <Button variant="secondary" onClick={() => { setSelected(null); navigate('/sesiones', { state: { verSesionId: selected.sesion_clinica.id } }); }}><Eye size={17} />Ver sesión</Button>}
                 {selected.origen === 'Plan de tratamiento' && ['Programada', 'Confirmada'].includes(selected.estado) && selected.sesion_clinica?.asistencia !== 'asistio' && <Button onClick={() => navigate('/sesiones', { state: { programacion: selected } })}><CalendarClock size={17} />Registrar sesión</Button>}
                 {!['Atendida', 'Cancelada'].includes(selected.estado) && selected.sesion_clinica?.asistencia !== 'asistio' && <Button variant="secondary" onClick={() => editCita(selected)}><FilePenLine size={17} />{selected.origen === 'Plan de tratamiento' ? 'Reprogramar' : 'Editar cita'}</Button>}
-                {!['Atendida', 'Cancelada'].includes(selected.estado) && selected.sesion_clinica?.asistencia !== 'asistio' && <Button variant="danger" onClick={() => updateCitaEstado(selected.id, 'Cancelada').then(() => { setSelected(null); load(); })}><XCircle size={17} />Cancelar cita</Button>}
+                {!['Atendida', 'Cancelada'].includes(selected.estado) && selected.sesion_clinica?.asistencia !== 'asistio' && <Button variant="danger" disabled={saving} onClick={() => cambiarEstado(selected, 'Cancelada', { closeDetail: true })}><XCircle size={17} />{saving ? 'Cancelando...' : 'Cancelar cita'}</Button>}
               </div>
             </footer>
           </div>
