@@ -21,7 +21,8 @@ function IntervencionClinicaSection({ data, onChange }) {
           options={[
             { value: 'CONSERVADO', label: 'CONSERVADO' },
             { value: 'DISMINUIDO', label: 'DISMINUIDO' },
-            { value: 'AUMENTADO', label: 'AUMENTADO' }
+            { value: 'AUMENTADO', label: 'AUMENTADO' },
+            { value: 'ALTERADO', label: 'ALTERADO' }
           ]}
         />
         {data.trofismo !== 'CONSERVADO' && <Input label="Detalle trofismo" value={data.detalle_trofismo} onChange={(e) => onChange('detalle_trofismo', e.target.value.toLocaleUpperCase('es-BO'))} />}
