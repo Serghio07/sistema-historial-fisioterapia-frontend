@@ -73,6 +73,11 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const updateCurrentUser = (updatedUser) => {
+    saveSession({ usuario: updatedUser });
+    setUser(updatedUser);
+  };
+
   const value = useMemo(
     () => ({
       user,
@@ -81,6 +86,7 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(user),
       isAdmin: user?.rol === 'admin',
       login,
+      updateCurrentUser,
       logout
     }),
     [user, loading, checkingSession]

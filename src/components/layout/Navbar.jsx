@@ -113,7 +113,13 @@ function Navbar({ onMenuClick }) {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2 rounded-lg border border-[#DCE5EC] bg-white px-3 py-2 text-sm text-[#475569]"><Avatar src={user?.foto} name={nombreMostrado} size="sm" /><ShieldCheck size={15} className="text-brand-600" /><span>{nombreMostrado}</span></div>
+        {user?.rol === 'personal' ? (
+          <button type="button" onClick={() => navigate('/mi-perfil')} className="flex items-center gap-2 rounded-lg border border-[#DCE5EC] bg-white px-3 py-2 text-sm text-[#475569] transition hover:border-brand-400 hover:bg-brand-50 focus:ring-4 focus:ring-brand-500/20" title="Editar mi perfil" aria-label={`Editar perfil de ${nombreMostrado}`}>
+            <Avatar src={user?.foto} name={nombreMostrado} size="sm" /><ShieldCheck size={15} className="text-brand-600" /><span>{nombreMostrado}</span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 rounded-lg border border-[#DCE5EC] bg-white px-3 py-2 text-sm text-[#475569]"><Avatar src={user?.foto} name={nombreMostrado} size="sm" /><ShieldCheck size={15} className="text-brand-600" /><span>{nombreMostrado}</span></div>
+        )}
       </div>
     </header>
   );

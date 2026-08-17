@@ -10,6 +10,16 @@ export const getProfesionalesActivos = async () => {
   return data;
 };
 
+export const getMiPerfil = async () => {
+  const { data } = await api.get('/usuarios/me');
+  return data;
+};
+
+export const updateMiPerfil = async (payload) => {
+  const { data } = await api.put('/usuarios/me', payload);
+  return data;
+};
+
 export const createUsuario = async (payload) => {
   const { data } = await api.post('/usuarios', payload);
   return data;

@@ -32,6 +32,7 @@ import WhatsappReception from '../pages/whatsappReception/WhatsappReception';
 import WhatsappMonitoring from '../pages/whatsappMonitoring/WhatsappMonitoring';
 import Integraciones from '../pages/integraciones/Integraciones';
 import Galeria from '../pages/galeria/Galeria';
+import MiPerfil from '../pages/perfil/MiPerfil';
 
 function AppRoutes() {
   return (
@@ -43,6 +44,7 @@ function AppRoutes() {
         <Route element={<PrivateRoute />}>
           <Route element={<Layout />}>
             <Route index element={<Dashboard />} />
+            <Route path="mi-perfil" element={<MiPerfil />} />
             <Route path="pacientes" element={<Pacientes />} />
             <Route path="resumen-pacientes" element={<ResumenPacientes />} />
             <Route path="pacientes/:id" element={<PacienteDetalle />} />
