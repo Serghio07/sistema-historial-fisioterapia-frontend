@@ -14,14 +14,14 @@ import { getPersonal } from '../../services/personalService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import { matchesSearch } from '../../utils/search';
-import { BOLIVIA_TIME_ZONE, boliviaDate, boliviaTime } from '../../utils/boliviaDateTime';
+import { BOLIVIA_TIME_ZONE, boliviaDate } from '../../utils/boliviaDateTime';
 import ListadoCitasAgrupado from './components/ListadoCitasAgrupado';
 import { agruparCitasPorPacienteEHistoria } from './utils/agruparCitas';
 import CalendarHeader from './components/calendar/CalendarHeader';
 import { MonthView, TimeGridView } from './components/calendar/CalendarViews';
 import DragAppointmentOverlay from './components/calendar/DragAppointmentOverlay';
 import QuickCreateAppointmentModal from './components/calendar/QuickCreateAppointmentModal';
-import { appendCreatedAppointment, createNewAppointment, draftFromAppointmentDrop, emptySlotDraft, sortAppointments } from './utils/appointmentCreation';
+import { appendCreatedAppointment, createNewAppointment, draftFromAppointmentDrop, emptySlotDraft, groupAppointmentsByDate, sortAppointments } from './utils/appointmentCreation';
 
 const ESTADOS = ['Pendiente', 'Programada', 'Confirmada', 'Atendida', 'Cancelada', 'Reprogramada', 'No asistio', 'Falto'];
 const TIPOS = ['Primera consulta', 'Sesion de fisioterapia', 'Sesion de tratamiento', 'Evaluacion', 'Control', 'Rehabilitacion', 'Otro'];
@@ -282,17 +282,7 @@ function Citas() {
 
   const miniDays = useMemo(() => monthDays(cursor), [cursor]);
 
-  const citasPorFecha = useMemo(() => {
-    const today = boliviaDate();
-    const currentTime = boliviaTime();
-    return filteredCitas.filter((cita) => (
-      cita.fecha !== today || String(cita.hora_inicio || '').slice(0, 5) >= currentTime
-    )).reduce((data, cita) => {
-      data[cita.fecha] = data[cita.fecha] || [];
-      data[cita.fecha].push(cita);
-      return data;
-    }, {});
-  }, [filteredCitas]);
+  const citasPorFecha = useMemo(() => groupAppointmentsByDate(filteredCitas), [filteredCitas]);
 
   const groupedPatients = useMemo(() => agruparCitasPorPacienteEHistoria(filteredCitas), [filteredCitas]);
 

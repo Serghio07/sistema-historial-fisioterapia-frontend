@@ -8,6 +8,7 @@ import {
   createNewAppointment,
   draftFromAppointmentDrop,
   emptySlotDraft,
+  groupAppointmentsByDate,
   sortAppointments,
   TIME_ORDER_ERROR,
   TIME_REQUIRED_ERROR,
@@ -106,6 +107,15 @@ test('la cita devuelta se agrega y se ordena sin reemplazar registros existentes
   const result = sortAppointments(appendCreatedAppointment([original], created));
   assert.deepEqual(result.map((item) => item.id), [102, 100]);
   assert.strictEqual(result[1], original);
+});
+
+test('el calendario conserva las citas de hoy aunque su hora ya haya pasado', () => {
+  const appointments = [
+    { id: 301, fecha: '2026-08-17', hora_inicio: '08:00' },
+    { id: 302, fecha: '2026-08-17', hora_inicio: '15:00' }
+  ];
+  const grouped = groupAppointmentsByDate(appointments);
+  assert.deepEqual(grouped['2026-08-17'].map((item) => item.id), [301, 302]);
 });
 
 test('el componente conserva cancelación, drop inválido, umbral y bloqueo de doble envío', () => {

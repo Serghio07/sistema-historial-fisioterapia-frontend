@@ -67,6 +67,13 @@ export const sortAppointments = (appointments) => [...appointments].sort((left, 
   `${left.fecha || ''}T${left.hora_inicio || ''}`.localeCompare(`${right.fecha || ''}T${right.hora_inicio || ''}`)
 );
 
+export const groupAppointmentsByDate = (appointments = []) => appointments.reduce((grouped, appointment) => {
+  if (!appointment?.fecha) return grouped;
+  grouped[appointment.fecha] = grouped[appointment.fecha] || [];
+  grouped[appointment.fecha].push(appointment);
+  return grouped;
+}, {});
+
 export const draftFromAppointmentDrop = (appointment, destination) => {
   const duration = appointmentDuration(appointment);
   const start = destination.hora_inicio || String(appointment.hora_inicio || '').slice(0, 5);
