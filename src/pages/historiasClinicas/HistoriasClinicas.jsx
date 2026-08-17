@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Ban, ClipboardPlus, Download, Eye, FilePenLine, FileText, Filter, HeartPulse, Info, List, MoreVertical, Printer, RotateCcw, Search, Star, Stethoscope, UserRound, Users } from 'lucide-react';
+import { Ban, ClipboardPlus, Eye, FilePenLine, FileText, Filter, HeartPulse, Info, List, MoreVertical, Printer, RotateCcw, Search, Star, Stethoscope, UserRound, Users } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
@@ -16,7 +14,6 @@ import { getProfesionalesActivos } from '../../services/usuarioService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, nombrePaciente } from '../../utils/validators';
 import { matchesSearch } from '../../utils/search';
-import { addCanvasToA4Pdf } from '../../utils/pdfPagination';
 import HistoriaClinicaForm, { initialHistoria } from './HistoriaClinicaForm';
 import EvolutivoSection from './sections/EvolutivoSection';
 import PacienteHistoriasAccordion from './PacienteHistoriasAccordion';
@@ -171,6 +168,10 @@ function HistoriaReporte({ historia }) {
     <p data-report-line className={`min-h-6 border-b border-dotted border-slate-500 leading-6 ${className}`}>{children}</p>
   );
 
+  const PatientLine = ({ children }) => (
+    <p className="border-b border-dotted border-slate-500 pb-1 leading-5">{children}</p>
+  );
+
   const Area = ({ children, rows = 3 }) => (
     <div
       data-report-area
@@ -216,8 +217,8 @@ function HistoriaReporte({ historia }) {
       <section className="mt-4">
         <h2 className="mb-2 font-black uppercase">1. Datos del paciente</h2>
         <div className="grid grid-cols-[1fr_150px] gap-x-5">
-          <Line><strong>Nombres y Apellidos:</strong> {nombrePaciente(historia.paciente)}</Line>
-          <Line><strong>Fecha de Evaluacion:</strong> {formatDate(historia.fecha_evaluacion)}</Line>
+          <PatientLine><strong>Nombres y Apellidos:</strong> {nombrePaciente(historia.paciente)}</PatientLine>
+          <PatientLine><strong>Fecha de Evaluacion:</strong> {formatDate(historia.fecha_evaluacion)}</PatientLine>
         </div>
         <div className="grid grid-cols-4 gap-x-4">
           <Line><strong>Edad:</strong> {historia.paciente?.edad || ''}</Line>
@@ -632,8 +633,6 @@ function HistoriasClinicas() {
   const [historyGroup, setHistoryGroup] = useState(null);
   const [selectedHistoria, setSelectedHistoria] = useState(null);
   const [previewHistoria, setPreviewHistoria] = useState(null);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const historiaPrintRef = useRef(null);
   const [evolutivoHistoria, setEvolutivoHistoria] = useState(null);
   const [evolutivoData, setEvolutivoData] = useState([]);
   const [historiaAAnular, setHistoriaAAnular] = useState(null);
@@ -643,50 +642,6 @@ function HistoriasClinicas() {
   const [expandedPatientId, setExpandedPatientId] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-
-  const downloadHistoriaPdf = async () => {
-    if (!previewHistoria || !historiaPrintRef.current || downloadingPdf) return;
-
-    setDownloadingPdf(true);
-    try {
-      const pages = [...historiaPrintRef.current.querySelectorAll(':scope > .pdf-page')];
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-      for (let index = 0; index < pages.length; index += 1) {
-        const previewBounds = pages[index].getBoundingClientRect();
-        const canvas = await html2canvas(pages[index], {
-          // Aumenta solamente la resolucion de la captura; el tamano fisico se conserva en 190 mm.
-          scale: 2,
-          backgroundColor: '#ffffff',
-          useCORS: true,
-          logging: false
-        });
-        if (import.meta.env.DEV) {
-          console.info('Historia clinica - vista previa/PDF', {
-            preview: previewBounds,
-            pdfSource: pages[index].getBoundingClientRect()
-          });
-        }
-        addCanvasToA4Pdf({
-          canvas,
-          pdf,
-          orientation: 'portrait',
-          margin: 10,
-          addFirstPage: index > 0
-        });
-      }
-
-      const patientName = nombrePaciente(previewHistoria.paciente)
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9]+/g, '_')
-        .replace(/^_|_$/g, '')
-        .toLowerCase() || 'paciente';
-      pdf.save(`historia_clinica_${patientName}_${previewHistoria.fecha_evaluacion || 'sin_fecha'}.pdf`);
-    } finally {
-      setDownloadingPdf(false);
-    }
-  };
 
   const load = async () => {
     setLoading(true);
@@ -1139,15 +1094,10 @@ function HistoriasClinicas() {
         <div className="grid gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
             <p className="text-sm text-slate-500">Revise el documento antes de imprimirlo o guardarlo como PDF.</p>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={downloadHistoriaPdf} disabled={downloadingPdf}>
-                <Download size={17} />{downloadingPdf ? 'Generando PDF...' : 'Descargar PDF'}
-              </Button>
-              <Button onClick={() => window.print()}><Printer size={17} />Imprimir / Guardar PDF</Button>
-            </div>
+            <Button onClick={() => window.print()}><Printer size={17} />Imprimir / Guardar PDF</Button>
           </div>
           <div className="max-h-[68vh] overflow-auto bg-slate-100 p-4">
-            <div ref={historiaPrintRef} data-historia-print={previewHistoria?.id || undefined} className="print-document mx-auto w-full max-w-[190mm]">
+            <div data-historia-print={previewHistoria?.id || undefined} className="print-document mx-auto w-full max-w-[190mm]">
               <HistoriaReporte historia={previewHistoria} />
             </div>
           </div>

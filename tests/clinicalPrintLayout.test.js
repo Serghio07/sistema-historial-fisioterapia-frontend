@@ -113,17 +113,19 @@ test('la segunda hoja de historia cabe en A4 sin expulsar observaciones a una ho
   assert.match(secondPage, /<Area rows=\{3\}>\{intervencion\.observaciones\}/);
 });
 
-test('la vista previa de historia permite descargar el mismo documento directamente en PDF A4', () => {
+test('la historia usa solo impresion del navegador y no muestra descarga PDF directa', () => {
   const history = read('../src/pages/historiasClinicas/HistoriasClinicas.jsx');
-  assert.match(history, /ref=\{historiaPrintRef\}/);
-  assert.match(history, /querySelectorAll\(':scope > \.pdf-page'\)/);
-  assert.match(history, /new jsPDF\(\{ orientation: 'portrait', unit: 'mm', format: 'a4' \}\)/);
-  assert.match(history, /addCanvasToA4Pdf\(\{[\s\S]*?margin: 10,[\s\S]*?addFirstPage: index > 0/);
-  assert.match(history, /preview: previewBounds,[\s\S]*?pdfSource: pages\[index\]\.getBoundingClientRect\(\)/);
-  assert.doesNotMatch(history, /const renderScale = Math\.min/);
-  assert.doesNotMatch(history, /const pixelsPerPage = Math\.floor\(canvas\.width \* 277 \/ 190\)/);
-  assert.match(history, /Descargar PDF/);
-  assert.match(history, /pdf\.save\(`historia_clinica_/);
+  assert.match(history, /Imprimir \/ Guardar PDF/);
+  assert.doesNotMatch(history, /Descargar PDF|downloadHistoriaPdf|historiaPrintRef/);
+  assert.doesNotMatch(history, /from 'html2canvas'|from 'jspdf'/);
+});
+
+test('nombre del paciente y fecha tienen la linea inmediatamente debajo del texto', () => {
+  const history = read('../src/pages/historiasClinicas/HistoriasClinicas.jsx');
+  assert.match(history, /const PatientLine = \(\{ children \}\)/);
+  assert.match(history, /border-b border-dotted border-slate-500 pb-1 leading-5/);
+  assert.match(history, /<PatientLine><strong>Nombres y Apellidos:<\/strong>/);
+  assert.match(history, /<PatientLine><strong>Fecha de Evaluacion:<\/strong>/);
 });
 
 test('la paginacion PDF conserva escala fisica y admite margenes A4 sin encoger el contenido', () => {
