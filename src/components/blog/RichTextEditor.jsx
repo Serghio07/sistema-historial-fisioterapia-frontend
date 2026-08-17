@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -6,6 +6,7 @@ import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import TextAlign from '@tiptap/extension-text-align';
 import { Bold, Italic, UnderlineIcon, List, ListOrdered, Heading2, Heading3, Quote, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, Eraser, ImageIcon, LinkIcon, Minus, Maximize2 } from 'lucide-react';
+import { mediaUrl, uploadBlogImage } from '../../services/blogService';
 
 const AdjustableImage = Image.extend({
   addAttributes() {
@@ -25,6 +26,9 @@ const AdjustableImage = Image.extend({
 });
 
 export default function RichTextEditor({ value, onChange }) {
+  const imageInputRef = useRef(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageError, setImageError] = useState('');
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -47,9 +51,23 @@ export default function RichTextEditor({ value, onChange }) {
     const url = window.prompt('Dirección del enlace (https://...)');
     if (url) editor.chain().focus().extendMarkRange('link').setLink({ href: url, target: '_blank' }).run();
   };
-  const addImage = () => {
-    const src = window.prompt('Dirección pública de la imagen');
-    if (src) editor.chain().focus().setImage({ src, alt: 'Imagen del artículo', width: '100%', alignment: 'center' }).run();
+  const addImage = () => imageInputRef.current?.click();
+  const uploadImage = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setUploadingImage(true);
+    setImageError('');
+    try {
+      const response = await uploadBlogImage(file);
+      const src = mediaUrl(response.data.url);
+      editor.chain().focus().setImage({ src, alt: file.name.replace(/\.[^.]+$/, ''), width: '100%', alignment: 'center' }).run();
+    } catch (error) {
+      setImageError(error.message || 'No se pudo subir la imagen.');
+    } finally {
+      setUploadingImage(false);
+    }
   };
   const imageSize = (width) => editor.chain().focus().updateAttributes('image', { width }).run();
   const imageAlign = (alignment) => editor.chain().focus().updateAttributes('image', { alignment }).run();
@@ -65,7 +83,9 @@ export default function RichTextEditor({ value, onChange }) {
       {action('Numeración', ListOrdered, () => editor.chain().focus().toggleOrderedList().run(), editor.isActive('orderedList'))}
       {action('Cita', Quote, () => editor.chain().focus().toggleBlockquote().run(), editor.isActive('blockquote'))}
       {action('Enlace', LinkIcon, addLink, editor.isActive('link'))}
-      {action('Insertar imagen', ImageIcon, addImage)}
+      <button type="button" title={uploadingImage ? 'Subiendo imagen…' : 'Seleccionar imagen desde archivo'} onClick={addImage} disabled={uploadingImage} aria-label={uploadingImage ? 'Subiendo imagen' : 'Insertar imagen desde archivo'}>
+        <ImageIcon size={17} />
+      </button>
       {editor.isActive('image') && <span className="rte-image-tools">
         <span>Imagen</span>
         <button type="button" title="Imagen pequeña" onClick={() => imageSize('33%')}>33%</button>
@@ -83,6 +103,8 @@ export default function RichTextEditor({ value, onChange }) {
       {action('Deshacer', Undo2, () => editor.chain().focus().undo().run())}
       {action('Rehacer', Redo2, () => editor.chain().focus().redo().run())}
     </div>
+    <input ref={imageInputRef} className="rte-file-input" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={uploadImage} />
+    {imageError && <p className="rte-image-error" role="alert">{imageError}</p>}
     <EditorContent editor={editor} />
   </div>;
 }
