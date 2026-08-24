@@ -18,7 +18,7 @@ import { getHistoriasClinicas } from '../../services/historiaClinicaService';
 import { getSesiones } from '../../services/sesionService';
 import { formatDate } from '../../utils/formatDate';
 import { matchesSearch } from '../../utils/search';
-import { cleanPayload, nombrePaciente } from '../../utils/validators';
+import { cleanPayload, formatPatientDocument, nombrePaciente } from '../../utils/validators';
 import logo from '../../assets/logos/logo.png';
 import { boliviaDate } from '../../utils/boliviaDateTime';
 import { addCanvasToA4Pdf } from '../../utils/pdfPagination';
@@ -71,12 +71,49 @@ const historiaToInformeFields = (historia) => {
 
   return {
     diagnostico: historia?.diagnostico_medico || '',
-    dx_cie: historia?.condicion_actual?.descripcion || historia?.enfermedad_actual || '',
+    dx_cie: historia?.evaluacion_final?.diagnostico_kinesico_cif || historia?.condicion_actual?.descripcion || historia?.enfermedad_actual || '',
     antecedentes: antecedentesTexto,
     conclusion_diagnostica: historia?.examen_kinesico?.pruebas_especificas || '',
     tratamiento_fisioterapeutico: historia?.evaluacion_final?.plan_tratamiento || '',
-    medicamentos: historia?.intervencion_clinica?.observaciones || '',
+    medicamentos: '',
     estado_actual: historia?.evaluacion_final?.diagnostico_kinesico_cif || ''
+  };
+};
+
+const uniqueText = (values) => [...new Set(values.map((value) => String(value || '').trim()).filter(Boolean))];
+
+const sesionesToInformeFields = (historySessions = [], historyFields = {}) => {
+  const realizadas = historySessions
+    .filter(isSesionRealizada)
+    .sort((a, b) => Number(a.numero_sesion || 0) - Number(b.numero_sesion || 0) || String(a.fecha || '').localeCompare(String(b.fecha || '')));
+  const tratamientos = realizadas.map((sesion) => {
+    const detalle = uniqueText([
+      sesion.descripcion_tratamiento,
+      sesion.procedimiento_otro || sesion.procedimiento,
+      sesion.medios_fisicos,
+      sesion.tecnicas_manuales
+    ]).join(' · ');
+    return detalle ? `Sesión ${sesion.numero_sesion}${sesion.fecha ? ` (${formatDate(sesion.fecha)})` : ''}: ${detalle}` : '';
+  }).filter(Boolean);
+  const medicamentos = realizadas.flatMap((sesion) => (Array.isArray(sesion.farmacos) ? sesion.farmacos : []).map((farmaco) => {
+    const nombre = farmaco.nombre_otro || farmaco.nombre || farmaco.tipo;
+    if (!nombre) return '';
+    const detalles = uniqueText([
+      farmaco.presentacion_dosis,
+      farmaco.via || farmaco.tipo_via,
+      farmaco.cantidad ? `Cantidad: ${farmaco.cantidad}` : '',
+      farmaco.motivo_clinico ? `Motivo: ${farmaco.motivo_clinico}` : ''
+    ]).join(' · ');
+    return `Sesión ${sesion.numero_sesion}: ${nombre}${detalles ? ` — ${detalles}` : ''}`;
+  })).filter(Boolean);
+  const ultima = realizadas.at(-1);
+  const estadoActual = uniqueText([ultima?.evolucion_observada, ultima?.observacion]).join('\n');
+
+  return {
+    cantidad_sesiones: realizadas.length,
+    tratamiento_fisioterapeutico: tratamientos.join('\n') || historyFields.tratamiento_fisioterapeutico || '',
+    medicamentos: medicamentos.join('\n'),
+    estado_actual: estadoActual || historyFields.estado_actual || ''
   };
 };
 
@@ -235,13 +272,7 @@ function Reportes() {
 
   const informeConSesionesRealizadas = (informe) => {
     if (!informe) return informe;
-    const historiaId = informe.historia_clinica_id || informe.historia_clinica?.id;
-    const sesionesRealizadas = historiaId
-      ? sesiones
-        .filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historiaId))
-        .filter(isSesionRealizada).length
-      : Number(informe.sesiones_realizadas || informe.cantidad_sesiones || 0);
-    return { ...informe, sesiones_realizadas: sesionesRealizadas };
+    return { ...informe, sesiones_realizadas: Number(informe.cantidad_sesiones || 0) };
   };
 
   const filteredInformes = useMemo(() => {
@@ -297,6 +328,10 @@ function Reportes() {
       .sort((a, b) => String(b.fecha_evaluacion || '').localeCompare(String(a.fecha_evaluacion || '')) || Number(b.id || 0) - Number(a.id || 0));
     const historia = historiasActivas.length === 1 ? historiasActivas[0] : null;
     const camposHistoria = historiaToInformeFields(historia);
+    const camposSesiones = sesionesToInformeFields(
+      historia ? sesiones.filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historia.id)) : [],
+      camposHistoria
+    );
 
     setForm((current) => ({
       ...current,
@@ -306,10 +341,10 @@ function Reportes() {
       dx_cie: historia ? camposHistoria.dx_cie : '',
       antecedentes: historia ? camposHistoria.antecedentes : '',
       conclusion_diagnostica: historia ? camposHistoria.conclusion_diagnostica : '',
-      cantidad_sesiones: historia ? sesiones.filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historia.id)).filter(isSesionRealizada).length : 0,
-      tratamiento_fisioterapeutico: historia ? camposHistoria.tratamiento_fisioterapeutico : '',
-      medicamentos: historia ? camposHistoria.medicamentos : '',
-      estado_actual: historia ? camposHistoria.estado_actual : '',
+      cantidad_sesiones: historia ? camposSesiones.cantidad_sesiones : 0,
+      tratamiento_fisioterapeutico: historia ? camposSesiones.tratamiento_fisioterapeutico : '',
+      medicamentos: historia ? camposSesiones.medicamentos : '',
+      estado_actual: historia ? camposSesiones.estado_actual : '',
       doctor: profesionalAutenticado
     }));
   };
@@ -317,9 +352,10 @@ function Reportes() {
   const selectHistoria = (historiaId) => {
     const historia = historiasPaciente.find((item) => String(item.id) === String(historiaId));
     const camposHistoria = historiaToInformeFields(historia);
-    const sesionesRealizadas = historiaId
-      ? sesiones.filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historiaId)).filter(isSesionRealizada).length
-      : 0;
+    const camposSesiones = sesionesToInformeFields(
+      historiaId ? sesiones.filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historiaId)) : [],
+      camposHistoria
+    );
 
     setForm((current) => ({
       ...current,
@@ -328,10 +364,10 @@ function Reportes() {
       dx_cie: camposHistoria.dx_cie,
       antecedentes: camposHistoria.antecedentes,
       conclusion_diagnostica: camposHistoria.conclusion_diagnostica,
-      cantidad_sesiones: sesionesRealizadas,
-      tratamiento_fisioterapeutico: camposHistoria.tratamiento_fisioterapeutico,
-      medicamentos: camposHistoria.medicamentos,
-      estado_actual: camposHistoria.estado_actual
+      cantidad_sesiones: camposSesiones.cantidad_sesiones,
+      tratamiento_fisioterapeutico: camposSesiones.tratamiento_fisioterapeutico,
+      medicamentos: camposSesiones.medicamentos,
+      estado_actual: camposSesiones.estado_actual
     }));
   };
 
@@ -375,9 +411,7 @@ function Reportes() {
   const editInforme = (informe) => {
     setEditing(informe.id);
     const historiaId = informe.historia_clinica_id || informe.historia_clinica?.id || '';
-    const sesionesRealizadas = historiaId
-      ? sesiones.filter((sesion) => String(sesion.historia_clinica_id || sesion.historia_clinica?.id) === String(historiaId)).filter(isSesionRealizada).length
-      : Number(informe.cantidad_sesiones || 0);
+    const sesionesRealizadas = Number(informe.cantidad_sesiones || 0);
     setForm({
       paciente_id: informe.paciente_id || informe.paciente?.id || '',
       historia_clinica_id: historiaId,
@@ -414,7 +448,7 @@ function Reportes() {
       .split('\n')
       .map((item) => item.trim())
       .filter(Boolean);
-    const sesionesRealizadas = Number(informe?.sesiones_realizadas || 0);
+    const sesionesRealizadas = Number(informe?.sesiones_realizadas ?? informe?.cantidad_sesiones ?? 0);
     return `
       <article style="width: 210mm; min-height: 297mm; padding: 14mm 16mm; font-family: Arial, sans-serif; color: #0f172a; font-size: 16px; line-height: 1.42;">
         <header style="position: relative; border-bottom: 1px solid #0f172a; padding-bottom: 8px;">
@@ -578,7 +612,7 @@ function Reportes() {
             <Table
               columns={['Paciente', 'Fecha', 'Diagnostico', 'Doctor', 'Acciones']}
               rows={filteredInformes.map((informe) => [
-                <PatientIdentity paciente={informe.paciente} secondary={`CI: ${informe.paciente?.ci || 'Sin dato'}`} />,
+                <PatientIdentity paciente={informe.paciente} secondary={`Documento: ${formatPatientDocument(informe.paciente)}`} />,
                 formatDate(informe.fecha),
                 informe.diagnostico,
                 informe.doctor || 'Sin dato',

@@ -31,3 +31,15 @@ export const restoreHistoriaClinica = async (id) => {
   const { data } = await api.patch(`/historias-clinicas/${id}/restaurar`);
   return data;
 };
+
+export const expandirSesionesHistoria = async (id, payload, solicitudId) => {
+  const { data } = await api.post(`/historias-clinicas/${id}/ampliar-sesiones`, payload, {
+    headers: { 'Idempotency-Key': solicitudId }
+  });
+  return data;
+};
+
+export const getAmpliacionesSesiones = async (id) => {
+  const { data } = await api.get(`/historias-clinicas/${id}/ampliaciones-sesiones`);
+  return data;
+};

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, CalendarDays, CheckCircle2, IdCard, RefreshCw, RotateCcw, Save, Stethoscope, Trash2, UserRound } from 'lucide-react';
+import { CalendarClock, CalendarDays, CheckCircle2, IdCard, Plus, RefreshCw, RotateCcw, Save, Stethoscope, Trash2, UserRound } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
-import { createProgramacionHistoria, getProgramacionHistoria, validarDisponibilidadCita } from '../../services/citaService';
-import { nombrePaciente } from '../../utils/validators';
+import { createProgramacionHistoria, deleteCita, getProgramacionHistoria, removeSessionFromProgramacion, updateCita, validarDisponibilidadCita } from '../../services/citaService';
+import AmpliarSesionesModal from './AmpliarSesionesModal';
+import { formatPatientDocument, nombrePaciente } from '../../utils/validators';
 import { formatDate } from '../../utils/formatDate';
+import { findScheduleConflict } from '../../utils/sessionSchedule';
 
 const emptyRow = (numero) => ({ numero_sesion: numero, fecha: '', hora_inicio: '09:00', hora_fin: '10:00', estado: 'Pendiente' });
 const weekDays = [{ n: 1, l: 'Lun' }, { n: 2, l: 'Mar' }, { n: 3, l: 'Mié' }, { n: 4, l: 'Jue' }, { n: 5, l: 'Vie' }, { n: 6, l: 'Sáb' }];
@@ -20,6 +22,7 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeRow, setActiveRow] = useState(0);
+  const [showExpansion, setShowExpansion] = useState(false);
 
   const load = async () => {
     if (!historia?.id) return;
@@ -44,6 +47,12 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
   const validateRow = async (index, override = {}) => {
     const row = { ...rows[index], ...override };
     if (!row?.fecha) return;
+    const conflict = findScheduleConflict(rows.map((item, i) => i === index ? row : item));
+    if (conflict) {
+      const message = `La sesión ${conflict[0].numero_sesion} se cruza con la sesión ${conflict[1].numero_sesion}.`;
+      setRows((current) => current.map((item, i) => i === index ? { ...item, ...override, estado: 'No disponible', message } : item));
+      return;
+    }
     try {
       const result = await validarDisponibilidadCita({ ...row, paciente_id: paciente.id });
       setRows((current) => current.map((item, i) => i === index ? { ...item, ...override, estado: 'Disponible', message: result.message } : item));
@@ -64,6 +73,8 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
   };
   const save = async () => {
     if (!selected.length) return setError('Agregue al menos una fecha.');
+    const conflict = findScheduleConflict(selected);
+    if (conflict) return setError(`Las sesiones ${conflict[0].numero_sesion} y ${conflict[1].numero_sesion} tienen horarios superpuestos. Seleccione fechas u horas diferentes.`);
     setSaving(true); setError('');
     try {
       await createProgramacionHistoria(historia.id, selected);
@@ -82,9 +93,48 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
     }
   };
 
+  const addSession = () => setShowExpansion(true);
+
+  const removeLastSession = async (row) => {
+    if (Number(row.numero_sesion) !== Number(summary?.indicadas)) return setError('Solo se puede quitar la ultima sesion pendiente del tratamiento.');
+    if (!window.confirm(`Se reducira el tratamiento a ${Number(summary.indicadas) - 1} sesiones. ¿Desea continuar?`)) return;
+    setSaving(true); setError('');
+    try {
+      const data = await removeSessionFromProgramacion(historia.id);
+      setSummary(data);
+      const used = new Set(data.programaciones.filter((x) => !['Cancelada', 'Reprogramada'].includes(x.estado)).map((x) => Number(x.numero_sesion)));
+      setRows(Array.from({ length: data.indicadas }, (_, i) => i + 1).filter((n) => n > data.realizadas && !used.has(n)).map(emptyRow));
+      setActiveRow(0);
+      onSaved?.();
+    } catch (e) { setError(e.response?.data?.message || 'No se pudo quitar la sesion'); }
+    finally { setSaving(false); }
+  };
+
+  const changeScheduled = (id, field, value) => setSummary((current) => ({ ...current, programaciones: current.programaciones.map((item) => item.id === id ? { ...item, [field]: value } : item) }));
+  const saveScheduled = async (cita) => {
+    setSaving(true); setError('');
+    try {
+      await validarDisponibilidadCita({ ...cita, cita_id: cita.id, paciente_id: paciente.id });
+      await updateCita(cita.id, { fecha: cita.fecha, hora_inicio: cita.hora_inicio, hora_fin: cita.hora_fin });
+      await load(); onSaved?.();
+    } catch (e) { setError(e.response?.data?.message || 'No se pudo actualizar la sesion programada'); }
+    finally { setSaving(false); }
+  };
+  const unschedule = async (cita) => {
+    if (!window.confirm(`Se desprogramara la sesion ${cita.numero_sesion}. El tratamiento conservara esa sesion como pendiente. ¿Desea continuar?`)) return;
+    setSaving(true); setError('');
+    try { await deleteCita(cita.id); await load(); onSaved?.(); }
+    catch (e) { setError(e.response?.data?.message || 'No se pudo desprogramar la sesion'); }
+    finally { setSaving(false); }
+  };
+
   const next = useMemo(() => [...(summary?.programaciones || [])]
-    .filter((x) => ['Programada', 'Confirmada'].includes(x.estado))
+    .filter((x) => !['Cancelada', 'Reprogramada'].includes(x.estado))
     .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || Number(a.numero_sesion) - Number(b.numero_sesion)), [summary]);
+  const completedWithoutAppointment = useMemo(() => {
+    const linkedSessionIds = new Set(next.map((item) => String(item.sesion_id || '')).filter(Boolean));
+    return (summary?.sesiones_realizadas || []).filter((item) => !linkedSessionIds.has(String(item.id)));
+  }, [next, summary]);
   const calendarDate = new Date(`${active?.fecha || new Date().toLocaleDateString('en-CA')}T12:00:00`);
   const monthStart = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1);
   const calendarCells = Array.from({ length: 42 }, (_, index) => {
@@ -105,7 +155,7 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
     <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
       <section className="grid gap-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
         <Info icon={UserRound} label="Paciente" value={nombrePaciente(paciente)} />
-        <Info icon={IdCard} label="CI" value={paciente?.ci || 'Sin dato'} />
+        <Info icon={IdCard} label="Documento" value={formatPatientDocument(paciente)} />
         <Info icon={CalendarClock} label="Historia clínica" value={`Evaluación del ${formatDate(historia?.fecha_evaluacion)}`} />
         <Info icon={UserRound} label="Profesional" value={historia?.profesional_cargo || 'Profesional actual'} />
         <Info icon={Stethoscope} label="Diagnóstico" value={historia?.diagnostico_medico || 'Sin registrar'} />
@@ -114,7 +164,9 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
         <Info icon={CalendarDays} label="Programadas / Pendientes" value={`${summary?.programadas || 0} / ${summary?.pendientes_programar || 0}`} />
       </section>
 
-      {rows.length > 0 && <div className="mt-4 overflow-x-auto pb-1">
+      {completedWithoutAppointment.length > 0 && <section className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"><h4 className="text-sm font-black text-emerald-800">Sesiones atendidas ({completedWithoutAppointment.length})</h4><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{completedWithoutAppointment.map((item) => <article key={item.id} className="rounded-lg border border-emerald-100 bg-white p-3"><strong className="text-sm text-slate-800">Sesión {item.numero_sesion}</strong><span className="ml-2 rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Atendida</span><span className="mt-1 block text-xs text-slate-600">{formatDate(item.fecha)}</span></article>)}</div></section>}
+
+      {rows.length > 0 && <div id="pending-session-schedule" className="mt-4 scroll-mt-4 overflow-x-auto pb-1">
       <div className="grid min-w-[930px] gap-4" style={{ gridTemplateColumns: 'minmax(0, 1fr) 270px' }}>
         <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-50">
@@ -143,7 +195,7 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
             <Input compact type="time" value={row.hora_inicio} onChange={(e) => updateRow(index, 'hora_inicio', e.target.value)} onBlur={() => validateRow(index)} />
             <Input compact type="time" value={row.hora_fin} onChange={(e) => updateRow(index, 'hora_fin', e.target.value)} onBlur={() => validateRow(index)} />
             <span title={row.message} className={`w-fit rounded-full border px-2 py-1 text-[10px] font-black ${row.estado === 'Disponible' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : row.estado === 'No disponible' ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>{row.estado}</span>
-            <button aria-label="Limpiar fecha" onClick={(event) => { event.stopPropagation(); updateRow(index, 'fecha', ''); }} className="grid h-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
+            <button aria-label={row.fecha ? 'Limpiar fecha' : 'Quitar ultima sesion'} onClick={(event) => { event.stopPropagation(); if (row.fecha) updateRow(index, 'fecha', ''); else removeLastSession(row); }} className="grid h-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
           </div>)}</div>
             </div>
           </div>
@@ -164,9 +216,11 @@ export default function ProgramacionSesionesModal({ open, onClose, historia, pac
       </div>
       </div>}
 
-      {summary && !rows.length && !error && <p className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700"><CheckCircle2 className="mr-2 inline" size={18} />{saved ? 'Programación guardada correctamente. Estos son los días agendados:' : 'Todas las sesiones están programadas o el tratamiento fue completado.'}</p>}
-      {next.length > 0 && <section className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4"><h4 className="text-sm font-black text-blue-800">Días de sesiones programadas ({next.length})</h4><div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{next.map((x) => <p key={x.id} className="rounded-lg border border-blue-100 bg-white p-3 text-sm text-slate-700"><CalendarClock className="mr-2 inline text-blue-600" size={15} /><strong>Sesión {x.numero_sesion}</strong><span className="mt-1 block pl-6">{formatDate(x.fecha)} · {x.hora_inicio?.slice(0, 5)}–{x.hora_fin?.slice(0, 5)}</span></p>)}</div></section>}
+      {summary && !rows.length && !error && <p className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700"><CheckCircle2 className="mr-2 inline" size={18} />{saved ? 'Programación guardada correctamente.' : 'Todas las sesiones indicadas ya tienen programación.'}</p>}
+      {next.length > 0 && <section className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><h4 className="text-sm font-black text-blue-800">Sesiones programadas del tratamiento ({next.length})</h4><Button onClick={addSession} disabled={saving}><Plus size={16} />Añadir nueva sesión</Button></div><div className="mt-3 grid gap-3">{next.map((x) => <article key={x.id} className="grid items-end gap-2 rounded-lg border border-blue-100 bg-white p-3 md:grid-cols-[110px_1fr_110px_110px_auto]"><div><strong className="block text-sm">Sesión {x.numero_sesion}</strong><span className="text-[10px] font-bold text-slate-500">{x.estado}</span></div><Input compact label="Fecha" type="date" value={x.fecha || ''} onChange={(e) => changeScheduled(x.id, 'fecha', e.target.value)} disabled={Boolean(x.sesion_id) || x.estado === 'Atendida'} /><Input compact label="Inicio" type="time" value={x.hora_inicio?.slice(0, 5) || ''} onChange={(e) => changeScheduled(x.id, 'hora_inicio', e.target.value)} disabled={Boolean(x.sesion_id) || x.estado === 'Atendida'} /><Input compact label="Fin" type="time" value={x.hora_fin?.slice(0, 5) || ''} onChange={(e) => changeScheduled(x.id, 'hora_fin', e.target.value)} disabled={Boolean(x.sesion_id) || x.estado === 'Atendida'} /><div className="flex gap-2"><Button onClick={() => saveScheduled(x)} disabled={saving || Boolean(x.sesion_id) || x.estado === 'Atendida'}><Save size={15} />Guardar</Button><button type="button" title="Desprogramar" onClick={() => unschedule(x)} disabled={saving || Boolean(x.sesion_id) || ['Atendida', 'No asistio', 'Falto'].includes(x.estado)} className="grid h-9 w-9 place-items-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 size={15} /></button></div></article>)}</div></section>}
+      {summary && !next.length && !rows.length && <div className="mt-4 flex justify-end"><Button onClick={addSession} disabled={saving}><Plus size={16} />Añadir nueva sesión</Button></div>}
       {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
+      <AmpliarSesionesModal open={showExpansion} onClose={() => setShowExpansion(false)} historia={historia} totalActual={summary?.indicadas || historia?.evaluacion_final?.sesiones_contratadas || 0} onExpanded={async () => { await load(); onSaved?.(); }} />
     </div>
     <footer className="flex shrink-0 justify-between gap-2 border-t border-slate-200 bg-white p-4"><div className="flex gap-2"><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button variant="secondary" onClick={() => setRows((current) => current.map((row) => ({ ...row, fecha: '', estado: 'Pendiente' })))}><Trash2 size={15} />Limpiar</Button></div><Button disabled={saving || !selected.length} onClick={save}><Save size={16} />{saving ? 'Guardando…' : 'Guardar programación'}</Button></footer>
   </Modal>;

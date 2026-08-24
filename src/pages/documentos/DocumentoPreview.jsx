@@ -2,6 +2,13 @@ import logo from '../../assets/logos/logo.png';
 import { formatDate } from '../../utils/formatDate';
 import { nombrePaciente } from '../../utils/validators';
 
+const snapshotDocument = (data) => {
+  const number = data.numero_documento || data.ci || '';
+  const type = data.tipo_documento || (data.ci ? 'CI' : '');
+  const label = type === 'OTRO' ? data.nombre_documento_otro || 'OTRO' : type;
+  return [label, number].filter(Boolean).join(' ');
+};
+
 const labelTipo = {
   consentimiento: 'Consentimiento Informado',
   signos_vitales: 'Ficha de Signos Vitales',
@@ -53,8 +60,10 @@ function ConsentimientoPreview({ documento }) {
 
       <section className="mt-6 grid gap-3 pl-3">
         <ConsentField label="PACIENTE">{`${data.nombre_completo || nombrePaciente(documento.paciente) || ' '}, de ${data.edad || ' '} años de edad`}</ConsentField>
-        <ConsentField label="CI N.º" checked={false}>{data.ci}</ConsentField>
-        <ConsentField label="Tutor o Padre de familia">{data.tutor_nombre}</ConsentField>
+        <ConsentField label="DOCUMENTO" checked={false}>{snapshotDocument(data)}</ConsentField>
+        <ConsentField label="Responsable legal">{data.tutor_nombre}</ConsentField>
+        {data.tutor_parentesco && <ConsentField label="Parentesco">{data.tutor_parentesco}</ConsentField>}
+        {data.tutor_numero_documento && <ConsentField label="Documento del responsable">{[data.tutor_tipo_documento, data.tutor_numero_documento].filter(Boolean).join(' ')}</ConsentField>}
         <ConsentField label="Diagnóstico">{data.diagnostico}</ConsentField>
         <ConsentField label="Tratamiento">{data.tratamiento}</ConsentField>
       </section>
@@ -97,8 +106,8 @@ function SignosPreview({ documento }) {
           <p><strong>NOMBRE :</strong> <DotLine className="w-[calc(100%-90px)]">{data.nombre_completo || nombrePaciente(documento.paciente)}</DotLine></p>
           <p><strong>EDAD:</strong> <DotLine className="w-72">{data.edad}</DotLine></p>
           <p className="grid grid-cols-[minmax(0,1fr)_210px] gap-6">
-            <span><strong>C. I.</strong> <DotLine className="w-72">{data.ci}</DotLine></span>
-            <span><strong>N° CELULAR:</strong> <DotLine className="w-28">{data.celular}</DotLine></span>
+            <span><strong>DOCUMENTO:</strong> <DotLine className="w-72">{snapshotDocument(data)}</DotLine></span>
+            <span><strong>{data.tutor_nombre ? 'TELÉFONO DE CONTACTO:' : 'N° CELULAR:'}</strong> <DotLine className="w-28">{data.celular || 'Sin teléfono de contacto'}</DotLine></span>
           </p>
         </div>
       </section>

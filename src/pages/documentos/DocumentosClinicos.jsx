@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { Ban, CalendarDays, ChevronLeft, ChevronRight, Coins, Download, Eye, FilePenLine, FileText, Pill, Plus, Printer, Save, Search, Syringe, Trash2, Users } from 'lucide-react';
+import { Ban, CalendarDays, ChevronLeft, ChevronRight, Coins, Download, Eye, FilePenLine, FileText, MoreVertical, Pill, Plus, Printer, Save, Search, Syringe, Trash2, Users } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -15,10 +15,11 @@ import { useAuth } from '../../context/AuthContext';
 import { getPacientes } from '../../services/pacienteService';
 import { getSesiones } from '../../services/sesionService';
 import { getHistoriasClinicas } from '../../services/historiaClinicaService';
-import { cleanPayload, nombrePaciente } from '../../utils/validators';
+import { cleanPayload, formatPatientDocument, nombrePaciente } from '../../utils/validators';
 import { formatDate } from '../../utils/formatDate';
 import { matchesSearch } from '../../utils/search';
 import { boliviaDate } from '../../utils/boliviaDateTime';
+import { getDisplayPhone, getDisplayPhoneText, getResponsibleSummary } from '../../utils/patientContact';
 import { buildFarmacosWorkbook } from '../../utils/farmacosExcel';
 import {
   createDocumentoClinico,
@@ -75,10 +76,16 @@ const initialDatos = {
     nombre_completo: '',
     edad: '',
     ci: '',
+    tipo_documento: 'CI',
+    numero_documento: '',
+    nombre_documento_otro: '',
     celular: '',
     diagnostico: '',
     tratamiento: '',
     tutor_nombre: '',
+    tutor_parentesco: '',
+    tutor_tipo_documento: '',
+    tutor_numero_documento: '',
     ciudad: 'LA PAZ',
     firma_representante: ''
   },
@@ -86,6 +93,9 @@ const initialDatos = {
     nombre_completo: '',
     edad: '',
     ci: '',
+    tipo_documento: 'CI',
+    numero_documento: '',
+    nombre_documento_otro: '',
     celular: '',
     antecedentes_patologicos: '',
     diagnostico: '',
@@ -108,6 +118,9 @@ const normalizeConsentimientoDatos = (datos = {}) => ({
   ...datos,
   nombre_completo: upperText(datos.nombre_completo || ''),
   ci: upperText(datos.ci || ''),
+  tipo_documento: upperText(datos.tipo_documento || 'CI'),
+  numero_documento: upperText(datos.numero_documento || datos.ci || ''),
+  nombre_documento_otro: upperText(datos.nombre_documento_otro || ''),
   celular: upperText(datos.celular || ''),
   diagnostico: upperText(datos.diagnostico || ''),
   tratamiento: upperText(datos.tratamiento || ''),
@@ -122,7 +135,7 @@ const newFarmacoRow = (paciente = null) => ({
   paciente_id: paciente?.id || '',
   paciente_nombre: paciente ? nombrePaciente(paciente) : '',
   ci: paciente?.ci || '',
-  telefono: paciente?.telefono || '',
+  telefono: getDisplayPhone(paciente) || '',
   historia_clinica_id: '',
   historia_label: '',
   sesion_id: '',
@@ -412,7 +425,14 @@ function DocumentosClinicos({ tipo }) {
             nombre_completo: upperText(current.datos.nombre_completo || sugeridos.nombre_completo),
             edad: current.datos.edad || sugeridos.edad,
             ci: upperText(current.datos.ci || sugeridos.ci),
+            tipo_documento: sugeridos.tipo_documento || current.datos.tipo_documento || 'CI',
+            numero_documento: upperText(current.datos.numero_documento || sugeridos.numero_documento || sugeridos.ci),
+            nombre_documento_otro: upperText(sugeridos.nombre_documento_otro || current.datos.nombre_documento_otro || ''),
             celular: upperText(current.datos.celular || sugeridos.celular),
+            tutor_nombre: upperText(current.datos.tutor_nombre || sugeridos.tutor_nombre),
+            tutor_parentesco: upperText(current.datos.tutor_parentesco || sugeridos.tutor_parentesco),
+            tutor_tipo_documento: upperText(current.datos.tutor_tipo_documento || sugeridos.tutor_tipo_documento),
+            tutor_numero_documento: upperText(current.datos.tutor_numero_documento || sugeridos.tutor_numero_documento),
             diagnostico: upperText(historiaUnica?.diagnostico_medico || historiaUnica?.evaluacion_final?.diagnostico_kinesico_cif || (historiasDelPaciente.length > 1 ? '' : sugeridos.diagnostico)),
             tratamiento: upperText(historiaUnica?.evaluacion_final?.plan_tratamiento || (historiasDelPaciente.length > 1 ? '' : sugeridos.tratamiento)),
             antecedentes_patologicos: upperText(current.datos.antecedentes_patologicos || sugeridos.antecedentes_patologicos),
@@ -432,7 +452,8 @@ function DocumentosClinicos({ tipo }) {
     if (!form.fecha) return 'Registra la fecha.';
     if (tipo === 'consentimiento') {
       if (!form.datos.edad) return 'Registra la edad.';
-      if (!form.datos.ci) return 'Registra el CI.';
+      if (!(form.datos.numero_documento || form.datos.ci)) return 'Registra el documento de identidad.';
+      if (form.datos.tipo_documento === 'OTRO' && !form.datos.nombre_documento_otro) return 'Registra el nombre del documento.';
       if (!form.datos.diagnostico) return 'Registra el diagnostico.';
       if (!form.datos.tratamiento) return 'Registra el tratamiento.';
       if (Number(form.datos.edad || 0) < 18 && !form.datos.tutor_nombre) return 'Registra el tutor o padre de familia.';
@@ -470,8 +491,14 @@ function DocumentosClinicos({ tipo }) {
               nombre_completo: upperText(form.datos.nombre_completo),
               edad: form.datos.edad,
               ci: upperText(form.datos.ci),
+              tipo_documento: form.datos.tipo_documento || 'CI',
+              numero_documento: upperText(form.datos.numero_documento || form.datos.ci),
+              nombre_documento_otro: form.datos.tipo_documento === 'OTRO' ? upperText(form.datos.nombre_documento_otro) : null,
               celular: upperText(form.datos.celular),
               tutor_nombre: upperText(form.datos.tutor_nombre),
+              tutor_parentesco: upperText(form.datos.tutor_parentesco),
+              tutor_tipo_documento: upperText(form.datos.tutor_tipo_documento),
+              tutor_numero_documento: upperText(form.datos.tutor_numero_documento),
               diagnostico: upperText(form.datos.diagnostico),
               tratamiento: upperText(form.datos.tratamiento),
               ciudad: upperText(form.datos.ciudad || 'LA PAZ'),
@@ -546,7 +573,7 @@ function DocumentosClinicos({ tipo }) {
             fila.paciente_nombre,
             fila.ci,
             paciente?.ci,
-            paciente?.telefono,
+            getDisplayPhone(paciente),
             fila.telefono,
             fila.diagnostico,
             fila.historia_label,
@@ -707,7 +734,7 @@ function DocumentosClinicos({ tipo }) {
       paciente_id: pacienteId,
       paciente_nombre: paciente ? nombrePaciente(paciente) : '',
       ci: paciente?.ci || '',
-      telefono: paciente?.telefono || '',
+      telefono: getDisplayPhone(paciente) || '',
       historia_clinica_id: '',
       historia_label: '',
       sesion_id: '',
@@ -740,7 +767,7 @@ function DocumentosClinicos({ tipo }) {
       paciente_id: sesion?.paciente_id || fila.paciente_id,
       paciente_nombre: sesion?.paciente ? nombrePaciente(sesion.paciente) : fila.paciente_nombre,
       ci: sesion?.paciente?.ci || fila.ci,
-      telefono: sesion?.paciente?.telefono || fila.telefono,
+      telefono: getDisplayPhone(sesion?.paciente) || fila.telefono,
       historia_clinica_id: sesion?.historia_clinica_id || sesion?.historia_clinica?.id || fila.historia_clinica_id,
       historia_label: historiaLabel(historia) || fila.historia_label,
       profesional: sesion?.profesional || sesion?.usuario?.nombre || fila.profesional,
@@ -839,8 +866,8 @@ function DocumentosClinicos({ tipo }) {
               {farmacoGroups.map((group) => (
                 <tr key={group.key} className="align-top">
                   <td className="px-3 py-3">
-                    <PatientIdentity paciente={group.paciente} secondary={`CI: ${group.paciente?.ci || '-'}`} />
-                    <div className="text-xs text-slate-500">CI: {group.paciente?.ci || group.rows[0]?.data.ci || '-'} · Tel: {group.paciente?.telefono || group.rows[0]?.data.telefono || '-'}</div>
+                    <PatientIdentity paciente={group.paciente} secondary={`Documento: ${formatPatientDocument(group.paciente)}`} />
+                    <div className="text-xs text-slate-500">Documento: {formatPatientDocument(group.paciente) || group.rows[0]?.data.ci || 'Sin documento'} · Tel: {getDisplayPhone(group.paciente) || group.rows[0]?.data.telefono || getDisplayPhoneText(null)}{getResponsibleSummary(group.paciente) ? ` · ${getResponsibleSummary(group.paciente)}` : ''}</div>
                   </td>
                   <td className="px-3 py-3">
                     <div className="max-w-56 font-semibold text-slate-700">{group.historiaLabel}</div>
@@ -922,7 +949,7 @@ function DocumentosClinicos({ tipo }) {
                 return (
                   <tr key={group.key} className="hover:bg-emerald-50/30">
                     <td className="px-4 py-3">
-                      <PatientIdentity paciente={group.paciente} secondary={`CI: ${group.paciente?.ci || first.data.ci || '-'}`} />
+                      <PatientIdentity paciente={group.paciente} secondary={`Documento: ${formatPatientDocument(group.paciente) || first.data.ci || '-'}`} />
                     </td>
                     <td className="px-4 py-3">
                       <strong className="block text-slate-700">{group.historia?.condicion_actual?.zona_cuerpo || group.historiaLabel}</strong>
@@ -1006,14 +1033,15 @@ function DocumentosClinicos({ tipo }) {
             <div className="mb-4 grid gap-3 md:grid-cols-[1fr_160px_160px_160px]">
               <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
                 <Search size={18} className="text-slate-400" />
-                <input className="w-full border-0 p-0 text-sm focus:ring-0" value={filters.q} onChange={(e) => setFilters({ ...filters, q: e.target.value })} placeholder="Buscar por paciente, CI o diagnostico" />
+                <input className="w-full border-0 p-0 text-sm focus:ring-0" value={filters.q} onChange={(e) => setFilters({ ...filters, q: e.target.value })} placeholder="Buscar por paciente, documento o diagnostico" />
               </label>
               <Input label="" type="date" value={filters.desde} onChange={(e) => setFilters({ ...filters, desde: e.target.value })} compact />
               <Input label="" type="date" value={filters.hasta} onChange={(e) => setFilters({ ...filters, hasta: e.target.value })} compact />
               <Input label="" value={filters.estado} onChange={(e) => setFilters({ ...filters, estado: e.target.value })} compact options={[{ value: '', label: 'Todos' }, { value: 'Borrador', label: 'Borrador' }, { value: 'Guardado', label: 'Guardado' }, { value: 'Finalizado', label: 'Finalizado' }, { value: 'Anulado', label: 'Anulado' }]} />
             </div>
             <Table
-              columns={['Fecha', 'Paciente', 'CI', 'Diagnostico', 'Responsable', 'Estado', 'Acciones']}
+              overflowVisible={tipo === 'consentimiento'}
+              columns={tipo === 'consentimiento' ? ['Paciente', 'Diagnóstico', 'Estado', 'Acciones'] : ['Fecha', 'Paciente', 'Documento', 'Diagnostico', 'Responsable', 'Estado', 'Acciones']}
               rows={filtered.map((documento) => {
                 const commonActions = (
                   <div className="flex flex-wrap gap-2">
@@ -1024,7 +1052,35 @@ function DocumentosClinicos({ tipo }) {
                     {isAdmin && <ActionButton label="Eliminar" icon={Trash2} tone="delete" onClick={() => deleteDocumentoClinico(documento.id).then(load)} />}
                   </div>
                 );
-                return [formatDate(documento.fecha), <PatientIdentity paciente={documento.paciente} secondary={`CI: ${documento.datos?.ci || documento.paciente?.ci || '-'}`} />, documento.datos?.ci || documento.paciente?.ci || '-', documento.datos?.diagnostico || '-', documento.creado_por?.nombre || '-', documento.estado, commonActions];
+                const documentoTexto = documento.datos?.numero_documento
+                  ? `${documento.datos.tipo_documento === 'OTRO' ? documento.datos.nombre_documento_otro : documento.datos.tipo_documento || 'CI'} ${documento.datos.numero_documento}`
+                  : formatPatientDocument(documento.paciente) || documento.datos?.ci || '-';
+                if (tipo === 'consentimiento') {
+                  const estadoTone = documento.estado === 'Anulado'
+                    ? 'bg-red-50 text-red-700'
+                    : documento.estado === 'Borrador'
+                      ? 'bg-amber-50 text-amber-700'
+                      : 'bg-emerald-50 text-emerald-700';
+                  const dotTone = documento.estado === 'Anulado' ? 'bg-red-500' : documento.estado === 'Borrador' ? 'bg-amber-500' : 'bg-emerald-500';
+                  return [
+                    <PatientIdentity paciente={documento.paciente} secondary={`${documentoTexto} · ${formatDate(documento.fecha)}`} className="min-w-[260px]" />,
+                    <div className="min-w-[280px] max-w-[440px]"><strong className="block truncate text-sm font-bold text-slate-800">{documento.datos?.diagnostico || 'Sin diagnóstico'}</strong><small className="mt-1 block truncate text-xs text-slate-500">{documento.creado_por?.nombre || 'Sin profesional registrado'}</small></div>,
+                    <span className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-bold ${estadoTone}`}><i className={`h-2 w-2 rounded-full ${dotTone}`} />{documento.estado}</span>,
+                    <div className="flex min-w-[230px] items-center gap-2">
+                      <button type="button" onClick={() => setPreview(documento)} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"><Eye size={16} />Ver</button>
+                      <button type="button" onClick={() => editDocumento(documento)} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"><FilePenLine size={16} />Editar</button>
+                      <details className="group relative">
+                        <summary className="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700" aria-label="Más acciones"><MoreVertical size={18} /></summary>
+                        <div className="absolute right-0 top-12 z-30 grid w-40 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                          <button type="button" onClick={() => printDocumento(documento)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"><Printer size={15} />Imprimir</button>
+                          <button type="button" onClick={() => downloadPdf(documento)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"><Download size={15} />Descargar</button>
+                          {isAdmin && <button type="button" onClick={() => deleteDocumentoClinico(documento.id).then(load)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50"><Trash2 size={15} />Eliminar</button>}
+                        </div>
+                      </details>
+                    </div>
+                  ];
+                }
+                return [formatDate(documento.fecha), <PatientIdentity paciente={documento.paciente} secondary={`Documento: ${documentoTexto}`} />, documentoTexto, documento.datos?.diagnostico || '-', documento.creado_por?.nombre || '-', documento.estado, commonActions];
               })}
               empty={meta.empty}
             />
@@ -1067,7 +1123,9 @@ function DocumentosClinicos({ tipo }) {
                 <div className="form-grid">
                   <Input label="Paciente" value={form.datos.nombre_completo || ''} onChange={(e) => updateDatos('nombre_completo', e.target.value)} />
                   <Input label="Edad" value={form.datos.edad || ''} onChange={(e) => updateDatos('edad', e.target.value)} />
-                  <Input label="CI" value={form.datos.ci || ''} onChange={(e) => updateDatos('ci', e.target.value)} />
+                  <Input label="Tipo de documento" value={form.datos.tipo_documento || 'CI'} onChange={(e) => updateDatos('tipo_documento', e.target.value)} options={['CI','DNI','PASAPORTE','CEDULA','CARNET_EXTRANJERIA','OTRO'].map((value) => ({ value, label: value.replaceAll('_', ' ') }))} />
+                  {form.datos.tipo_documento === 'OTRO' && <Input label="Nombre del documento" value={form.datos.nombre_documento_otro || ''} onChange={(e) => updateDatos('nombre_documento_otro', e.target.value)} />}
+                  <Input label="Número de documento" value={form.datos.numero_documento || form.datos.ci || ''} onChange={(e) => updateDatos('numero_documento', e.target.value)} />
                   <Input label="Tutor o Padre de familia" value={form.datos.tutor_nombre || ''} onChange={(e) => updateDatos('tutor_nombre', e.target.value)} />
                   <Input label="Diagnostico" value={form.datos.diagnostico || ''} onChange={(e) => updateDatos('diagnostico', e.target.value)} multiline />
                   <Input label="Tratamiento" value={form.datos.tratamiento || ''} onChange={(e) => updateDatos('tratamiento', e.target.value)} multiline />
@@ -1086,7 +1144,9 @@ function DocumentosClinicos({ tipo }) {
               <div className="form-grid">
                 <Input label="Nombre completo" value={form.datos.nombre_completo || ''} onChange={(e) => updateDatos('nombre_completo', e.target.value)} />
                 <Input label="Edad" value={form.datos.edad || ''} onChange={(e) => updateDatos('edad', e.target.value)} />
-                <Input label="CI" value={form.datos.ci || ''} onChange={(e) => updateDatos('ci', e.target.value)} />
+                <Input label="Tipo de documento" value={form.datos.tipo_documento || (form.datos.ci ? 'CI' : 'CI')} onChange={(e) => updateDatos('tipo_documento', e.target.value)} options={['CI','DNI','PASAPORTE','CEDULA','CARNET_EXTRANJERIA','OTRO'].map((value) => ({ value, label: value.replaceAll('_', ' ') }))} />
+                {form.datos.tipo_documento === 'OTRO' && <Input label="Nombre del documento" value={form.datos.nombre_documento_otro || ''} onChange={(e) => updateDatos('nombre_documento_otro', e.target.value)} />}
+                <Input label="Número de documento" value={form.datos.numero_documento || form.datos.ci || ''} onChange={(e) => updateDatos('numero_documento', e.target.value)} />
                 <Input label="Celular" value={form.datos.celular || ''} onChange={(e) => updateDatos('celular', e.target.value)} />
                 <Input label="Antecedentes patologicos" value={form.datos.antecedentes_patologicos || ''} onChange={(e) => updateDatos('antecedentes_patologicos', e.target.value)} multiline />
                 <Input label="Diagnostico actual" value={form.datos.diagnostico || ''} onChange={(e) => updateDatos('diagnostico', e.target.value)} multiline />
@@ -1268,7 +1328,7 @@ function DocumentosClinicos({ tipo }) {
           <div className="grid gap-4">
             <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
               <div><span className="text-xs font-black uppercase text-slate-500">Paciente</span><strong className="block text-ink">{nombrePaciente(farmacoDetail.paciente)}</strong></div>
-              <div><span className="text-xs font-black uppercase text-slate-500">CI / Tel</span><strong className="block text-ink">{farmacoDetail.paciente?.ci || farmacoDetail.rows[0]?.data.ci || '-'} / {farmacoDetail.paciente?.telefono || farmacoDetail.rows[0]?.data.telefono || '-'}</strong></div>
+              <div><span className="text-xs font-black uppercase text-slate-500">Documento / Tel</span><strong className="block text-ink">{formatPatientDocument(farmacoDetail.paciente) || farmacoDetail.rows[0]?.data.ci || 'Sin documento'} / {getDisplayPhone(farmacoDetail.paciente) || farmacoDetail.rows[0]?.data.telefono || getDisplayPhoneText(null)}</strong></div>
               <div><span className="text-xs font-black uppercase text-slate-500">Historia</span><strong className="block text-ink">{farmacoDetail.historiaLabel}</strong></div>
               <div><span className="text-xs font-black uppercase text-slate-500">Fecha</span><strong className="block text-ink">{formatDate(farmacoDetail.rows[0]?.fecha)}</strong></div>
             </div>

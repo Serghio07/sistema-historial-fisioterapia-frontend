@@ -4,7 +4,7 @@ import { Activity, ArrowLeft, CalendarDays, ClipboardList, FileText, MapPin, Rul
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import { PatientIdentity } from '../../components/common/ProfilePhoto';
-import { getHistoriaClinica } from '../../services/historiaClinicaService';
+import { getAmpliacionesSesiones, getHistoriaClinica } from '../../services/historiaClinicaService';
 import { formatDate } from '../../utils/formatDate';
 
 const show = (value, fallback = 'Sin dato') =>
@@ -48,13 +48,14 @@ function HistoriaClinicaDetalle() {
   const [historia, setHistoria] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [ampliaciones, setAmpliaciones] = useState([]);
   const returnTo = location.state?.returnTo;
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    getHistoriaClinica(id)
-      .then((data) => active && setHistoria(data))
+    Promise.all([getHistoriaClinica(id), getAmpliacionesSesiones(id)])
+      .then(([data, history]) => { if (active) { setHistoria(data); setAmpliaciones(history); } })
       .catch((err) => active && setError(err.message || 'No se pudo cargar la historia clínica.'))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
@@ -144,6 +145,12 @@ function HistoriaClinicaDetalle() {
           <Row label="Diagnóstico CIF">{evaluacion.diagnostico_kinesico_cif}</Row>
           <Row label="Plan de tratamiento">{evaluacion.plan_tratamiento}</Row>
           <Row label="Sesiones indicadas">{evaluacion.sesiones_contratadas}</Row>
+          <Row label="Ampliaciones registradas">{ampliaciones.length}</Row>
+        </Card>
+        <Card title={`Historial de ampliaciones (${ampliaciones.length})`} icon={CalendarDays} className="lg:col-span-2">
+          {ampliaciones.length ? ampliaciones.map((item) => <Row key={item.id} label={`${item.total_anterior} → ${item.total_nuevo} sesiones`}>
+            {`${formatDate(item.created_at)} · ${item.motivo} · ${item.creado_por?.ficha_personal?.nombre_mostrado || item.creado_por?.nombre || 'Usuario'}`}
+          </Row>) : <p className="text-sm text-slate-500">El plan no tiene ampliaciones registradas.</p>}
         </Card>
         <Card title={`Evoluciones (${evoluciones.length})`} icon={ClipboardList} className="lg:col-span-2">
           {evoluciones.length ? evoluciones.map((evolucion, index) => (

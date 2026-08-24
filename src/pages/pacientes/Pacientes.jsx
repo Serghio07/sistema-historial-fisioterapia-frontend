@@ -9,13 +9,17 @@ import Modal from '../../components/common/Modal';
 import Pagination from '../../components/common/Pagination';
 import { Avatar } from '../../components/common/ProfilePhoto';
 import PacienteForm from './PacienteForm';
-import { createPaciente, deactivatePaciente, getPacientes, getPacientesPendientesWhatsapp, updatePaciente } from '../../services/pacienteService';
-import { nombrePaciente } from '../../utils/validators';
+import ContactosPaciente from './ContactosPaciente';
+import { createPaciente, createPacienteWithContacts, deactivatePaciente, getPacientes, getPacientesPendientesWhatsapp, updatePaciente } from '../../services/pacienteService';
+import { listContactosPaciente } from '../../services/contactoService';
+import { formatPatientDocument, nombrePaciente, patientDocumentSearchText } from '../../utils/validators';
 import { formatDate } from '../../utils/formatDate';
 import { matchesSearch } from '../../utils/search';
+import { isMinorByBirthDate } from '../../utils/patientAge';
+import { getDisplayPhoneText, getResponsibleSummary, isAdministrativeContactPhone } from '../../utils/patientContact';
 
 const initialForm = {
-  nombres: '', apellidos: '', ci: '', fecha_nacimiento: '', lugar_nacimiento: '',
+  nombres: '', apellidos: '', ci: '', tipo_documento: 'CI', numero_documento: '', nombre_documento_otro: '', fecha_nacimiento: '', lugar_nacimiento: '',
   edad: '', sexo: '', telefono: '', foto: null, peso: '', talla: '', imc: '',
   domicilio: '', estado_civil: '', ocupacion: '', referencia: '', estado: true
 };
@@ -44,6 +48,7 @@ function Pacientes() {
   const [selectedPaciente, setSelectedPaciente] = useState(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [preparedContacts, setPreparedContacts] = useState([]);
   const [message, setMessage] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -79,7 +84,7 @@ function Pacientes() {
     return pacientes.filter((paciente) => {
       if (paciente.registro_pendiente === true) return false;
       const matchesStatus = Boolean(paciente.estado) === isActive;
-      const matchesQuery = matchesSearch(`${paciente.nombres || ''} ${paciente.apellidos || ''} ${paciente.ci || ''} ${paciente.telefono || ''}`, query);
+      const matchesQuery = matchesSearch(`${paciente.nombres || ''} ${paciente.apellidos || ''} ${patientDocumentSearchText(paciente)} ${paciente.telefono || ''} ${paciente.telefono_administrativo || ''}`, query);
       return matchesStatus && matchesQuery;
     });
   }, [pacientes, query, statusFilter]);
@@ -94,21 +99,32 @@ function Pacientes() {
     return counts;
   }, { active: 0, inactive: 0 }), [pacientes]);
   const duplicateCiPatient = useMemo(() => {
-    const ci = String(form.ci || '').trim();
-    if (!ci) return null;
+    const numero = String(form.numero_documento || '').trim().toLocaleUpperCase('es-BO').replace(/\s+/g, ' ');
+    if (!numero) return null;
     return pacientes.find((paciente) =>
-      String(paciente.ci || '').trim() === ci
+      String(paciente.tipo_documento || (paciente.ci ? 'CI' : '')).toLocaleUpperCase('es-BO') === form.tipo_documento
+      && String(paciente.numero_documento || paciente.ci || '').trim().toLocaleUpperCase('es-BO').replace(/\s+/g, ' ') === numero
       && String(paciente.id) !== String(editing || '')
     ) || null;
-  }, [pacientes, form.ci, editing]);
+  }, [pacientes, form.tipo_documento, form.numero_documento, editing]);
   const ciError = duplicateCiPatient
-    ? `Este CI ya pertenece a ${nombrePaciente(duplicateCiPatient)} (${duplicateCiPatient.estado ? 'paciente activo' : 'paciente inactivo'}).`
+    ? `Este documento ya pertenece a ${nombrePaciente(duplicateCiPatient)} (${duplicateCiPatient.estado ? 'paciente activo' : 'paciente inactivo'}).`
     : '';
 
   const submit = async (event) => {
     event.preventDefault();
     if (duplicateCiPatient) {
-      notify('No se puede registrar: el CI ya pertenece a otro paciente.', 'error');
+      notify('No se puede registrar: el documento ya pertenece a otro paciente.', 'error');
+      return;
+    }
+    const isMinor = isMinorByBirthDate(form.fecha_nacimiento);
+    if (isMinor) {
+      let hasGuardian = preparedContacts.some((item) => item.es_contacto_principal && item.contacto?.telefono);
+      try { if (editing) hasGuardian = (await listContactosPaciente(editing)).some((item) => item.estado && item.es_contacto_principal && item.contacto?.telefono); }
+      catch (error) { notify(`No se pudo verificar el responsable: ${error.message}`, 'error'); return; }
+      if (!hasGuardian) { notify('Debe seleccionar un responsable principal para el paciente menor.', 'error'); return; }
+    } else if (!String(form.telefono || '').trim()) {
+      notify('Debe ingresar el teléfono del paciente.', 'error');
       return;
     }
     setSubmitting(true);
@@ -123,7 +139,16 @@ function Pacientes() {
         referencia: form.referencia?.trim().toLocaleUpperCase('es-BO') || null,
         ...(pendingRegistration ? { whatsapp_derivacion_id: pendingRegistration.id } : {})
       };
-      editing ? await updatePaciente(editing, payload) : await createPaciente(payload);
+      const relationKeys = ['parentesco', 'parentesco_otro', 'es_contacto_principal', 'es_responsable_legal', 'recibe_recordatorios', 'puede_gestionar_citas', 'autoriza_whatsapp', 'prioridad', 'observaciones'];
+      const contactPayload = preparedContacts.map((item) => ({
+        contacto_id: item.contacto_id || undefined,
+        contacto: item.contacto_id ? undefined : item.nuevo_contacto,
+        relacion: Object.fromEntries(relationKeys.map((key) => [key, item[key]]))
+      }));
+      const createPayload = payload;
+      if (editing) await updatePaciente(editing, payload);
+      else if (preparedContacts.length) await createPacienteWithContacts(createPayload, contactPayload);
+      else await createPaciente(createPayload);
       closeFormModal();
       notify(editing ? 'Paciente actualizado correctamente.' : 'Paciente registrado correctamente.');
       await load();
@@ -139,6 +164,8 @@ function Pacientes() {
     setForm({
       ...initialForm,
       ...paciente,
+      tipo_documento: paciente.tipo_documento || (paciente.ci ? 'CI' : 'CI'),
+      numero_documento: paciente.numero_documento || paciente.ci || '',
       sexo: sexoLabel(paciente.sexo),
       fecha_nacimiento: paciente.fecha_nacimiento || '',
       peso: paciente.peso || '',
@@ -146,6 +173,7 @@ function Pacientes() {
       imc: paciente.imc || ''
     });
     setShowFormModal(true);
+    setPreparedContacts([]);
   };
 
   const closeFormModal = () => {
@@ -153,6 +181,27 @@ function Pacientes() {
     setEditing(null);
     setForm(initialForm);
     setPendingRegistration(null);
+    setPreparedContacts([]);
+  };
+
+  const syncAdministrativeContact = (items, patientId = editing) => {
+    if (!patientId) return;
+    const relation = items.find((item) => item.estado !== false && item.es_contacto_principal);
+    const contact = relation?.contacto;
+    const administrative = {
+      telefono_administrativo: contact?.telefono || null,
+      telefono_fuente: contact?.telefono ? 'CONTACTO' : null,
+      responsable_principal: contact ? {
+        id: contact.id,
+        nombres: contact.nombres,
+        apellidos: contact.apellidos,
+        parentesco: relation.parentesco,
+        parentesco_otro: relation.parentesco_otro,
+        paciente_id: contact.paciente_id || null
+      } : null
+    };
+    setPacientes((current) => current.map((patient) => String(patient.id) === String(patientId) ? { ...patient, ...administrative } : patient));
+    setSelectedPaciente((patient) => patient && String(patient.id) === String(patientId) ? { ...patient, ...administrative } : patient);
   };
 
   const registerPending = (item) => {
@@ -243,7 +292,7 @@ function Pacientes() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="relative min-w-[240px] flex-1">
             <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748B]" />
-            <input className="w-full rounded-lg border-[#CBD5E1] bg-white py-2.5 pl-11 pr-3 text-sm text-[#334155] shadow-sm placeholder:text-[#94A3B8] focus:border-[#0F766E] focus:ring-4 focus:ring-[#0F766E]/[0.12]" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nombre, apellido, CI o teléfono" />
+            <input className="w-full rounded-lg border-[#CBD5E1] bg-white py-2.5 pl-11 pr-3 text-sm text-[#334155] shadow-sm placeholder:text-[#94A3B8] focus:border-[#0F766E] focus:ring-4 focus:ring-[#0F766E]/[0.12]" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nombre, apellido, documento o teléfono" />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" onClick={() => setShowFilters((value) => !value)} aria-expanded={showFilters}><Filter size={17} />Filtros</Button>
@@ -267,8 +316,8 @@ function Pacientes() {
                       <span className={`rounded-full px-2.5 py-1 text-xs font-black ${paciente.estado ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{paciente.estado ? 'ACTIVO' : 'INACTIVO'}</span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
-                      <span className="inline-flex items-center gap-1.5"><IdCard size={14} className="text-brand-600" />CI: {paciente.ci || 'SIN DATO'}</span>
-                      <span className="inline-flex items-center gap-1.5"><Phone size={14} className="text-brand-600" />TEL: {paciente.telefono || 'SIN DATO'}</span>
+                      <span className="inline-flex items-center gap-1.5"><IdCard size={14} className="text-brand-600" />Documento: {formatPatientDocument(paciente) || 'SIN DATO'}</span>
+                      <span className="inline-flex min-w-0 items-center gap-1.5"><Phone size={14} className="shrink-0 text-brand-600" /><span className="truncate">TEL: {getDisplayPhoneText(paciente)}</span>{isAdministrativeContactPhone(paciente) && <small title={getResponsibleSummary(paciente)} className="rounded bg-teal-50 px-1.5 py-0.5 text-[9px] font-bold text-teal-700">TUTOR</small>}</span>
                     </div>
                     <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-sm font-medium text-[#334155]">
                       <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} className="text-[#0F766E]" />{paciente.edad != null ? `${paciente.edad} años` : 'Sin edad'}</span><i className="hidden h-1 w-1 rounded-full bg-slate-300 sm:block" />
@@ -300,8 +349,8 @@ function Pacientes() {
         {statusFilter !== 'pending' && <Pagination total={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />}
       </div>
 
-      <Modal open={showFormModal} title={editing ? 'EDITAR PACIENTE' : pendingRegistration ? 'REGISTRAR PACIENTE PENDIENTE' : 'NUEVO PACIENTE'} subtitle={pendingRegistration ? 'Complete los datos restantes. Al guardar se vinculará su cita de WhatsApp.' : 'Complete los datos generales del paciente.'} onClose={closeFormModal} size="lg">
-        <PacienteForm form={form} setForm={setForm} onSubmit={submit} onCancel={closeFormModal} submitting={submitting} ciError={ciError} />
+      <Modal open={showFormModal} title={editing ? 'EDITAR PACIENTE' : pendingRegistration ? 'REGISTRAR PACIENTE PENDIENTE' : 'NUEVO PACIENTE'} subtitle={pendingRegistration ? 'Complete los datos restantes. Al guardar se vinculará su cita de WhatsApp.' : 'Complete los datos generales del paciente.'} onClose={closeFormModal} size="patient">
+        <PacienteForm form={form} setForm={setForm} onSubmit={submit} onCancel={closeFormModal} submitting={submitting} ciError={ciError} pacienteId={editing} preparedContacts={preparedContacts} onPreparedContactsChange={setPreparedContacts} onLinkedContactsChange={syncAdministrativeContact} />
       </Modal>
 
       <Modal open={Boolean(selectedPaciente)} title="Datos del paciente" subtitle="Información personal y clínica registrada" onClose={() => setSelectedPaciente(null)} size="patient" patientStyle>
@@ -314,7 +363,7 @@ function Pacientes() {
                   <strong className="mt-4 block text-center text-base font-bold uppercase text-[#1E293B]">{nombrePaciente(selectedPaciente)}</strong>
                   <span className={`mx-auto mt-2 block w-fit rounded-full px-2.5 py-1 text-[10px] font-bold ${selectedPaciente.estado ? 'bg-[#D1FAE5] text-[#047857]' : 'bg-[#F1F5F9] text-[#64748B]'}`}>{selectedPaciente.estado ? 'ACTIVO' : 'INACTIVO'}</span>
                   <dl className="mt-5 divide-y divide-[#E2E8F0] border-t border-[#E2E8F0] text-xs">
-                    {[[IdCard, 'CI', selectedPaciente.ci], [Phone, 'Teléfono', selectedPaciente.telefono], [CalendarDays, 'Edad', selectedPaciente.edad != null ? `${selectedPaciente.edad} años` : ''], [CalendarDays, 'Nacimiento', formatDate(selectedPaciente.fecha_nacimiento)]].map(([Icon, label, value]) => <div key={label} className="flex gap-2.5 py-3"><Icon size={15} className="mt-0.5 shrink-0 text-[#0F766E]" /><div><dt className="text-[10px] font-semibold text-[#64748B]">{label}</dt><dd className="mt-0.5 font-medium text-[#1E293B]">{value || 'SIN DATO'}</dd></div></div>)}
+                    {[[IdCard, 'Documento', formatPatientDocument(selectedPaciente)], [Phone, 'Teléfono de contacto', getDisplayPhoneText(selectedPaciente)], [CalendarDays, 'Edad', selectedPaciente.edad != null ? `${selectedPaciente.edad} años` : ''], [CalendarDays, 'Nacimiento', formatDate(selectedPaciente.fecha_nacimiento)]].map(([Icon, label, value]) => <div key={label} className="flex gap-2.5 py-3"><Icon size={15} className="mt-0.5 shrink-0 text-[#0F766E]" /><div className="min-w-0"><dt className="text-[10px] font-semibold text-[#64748B]">{label}</dt><dd className="mt-0.5 break-words font-medium text-[#1E293B]">{value || '—'}</dd>{label === 'Teléfono de contacto' && isAdministrativeContactPhone(selectedPaciente) && <small className="block text-[10px] font-semibold text-[#0F766E]">Responsable</small>}</div></div>)}
                   </dl>
                 </aside>
 
@@ -322,7 +371,7 @@ function Pacientes() {
                   <section className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white">
                     <h3 className="flex items-center gap-2 border-b border-[#E2E8F0] px-4 py-3 text-sm font-bold text-[#0F766E]"><UserRound size={17} />Información personal</h3>
                     <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <Detail icon={IdCard} label="CI" value={selectedPaciente.ci} /><Detail icon={Phone} label="Teléfono" value={selectedPaciente.telefono} />
+                      <Detail icon={IdCard} label="Documento" value={formatPatientDocument(selectedPaciente)} /><Detail icon={Phone} label="Teléfono personal" value={selectedPaciente.telefono || '—'} /><Detail icon={Phone} label="Teléfono administrativo" value={selectedPaciente.telefono_administrativo || '—'} />
                       <Detail icon={CalendarDays} label="Fecha de nacimiento" value={formatDate(selectedPaciente.fecha_nacimiento)} /><Detail icon={UserRound} label="Edad" value={selectedPaciente.edad != null ? `${selectedPaciente.edad} años` : ''} />
                       <Detail icon={MapPin} label="Lugar de nacimiento" value={selectedPaciente.lugar_nacimiento} /><Detail icon={UserRound} label="Sexo" value={sexoLabel(selectedPaciente.sexo)} />
                       <Detail icon={Heart} label="Estado civil" value={selectedPaciente.estado_civil} /><Detail icon={BriefcaseBusiness} label="Ocupación" value={selectedPaciente.ocupacion} />
@@ -336,6 +385,9 @@ function Pacientes() {
                     <h3 className="flex items-center gap-2 border-b border-[#E2E8F0] px-4 py-3 text-sm font-bold text-[#0F766E]"><MapPin size={17} />Ubicación y referencia</h3>
                     <div className="grid gap-3 p-4 sm:grid-cols-2"><Detail icon={Home} label="Domicilio" value={selectedPaciente.domicilio} /><Detail icon={MapPin} label="Punto de referencia" value={selectedPaciente.referencia} /></div>
                   </section>
+                  {isMinorByBirthDate(selectedPaciente.fecha_nacimiento) && <section className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white">
+                    <ContactosPaciente paciente={selectedPaciente} readOnly onItemsChange={(items) => syncAdministrativeContact(items, selectedPaciente.id)} />
+                  </section>}
                 </div>
               </div>
             </div>

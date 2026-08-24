@@ -12,10 +12,12 @@ import {
   Eye,
   FilePenLine,
   IdCard,
+  MessageSquareText,
   Phone,
   PlusCircle,
   Search,
   Stethoscope,
+  Syringe,
   Trash2
 } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
@@ -32,7 +34,8 @@ import { getPacientes } from '../../services/pacienteService';
 import { createSesion, deleteSesion, getSesiones, updateSesion } from '../../services/sesionService';
 import { getCitas } from '../../services/citaService';
 import { formatDate } from '../../utils/formatDate';
-import { cleanPayload, nombrePaciente } from '../../utils/validators';
+import { cleanPayload, formatPatientDocument, nombrePaciente, patientDocumentSearchText } from '../../utils/validators';
+import { getDisplayPhone, getDisplayPhoneText } from '../../utils/patientContact';
 import { boliviaDate } from '../../utils/boliviaDateTime';
 import SesionForm from './SesionForm';
 import SesionesPacienteAccordion, { sessionEvolution } from './SesionesPacienteAccordion';
@@ -208,6 +211,7 @@ function Sesiones() {
   const [evolutionForm, setEvolutionForm] = useState({ dolor_inicial: '', dolor_final: '', aplicacion: '', observaciones: '', inyectables: '' });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const today = boliviaDate();
 
   const load = async () => {
     setLoading(true);
@@ -262,7 +266,7 @@ function Sesiones() {
   const filteredSesiones = useMemo(() => {
     const filtered = sesiones.filter((sesion) => {
       const historia = sesion.historia_clinica || historias.find((item) => String(item.id) === String(sesion.historia_clinica_id));
-      const text = `${nombrePaciente(sesion.paciente)} ${sesion.paciente?.ci || ''} ${sesion.paciente?.telefono || sesion.paciente?.celular || ''} ${sesion.registrado_por?.nombre || ''} ${sesion.profesional_responsable || ''} ${sesion.observacion || ''} ${sesion.observacion_farmacos || ''} ${sesion.estado_pago || ''} ${sesion.metodo_pago || ''} ${historia?.condicion_actual?.zona_cuerpo || ''} ${historia?.motivo_consulta || ''} ${historia?.diagnostico_medico || ''}`;
+      const text = `${nombrePaciente(sesion.paciente)} ${patientDocumentSearchText(sesion.paciente)} ${getDisplayPhone(sesion.paciente) || sesion.paciente?.celular || ''} ${sesion.registrado_por?.nombre || ''} ${sesion.profesional_responsable || ''} ${sesion.observacion || ''} ${sesion.observacion_farmacos || ''} ${sesion.estado_pago || ''} ${sesion.metodo_pago || ''} ${historia?.condicion_actual?.zona_cuerpo || ''} ${historia?.motivo_consulta || ''} ${historia?.diagnostico_medico || ''}`;
       const date = String(sesion.fecha || '');
       const matchesDate = (!registeredFilters.dateFrom || date >= registeredFilters.dateFrom)
         && (!registeredFilters.dateTo || date <= registeredFilters.dateTo);
@@ -281,6 +285,20 @@ function Sesiones() {
     () => filteredSesiones.filter((sesion) => !isSesionAnulada(sesion)),
     [filteredSesiones]
   );
+
+  const programacionesHoy = useMemo(() => programaciones
+    .filter((cita) => String(cita.fecha) === today && !cita.sesion_id)
+    .sort((a, b) => String(a.hora_inicio || '').localeCompare(String(b.hora_inicio || ''))), [programaciones, today]);
+
+  const atencionesHoy = useMemo(() => {
+    const groups = new Map();
+    programacionesHoy.forEach((cita) => {
+      const key = `${cita.paciente_id}:${cita.historia_clinica_id || 'sin-historia'}`;
+      const current = groups.get(key) || { key, paciente: cita.paciente, citas: [] };
+      current.citas.push(cita); groups.set(key, current);
+    });
+    return [...groups.values()];
+  }, [programacionesHoy]);
 
   const groupedSesiones = useMemo(() => {
     const activeHistories = historias.filter(isHistoriaActiva);
@@ -335,7 +353,7 @@ function Sesiones() {
       .filter((group) => {
         if (!registeredFilters.query.trim()) return group.sesiones.length > 0;
         const historyText = group.historias.map((historia) => `${historia.condicion_actual?.zona_cuerpo || ''} ${historia.motivo_consulta || ''} ${historia.profesional_cargo || ''}`).join(' ');
-        const text = `${nombrePaciente(group.paciente)} ${group.paciente?.ci || ''} ${group.paciente?.telefono || group.paciente?.celular || ''} ${historyText}`;
+        const text = `${nombrePaciente(group.paciente)} ${patientDocumentSearchText(group.paciente)} ${getDisplayPhone(group.paciente) || group.paciente?.celular || ''} ${historyText}`;
         return matchesSearch(text, registeredFilters.query);
       })
       .sort((a, b) => String(b.ultimaSesion?.fecha || b.historia.fecha_evaluacion || '').localeCompare(String(a.ultimaSesion?.fecha || a.historia.fecha_evaluacion || '')));
@@ -404,7 +422,7 @@ function Sesiones() {
         if (!String(farmaco.presentacion_dosis || '').trim()) return `Registra la presentación o dosis del fármaco ${index + 1}.`;
         if (!String(via || '').trim()) return `Selecciona la vía del fármaco ${index + 1}.`;
         if (!(Number(farmaco.cantidad) > 0)) return `La cantidad del fármaco ${index + 1} debe ser mayor a cero.`;
-        if (!String(farmaco.motivo_clinico || '').trim()) return `Registra el motivo clínico del fármaco ${index + 1}.`;
+        if (farmaco.precio_unitario !== '' && farmaco.precio_unitario != null && Number(farmaco.precio_unitario) < 0) return `El precio del fármaco ${index + 1} no puede ser negativo.`;
       }
       const keys = form.farmacos.map((farmaco) => `${farmaco.nombre === 'Otro' ? farmaco.nombre_otro : farmaco.nombre}|${farmaco.presentacion_dosis}|${farmaco.via === 'Otra' ? farmaco.via_otro : farmaco.via}`.toLocaleLowerCase('es-BO'));
       if (new Set(keys).size !== keys.length && !window.confirm('Hay medicamentos repetidos con la misma dosis y vía. ¿Confirma que desea registrarlos?')) return 'Revise los medicamentos duplicados.';
@@ -432,11 +450,25 @@ function Sesiones() {
       });
       if (editing) await updateSesion(editing, payload);
       else await createSesion(payload);
-      setMessage(form.asistencia === 'asistio'
+      const successMessage = form.asistencia === 'asistio'
         ? form.aplica_farmacos
           ? 'La sesión, evolución clínica y administración de fármacos se registraron correctamente.'
           : 'La sesión y evolución clínica se registraron correctamente.'
-        : 'La sesión se registró correctamente.');
+        : 'La sesión se registró correctamente.';
+      await Swal.fire({
+        icon: 'success',
+        title: '¡Atención registrada!',
+        text: successMessage,
+        confirmButtonText: 'Listo',
+        buttonsStyling: false,
+        customClass: {
+          popup: 'session-success-popup',
+          icon: 'session-success-icon',
+          title: 'session-success-title',
+          htmlContainer: 'session-success-text',
+          confirmButton: 'session-success-button'
+        }
+      });
       setForm(initialForm);
       setEditing(null);
       setShowFormModal(false);
@@ -477,6 +509,7 @@ function Sesiones() {
         via: farmaco.tipo_via === 'Otra' ? 'Otra' : farmaco.via,
         via_otro: farmaco.tipo_via === 'Otra' ? farmaco.via : '',
         cantidad: farmaco.cantidad || 1,
+        precio_unitario: farmaco.precio_unitario ?? '',
         motivo_clinico: farmaco.motivo_clinico || '',
         observacion: farmaco.observacion || ''
       })) : [],
@@ -684,6 +717,13 @@ function Sesiones() {
       </div>
 
       {message && <p className="notice">{message}</p>}
+      <section className="daily-attentions overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-7 py-5">
+          <div><h3 className="flex items-center gap-3 text-lg font-black text-slate-900"><CalendarSync size={22} className="text-teal-700"/>Atenciones de hoy</h3><p className="mt-1 text-sm text-slate-500">{atencionesHoy.length} paciente{atencionesHoy.length===1?'':'s'} · {programacionesHoy.length} sesiones pendientes</p></div>
+          <span className="rounded-full bg-teal-50 px-4 py-1.5 text-xs font-black uppercase text-teal-700 ring-1 ring-teal-200">{programacionesHoy.length} pendientes</span>
+        </header>
+        {atencionesHoy.length?<div className="divide-y divide-slate-200 px-6">{atencionesHoy.map((group) => {const next=group.citas[0];const name=nombrePaciente(group.paciente);const initials=name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase();return <article key={group.key} className="flex min-w-max items-center gap-6 py-6 xl:min-w-0"><div className="flex w-72 shrink-0 items-center gap-4 border-r border-slate-200 pr-6"><span className="grid size-14 shrink-0 place-items-center rounded-full bg-gradient-to-br from-teal-100 to-cyan-50 text-lg font-black text-slate-800">{initials}</span><div className="min-w-0"><strong className="block truncate text-sm font-black uppercase text-slate-900">{name}</strong><small className="block truncate text-xs text-slate-500">{formatPatientDocument(group.paciente)}</small></div></div><div className="relative flex shrink-0 items-center gap-4 px-1">{group.citas.map((cita,index)=><div key={cita.id} className="relative z-10 w-[112px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm"><strong className="flex items-center gap-2 text-sm text-slate-900"><span className="size-2.5 rounded-full bg-teal-600"/>{String(cita.hora_inicio||'').slice(0,5)}</strong><span className="mt-1 block text-center text-xs text-slate-600">{cita.numero_sesion||index+1}-{cita.total_sesiones||group.citas.length}</span><span className="mt-1 block rounded-full bg-amber-50 px-2 py-0.5 text-center text-[9px] font-black text-amber-700">{cita.estado}</span>{index<group.citas.length-1&&<span className="absolute left-full top-1/2 h-px w-4 border-t border-dashed border-slate-300"/>}</div>)}</div><div className="ml-auto flex shrink-0 items-center gap-5 border-l border-slate-200 pl-7"><div className="min-w-28 text-center"><small className="block text-xs text-slate-500">Próxima sesión</small><strong className="mt-1 block text-xl font-black text-teal-700">{String(next.hora_inicio||'').slice(0,5)}</strong></div><Button className="min-w-44" onClick={() => navigate('/sesiones',{replace:true,state:{programacion:next}})}><Stethoscope size={16}/>Registrar atención</Button><ChevronDown size={18} className="text-slate-500"/></div></article>})}</div>:<div className="px-5 py-8 text-center text-sm text-slate-500">No hay sesiones de tratamiento pendientes para hoy.</div>}
+      </section>
       <div className="panel">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-3">
           <div>
@@ -773,7 +813,7 @@ function Sesiones() {
             {groupedSesiones.map((group) => {
               const expanded = Boolean(expandedGroups[group.key]);
               const pacienteEstado = group.paciente?.estado || 'Activo';
-              const telefono = group.paciente?.telefono || group.paciente?.celular || group.paciente?.telefono_referencia || 'Sin dato';
+              const telefono = getDisplayPhone(group.paciente) || group.paciente?.celular || group.paciente?.telefono_referencia || getDisplayPhoneText(null);
               const zona = group.historia.condicion_actual?.zona_cuerpo || group.historia.motivo_consulta || group.historia.diagnostico_medico || 'Sin detalle';
               const profesional = group.historia.profesional_cargo || group.historia.usuario?.ficha_personal?.nombre_mostrado || group.historia.usuario?.nombre || 'Sin profesional';
               const progress = group.contratadas > 0 ? Math.min((group.realizadas / group.contratadas) * 100, 100) : 0;
@@ -799,7 +839,7 @@ function Sesiones() {
                                 <Badge tone="bg-emerald-50 text-emerald-700 ring-emerald-200">{String(pacienteEstado).toUpperCase()}</Badge>
                               </div>
                               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-500">
-                                <span className="inline-flex items-center gap-1"><IdCard size={14} /> CI: {group.paciente?.ci || 'Sin dato'}</span>
+                                <span className="inline-flex items-center gap-1"><IdCard size={14} /> Documento: {formatPatientDocument(group.paciente)}</span>
                                 <span className="inline-flex items-center gap-1"><Phone size={14} /> TEL: {telefono}</span>
                               </div>
                             </div>
@@ -1004,7 +1044,7 @@ function Sesiones() {
         onClose={closeFormModal}
         size="sessions"
       >
-        <SesionForm form={form} setForm={setForm} pacientes={pacientes} historias={historias} sesiones={sesiones} programaciones={programaciones} editing={editing} initialTab={formTab} onSubmit={submit} onCancel={closeFormModal} error={error} canEditDate={form.cita_id ? false : isAdmin} canViewFinancial={isAdmin} />
+        <SesionForm form={form} setForm={setForm} pacientes={pacientes} historias={historias} sesiones={sesiones} programaciones={programaciones} editing={editing} initialTab={formTab} onSubmit={submit} onCancel={closeFormModal} onPlanExpanded={load} error={error} canEditDate={form.cita_id ? false : isAdmin} canViewFinancial={isAdmin} />
       </Modal>
 
       <Modal open={Boolean(evolutionTarget)} title={evolutionTarget?.evolution ? 'Editar evolución' : 'Registrar evolución'} subtitle={evolutionTarget ? `${nombrePaciente(evolutionTarget.group.paciente)} · Sesión N.º ${evolutionTarget.session.numero_sesion} · ${formatDate(evolutionTarget.session.fecha)}` : ''} onClose={() => setEvolutionTarget(null)} size="sessions">
@@ -1012,7 +1052,15 @@ function Sesiones() {
       </Modal>
 
       <Modal open={Boolean(evolutionDetail)} title="Detalle de la evolución" subtitle={evolutionDetail ? `${nombrePaciente(evolutionDetail.group.paciente)} · Sesión N.º ${evolutionDetail.session.numero_sesion} · ${formatDate(evolutionDetail.session.fecha)}` : ''} onClose={() => setEvolutionDetail(null)} size="sessions">
-        {evolutionDetail && <div className="grid gap-3"><div className="grid gap-3 sm:grid-cols-2"><Detail label="Dolor inicial" value={`${evolutionDetail.session.dolor_antes ?? evolutionDetail.evolution.dolor_inicial ?? '-'} / 10`} /><Detail label="Dolor final" value={`${evolutionDetail.session.dolor_despues ?? evolutionDetail.evolution.dolor_final ?? '-'} / 10`} /></div><Detail label="Procedimiento realizado" value={evolutionDetail.session.descripcion_tratamiento || [evolutionDetail.session.medios_fisicos, evolutionDetail.session.tecnicas_manuales].filter(Boolean).join(' · ') || evolutionDetail.evolution.aplicacion || evolutionDetail.evolution.procedimiento_realizado} /><Detail label="Observaciones" value={evolutionDetail.session.evolucion_observada || evolutionDetail.session.observacion || evolutionDetail.evolution.observaciones} /><Detail label="Inyectables utilizados" value={[evolutionDetail.session.inyectable_nombre, evolutionDetail.session.inyectable_dosis].filter(Boolean).join(' · ') || evolutionDetail.evolution.inyectables} /></div>}
+        {evolutionDetail && <div className="grid gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <PainDetail label="Dolor inicial" value={evolutionDetail.session.dolor_antes ?? evolutionDetail.evolution.dolor_inicial} />
+            <PainDetail label="Dolor final" value={evolutionDetail.session.dolor_despues ?? evolutionDetail.evolution.dolor_final} final />
+          </div>
+          <EvolutionDetailCard icon={Stethoscope} label="Procedimiento realizado" value={evolutionDetail.session.descripcion_tratamiento || [evolutionDetail.session.medios_fisicos, evolutionDetail.session.tecnicas_manuales].filter(Boolean).join(' · ') || evolutionDetail.evolution.aplicacion || evolutionDetail.evolution.procedimiento_realizado} />
+          <EvolutionDetailCard icon={MessageSquareText} label="Observaciones" value={evolutionDetail.session.evolucion_observada || evolutionDetail.session.observacion || evolutionDetail.evolution.observaciones} tone="cyan" />
+          <EvolutionDetailCard icon={Syringe} label="Fármacos / inyectables utilizados" value={[evolutionDetail.session.inyectable_nombre, evolutionDetail.session.inyectable_dosis].filter(Boolean).join(' · ') || evolutionDetail.evolution.inyectables} tone="violet" />
+        </div>}
       </Modal>
 
       <Modal open={Boolean(selectedSesion)} title="Detalle de la sesión" subtitle={selectedSesion ? `Sesión N.º ${selectedSesion.numero_sesion || 1} · ${formatDate(selectedSesion.fecha)}` : ''} onClose={() => setSelectedSesion(null)} size="lg">
@@ -1115,6 +1163,44 @@ function Sesiones() {
           </div>
         </form>
       </Modal>
+    </section>
+  );
+}
+
+function PainDetail({ label, value, final = false }) {
+  const numericValue = Math.min(10, Math.max(0, Number(value) || 0));
+  const hasValue = value !== null && value !== undefined && value !== '';
+  return (
+    <div className={`rounded-xl border p-4 ${final ? 'border-emerald-200 bg-emerald-50/70' : 'border-orange-200 bg-orange-50/70'}`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className={`text-[11px] font-black uppercase tracking-wide ${final ? 'text-emerald-700' : 'text-orange-700'}`}>{label}</span>
+        <Activity size={18} className={final ? 'text-emerald-600' : 'text-orange-600'} />
+      </div>
+      <div className="mt-2 flex items-end gap-1">
+        <strong className="text-3xl font-black leading-none text-slate-900">{hasValue ? numericValue : '—'}</strong>
+        <span className="pb-0.5 text-sm font-bold text-slate-500">/ 10</span>
+      </div>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-inset ring-slate-200">
+        <span className={`block h-full rounded-full ${final ? 'bg-emerald-500' : 'bg-orange-500'}`} style={{ width: `${hasValue ? numericValue * 10 : 0}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function EvolutionDetailCard({ icon: Icon, label, value, tone = 'brand' }) {
+  const tones = tone === 'cyan'
+    ? 'border-cyan-100 bg-cyan-50/50 text-cyan-700'
+    : tone === 'violet'
+      ? 'border-violet-100 bg-violet-50/50 text-violet-700'
+      : 'border-brand-100 bg-brand-50/40 text-brand-700';
+  const content = value === null || value === undefined || value === '' ? 'Sin dato registrado' : value;
+  return (
+    <section className={`rounded-xl border p-4 ${tones}`}>
+      <div className="mb-2 flex items-center gap-2">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white shadow-sm"><Icon size={17} /></span>
+        <h3 className="text-xs font-black uppercase tracking-wide">{label}</h3>
+      </div>
+      <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-800">{content}</p>
     </section>
   );
 }

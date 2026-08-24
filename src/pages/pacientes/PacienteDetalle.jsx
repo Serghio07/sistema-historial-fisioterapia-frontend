@@ -9,7 +9,11 @@ import Loader from '../../components/common/Loader';
 import { Avatar } from '../../components/common/ProfilePhoto';
 import { getPaciente } from '../../services/pacienteService';
 import { formatDate } from '../../utils/formatDate';
+import { formatPatientDocument } from '../../utils/validators';
 import { nombrePaciente } from '../../utils/validators';
+import { getDisplayPhoneText, getResponsibleSummary, isAdministrativeContactPhone } from '../../utils/patientContact';
+import { isMinorByBirthDate } from '../../utils/patientAge';
+import ContactosPaciente from './ContactosPaciente';
 
 const sexoLabel = (value) => ({ M: 'MASCULINO', F: 'FEMENINO' }[value] || value);
 
@@ -58,8 +62,8 @@ function PacienteDetalle() {
                 <p className="text-[11px] font-black uppercase tracking-wide text-teal-700">Ficha del paciente</p>
                 <h1 className="mt-0.5 truncate text-2xl font-black uppercase text-slate-900 md:text-3xl">{nombrePaciente(paciente)}</h1>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
-                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1.5"><IdCard size={15} className="text-teal-700" />CI: {paciente.ci || 'Sin dato'}</span>
-                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1.5"><Phone size={15} className="text-teal-700" />{paciente.telefono || 'Sin teléfono'}</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1.5"><IdCard size={15} className="text-teal-700" />Documento: {formatPatientDocument(paciente) || 'Sin dato'}</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1.5"><Phone size={15} className="text-teal-700" />{getDisplayPhoneText(paciente)}{isAdministrativeContactPhone(paciente) && <small className="font-bold text-teal-700">Tutor</small>}</span>
                 </div>
               </div>
               <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-black ${paciente.estado ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-600'}`}><span className={`h-2 w-2 rounded-full ${paciente.estado ? 'bg-emerald-500' : 'bg-slate-400'}`} />{paciente.estado ? 'ACTIVO' : 'INACTIVO'}</span>
@@ -76,6 +80,11 @@ function PacienteDetalle() {
                 <Field icon={UsersRound} label="Sexo" value={sexoLabel(paciente.sexo)} />
                 <Field icon={Heart} label="Estado civil" value={paciente.estado_civil} />
                 <Field icon={BriefcaseBusiness} label="Ocupación" value={paciente.ocupacion} />
+                {isAdministrativeContactPhone(paciente) ? <>
+                  <Field icon={Phone} label="Teléfono personal" value={paciente.telefono || '—'} />
+                  <Field icon={Phone} label="Teléfono administrativo" value={getDisplayPhoneText(paciente)} accent />
+                  <Field icon={UsersRound} label="Responsable" value={getResponsibleSummary(paciente)} />
+                </> : <Field icon={Phone} label="Teléfono" value={getDisplayPhoneText(paciente)} />}
               </div>
             </section>
             <section className="border-t border-slate-100 p-4 md:p-5">
@@ -93,6 +102,7 @@ function PacienteDetalle() {
                 <Field icon={Navigation} label="Punto de referencia" value={paciente.referencia} />
               </div>
             </section>
+            {isMinorByBirthDate(paciente.fecha_nacimiento) && <ContactosPaciente paciente={paciente} readOnly />}
           </div>
         </>
       )}

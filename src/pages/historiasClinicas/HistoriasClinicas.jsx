@@ -11,14 +11,17 @@ import { createHistoriaClinica, deleteHistoriaClinica, getHistoriasClinicas, res
 import { getPacientes } from '../../services/pacienteService';
 import { getSesiones } from '../../services/sesionService';
 import { getProfesionalesActivos } from '../../services/usuarioService';
+import { getConteosAdjuntosHistoria } from '../../services/adjuntoHistoriaClinicaService';
 import { formatDate } from '../../utils/formatDate';
-import { cleanPayload, nombrePaciente } from '../../utils/validators';
+import { cleanPayload, formatPatientDocument, nombrePaciente, patientDocumentSearchText } from '../../utils/validators';
 import { matchesSearch } from '../../utils/search';
+import { getDisplayPhone, getDisplayPhoneText, getResponsibleSummary } from '../../utils/patientContact';
 import HistoriaClinicaForm, { initialHistoria } from './HistoriaClinicaForm';
 import EvolutivoSection from './sections/EvolutivoSection';
 import PacienteHistoriasAccordion from './PacienteHistoriasAccordion';
 import HistoriaDetalleProfesional from './HistoriaDetalleProfesional';
 import EvolutivosDocumento from './EvolutivosDocumento';
+import AdjuntosHistoriaModal from './AdjuntosHistoriaModal';
 import logo from '../../assets/logos/logo.png';
 import cicloMarcha from '../../assets/images/ciclo-marcha.png';
 import mapaCorporalAnatomico from '../../assets/images/mapa-corporal-anatomico.png';
@@ -223,8 +226,9 @@ function HistoriaReporte({ historia }) {
         <div className="grid grid-cols-4 gap-x-4">
           <Line><strong>Edad:</strong> {historia.paciente?.edad || ''}</Line>
           <Line><strong>Genero:</strong> {historia.paciente?.sexo || ''}</Line>
-          <Line><strong>Telefono:</strong> {historia.paciente?.telefono || ''}</Line>
-          <Line><strong>CI:</strong> {historia.paciente?.ci || ''}</Line>
+          <Line><strong>Teléfono de contacto:</strong> {getDisplayPhoneText(historia.paciente)}</Line>
+          {getResponsibleSummary(historia.paciente) && <Line><strong>Responsable:</strong> {getResponsibleSummary(historia.paciente)}</Line>}
+          <Line><strong>Documento:</strong> {formatPatientDocument(historia.paciente)}</Line>
         </div>
         <div className="grid grid-cols-2 gap-x-5">
           <Line><strong>Estado civil:</strong> {historia.paciente?.estado_civil || ''}</Line>
@@ -533,7 +537,7 @@ function PacienteHistoriasCard({ group, sesiones, onShowHistory, onNew, onViewPa
     <div className="grid gap-5 xl:grid-cols-[245px_minmax(350px,1fr)_190px_190px]">
       <div className="flex gap-3 xl:border-r xl:border-slate-200 xl:pr-5">
         <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand-50 text-sm font-black uppercase text-brand-700 ring-1 ring-brand-100">{initials || 'PA'}</div>
-        <div className="min-w-0"><strong className="block truncate text-sm font-black uppercase text-slate-900">{nombrePaciente(paciente)}</strong><span className={`mt-1 inline-flex rounded-md px-2 py-1 text-[10px] font-bold ${paciente?.estado ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>Paciente {paciente?.estado ? 'activo' : 'inactivo'}</span><dl className="mt-3 grid gap-1 text-xs text-slate-500"><div><dt className="inline font-bold text-slate-700">CI: </dt><dd className="inline">{paciente?.ci || 'Sin dato'}</dd></div><div><dt className="inline font-bold text-slate-700">Tel: </dt><dd className="inline">{paciente?.telefono || 'Sin dato'}</dd></div></dl><button type="button" onClick={onViewPatient} className="mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[11px] font-bold text-slate-600 hover:bg-slate-50"><UserRound size={14} />Ver datos del paciente</button></div>
+        <div className="min-w-0"><strong className="block truncate text-sm font-black uppercase text-slate-900">{nombrePaciente(paciente)}</strong><span className={`mt-1 inline-flex rounded-md px-2 py-1 text-[10px] font-bold ${paciente?.estado ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>Paciente {paciente?.estado ? 'activo' : 'inactivo'}</span><dl className="mt-3 grid gap-1 text-xs text-slate-500"><div><dt className="inline font-bold text-slate-700">Documento: </dt><dd className="inline">{formatPatientDocument(paciente)}</dd></div><div><dt className="inline font-bold text-slate-700">Tel: </dt><dd className="inline">{getDisplayPhoneText(paciente)}</dd></div>{getResponsibleSummary(paciente) && <div><dt className="inline font-bold text-slate-700">Responsable: </dt><dd className="inline">{getResponsibleSummary(paciente)}</dd></div>}</dl><button type="button" onClick={onViewPatient} className="mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[11px] font-bold text-slate-600 hover:bg-slate-50"><UserRound size={14} />Ver datos del paciente</button></div>
       </div>
       <div className="min-w-0"><div className="flex flex-wrap items-center gap-4"><span className={`inline-flex items-center gap-2 text-xs font-black ${latest.estado === 'borrador' ? 'text-amber-600' : latest.estado === 'anulada' ? 'text-red-600' : 'text-emerald-700'}`}><i className={`h-2 w-2 rounded-full ${latest.estado === 'borrador' ? 'bg-amber-400' : latest.estado === 'anulada' ? 'bg-red-500' : 'bg-emerald-600'}`} />Historia {latest.estado || 'borrador'}</span><span className="text-xs text-slate-500">{formatDate(latest.fecha_evaluacion)}</span></div>
         <div className="mt-4 grid gap-x-5 gap-y-3 text-xs sm:grid-cols-2"><p><strong className="mr-1 text-slate-700">Motivo:</strong>{latest.motivo_consulta || 'Sin motivo registrado'}</p><p><strong className="mr-1 text-slate-700">Diagnóstico:</strong>{latest.diagnostico_medico || 'Sin diagnóstico registrado'}</p><p><strong className="mr-1 text-slate-700">Zona:</strong>{latest.condicion_actual?.zona_cuerpo || 'Zona no especificada'}</p><p><strong className="mr-1 text-slate-700">Dolor:</strong>{pain === '' || pain == null ? 'No evaluado' : `${pain}/10`}</p><p className="sm:col-span-2"><strong className="mr-1 text-slate-700">Profesional:</strong>{latest.profesional_cargo || 'Sin profesional registrado'}</p></div>
@@ -564,7 +568,7 @@ function PatientHistoryModal({ group, onClose, onView, onEdit, onEvolutivo, onPr
     return <button type="button" onClick={onClick} className="group grid w-[62px] justify-items-center gap-1.5 text-center text-[9px] font-semibold leading-tight text-slate-600"><span className={`grid h-10 w-10 place-items-center rounded-lg border bg-white transition ${styles[tone]}`}><Icon size={19} /></span>{label}</button>;
   };
 
-  return <Modal open title={`Historias clínicas de ${nombrePaciente(group.paciente)}`} subtitle={`CI: ${group.paciente?.ci || 'Sin dato'} · ${group.allHistorias.length} historias registradas`} onClose={onClose} size="lg">
+  return <Modal open title={`Historias clínicas de ${nombrePaciente(group.paciente)}`} subtitle={`Documento: ${formatPatientDocument(group.paciente)} · ${group.allHistorias.length} historias registradas`} onClose={onClose} size="lg">
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">{[['todos', 'Todos'], ['activa', 'Activas'], ['borrador', 'Borradores'], ['anulada', 'Anuladas']].map(([value, label]) => <button key={value} onClick={() => setFilter(value)} className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${filter === value ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{label}</button>)}</div>
@@ -639,6 +643,8 @@ function HistoriasClinicas() {
   const [historiaARestaurar, setHistoriaARestaurar] = useState(null);
   const [anulacionForm, setAnulacionForm] = useState(initialAnulacionForm);
   const [evolutivosPreview, setEvolutivosPreview] = useState(null);
+  const [adjuntosHistoria, setAdjuntosHistoria] = useState(null);
+  const [attachmentCounts, setAttachmentCounts] = useState({});
   const [expandedPatientId, setExpandedPatientId] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -649,14 +655,16 @@ function HistoriasClinicas() {
       const historiasData = await getHistoriasClinicas({ incluirAnuladas: true });
       setHistorias(historiasData);
       setLoading(false);
-      const [pacientesData, profesionalesData, sesionesData] = await Promise.all([
+      const [pacientesData, profesionalesData, sesionesData, attachmentCountsData] = await Promise.all([
         getPacientes(),
         getProfesionalesActivos(),
-        getSesiones({ resumen: true })
+        getSesiones({ resumen: true }),
+        getConteosAdjuntosHistoria()
       ]);
       setPacientes(pacientesData);
       setProfesionales(profesionalesData);
       setSesiones(sesionesData);
+      setAttachmentCounts(attachmentCountsData);
     } finally {
       setLoading(false);
     }
@@ -677,8 +685,8 @@ function HistoriasClinicas() {
       .filter((historia) => {
         const searchable = [
           nombrePaciente(historia.paciente),
-          historia.paciente?.ci,
-          historia.paciente?.telefono,
+          patientDocumentSearchText(historia.paciente),
+        getDisplayPhone(historia.paciente),
           historia.motivo_consulta,
           historia.diagnostico_medico,
           historia.condicion_actual?.zona_cuerpo,
@@ -884,7 +892,7 @@ function HistoriasClinicas() {
               className="w-full rounded-lg border-slate-200 bg-white py-2.5 pl-11 pr-3 text-sm shadow-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar por paciente, CI, teléfono, motivo, diagnóstico, zona o profesional..."
+              placeholder="Buscar por paciente, documento, teléfono, motivo, diagnóstico, zona o profesional..."
             />
             </div>
             <Button variant="ghost" onClick={() => setShowAdvancedFilters((current) => !current)}><Filter size={17} />Filtros avanzados</Button>
@@ -966,7 +974,10 @@ function HistoriasClinicas() {
                     onPrint={printHistoria}
                     onEvolutivo={openEvolutivo}
                     onViewEvolutions={setEvolutivosPreview}
+                    onViewAttachments={setAdjuntosHistoria}
+                    attachmentCounts={attachmentCounts}
                     onAnular={setHistoriaAAnular}
+                    onScheduleChanged={load}
                     isAdmin={isAdmin}
                   />
                 );
@@ -1026,6 +1037,7 @@ function HistoriasClinicas() {
         isAdmin={isAdmin}
       />
       <EvolutivosDocumento historia={evolutivosPreview} onClose={() => setEvolutivosPreview(null)} />
+      <AdjuntosHistoriaModal historia={adjuntosHistoria} sesiones={sesiones} onClose={() => setAdjuntosHistoria(null)} onCountChange={(historiaId, count) => setAttachmentCounts((current) => ({ ...current, [historiaId]: count }))} />
 
       <Modal
         open={Boolean(historiaAAnular)}

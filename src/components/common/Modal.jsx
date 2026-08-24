@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 
 const sizes = {
@@ -14,12 +14,29 @@ const sizes = {
 };
 
 function Modal({ open, title, subtitle, children, onClose, size = 'md', patientStyle = false, closeOnBackdrop = false, closeOnEscape = false }) {
+  const dialogRef = useRef(null);
   useEffect(() => {
     if (!open || !closeOnEscape) return undefined;
     const close = (event) => { if (event.key === 'Escape') onClose?.(); };
     document.addEventListener('keydown', close);
     return () => document.removeEventListener('keydown', close);
   }, [closeOnEscape, onClose, open]);
+  useEffect(() => {
+    if (!open || !dialogRef.current) return undefined;
+    const previous = document.activeElement;
+    const dialog = dialogRef.current;
+    const focusable = () => [...dialog.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+    focusable()[0]?.focus();
+    const trap = (event) => {
+      if (event.key !== 'Tab') return;
+      const elements = focusable(); if (!elements.length) return;
+      const first = elements[0]; const last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    dialog.addEventListener('keydown', trap);
+    return () => { dialog.removeEventListener('keydown', trap); previous?.focus?.(); };
+  }, [open]);
 
   if (!open) return null;
   const structuredBody = patientStyle || size === 'planilla';
@@ -27,7 +44,7 @@ function Modal({ open, title, subtitle, children, onClose, size = 'md', patientS
 
   return (
     <div data-modal-scroll onMouseDown={(event) => { if (closeOnBackdrop && event.target === event.currentTarget) onClose?.(); }} className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 p-3">
-      <section className={`my-3 flex w-full flex-col overflow-hidden border border-white/80 bg-white ${compactPlanilla ? 'max-h-[85vh] rounded-xl shadow-[0_24px_60px_rgba(15,23,42,0.22)]' : patientStyle ? 'max-h-[90vh] rounded-2xl shadow-[0_24px_60px_rgba(15,23,42,0.22)]' : 'max-h-[92vh] rounded-xl shadow-[0_18px_55px_rgba(15,23,42,0.18)]'} ${sizes[size] || sizes.md}`}>
+      <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={title} className={`my-3 flex w-full flex-col overflow-hidden border border-white/80 bg-white ${compactPlanilla ? 'max-h-[94vh] rounded-xl shadow-[0_24px_60px_rgba(15,23,42,0.22)]' : patientStyle ? 'max-h-[90vh] rounded-2xl shadow-[0_24px_60px_rgba(15,23,42,0.22)]' : 'max-h-[92vh] rounded-xl shadow-[0_18px_55px_rgba(15,23,42,0.18)]'} ${sizes[size] || sizes.md}`}>
         <header className={`flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 ${compactPlanilla ? 'px-5 py-3' : patientStyle ? 'px-6 py-5' : 'px-4 py-3'}`}>
           <div className="min-w-0">
             <h2 className={`truncate font-bold text-[#1E293B] ${patientStyle ? 'text-lg' : 'text-base'}`}>{title}</h2>

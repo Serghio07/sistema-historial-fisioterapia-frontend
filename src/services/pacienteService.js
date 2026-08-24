@@ -25,6 +25,11 @@ export const createPaciente = async (payload) => {
   return data;
 };
 
+export const createPacienteWithContacts = async (paciente, contactos) => {
+  const { data } = await api.post('/pacientes/con-contactos', { paciente, contactos });
+  return data;
+};
+
 export const updatePaciente = async (id, payload) => {
   const { data } = await api.put(`/pacientes/${id}`, payload);
   return data;

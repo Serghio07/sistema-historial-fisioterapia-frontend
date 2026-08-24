@@ -52,3 +52,8 @@ export const createProgramacionHistoria = async (historiaId, programaciones) => 
   const { data } = await api.post(`/citas/programacion/historia/${historiaId}`, { programaciones });
   return data;
 };
+
+export const removeSessionFromProgramacion = async (historiaId) => {
+  const { data } = await api.post(`/citas/programacion/historia/${historiaId}/reducir`);
+  return data;
+};

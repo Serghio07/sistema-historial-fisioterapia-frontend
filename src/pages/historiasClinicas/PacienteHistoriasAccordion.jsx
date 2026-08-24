@@ -1,11 +1,11 @@
 import {
   Activity, Ban, CalendarDays, ChevronDown, ClipboardList, ClipboardPlus,
-  FilePenLine, FileText, FolderOpen, MoreHorizontal, Stethoscope,
+  FilePenLine, FileText, FolderOpen, MoreHorizontal, Paperclip, Stethoscope,
   UserRound
 } from 'lucide-react';
 import { useState } from 'react';
 import { formatDate } from '../../utils/formatDate';
-import { nombrePaciente } from '../../utils/validators';
+import { formatPatientDocument, nombrePaciente } from '../../utils/validators';
 import { Avatar } from '../../components/common/ProfilePhoto';
 import ProgramacionSesionesModal from './ProgramacionSesionesModal';
 
@@ -42,7 +42,7 @@ function Action({ icon: Icon, children, tone = 'slate', onClick }) {
 
 export default function PacienteHistoriasAccordion({
   group, sesiones, expanded, onToggle, onShowHistory, onNew, onViewPatient,
-  onView, onEdit, onPreview, onViewEvolutions, onAnular, isAdmin
+  onView, onEdit, onPreview, onViewEvolutions, onViewAttachments, attachmentCounts = {}, onAnular, onScheduleChanged, isAdmin
 }) {
   const { paciente, allHistorias } = group;
   const latest = group.historias[0] || allHistorias[0];
@@ -68,7 +68,7 @@ export default function PacienteHistoriasAccordion({
     <div role="button" tabIndex={0} aria-expanded={expanded} onClick={activateRow} onKeyDown={activateRow} className={`group grid min-w-0 cursor-pointer items-center gap-4 px-4 py-4 outline-none transition-colors duration-300 xl:grid-cols-[minmax(220px,1.55fr)_minmax(150px,.9fr)_minmax(110px,.7fr)_minmax(135px,.8fr)_32px] xl:px-5 ${expanded ? 'bg-teal-50/70' : 'bg-white hover:bg-teal-50/30'}`}>
       <span className="flex min-w-0 items-center gap-3">
         <Avatar src={paciente?.foto} name={nombrePaciente(paciente)} size="sm" className="rounded-full" />
-        <span className="min-w-0"><strong className={`block truncate text-sm font-black uppercase transition-colors duration-300 ${expanded ? 'text-teal-900' : 'text-slate-900'}`}>{nombrePaciente(paciente)}</strong><small className="mt-1 block text-xs text-slate-500">CI: {paciente?.ci || 'Sin dato'}</small></span>
+        <span className="min-w-0"><strong className={`block truncate text-sm font-black uppercase transition-colors duration-300 ${expanded ? 'text-teal-900' : 'text-slate-900'}`}>{nombrePaciente(paciente)}</strong><small className="mt-1 block text-xs text-slate-500">{formatPatientDocument(paciente)}</small></span>
       </span>
       <span><span className={`inline-flex items-center gap-2 text-xs font-bold ${tone.text}`}><i className={`h-2 w-2 rounded-full ${tone.dot}`} />Historia {tone.label}</span><small className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500"><CalendarDays size={13} />{dateLabel}</small></span>
       <span className="flex items-center gap-2.5"><ClipboardList size={22} className="text-slate-400" /><span><strong className="block text-xs text-slate-700">{allHistorias.length} {allHistorias.length === 1 ? 'historia' : 'historias'}</strong>{allHistorias.length > 1 && <button type="button" onClick={(event) => { event.stopPropagation(); onShowHistory(); }} className="mt-1 text-xs font-bold text-blue-600 hover:text-blue-800">Ver historial</button>}</span></span>
@@ -98,14 +98,15 @@ export default function PacienteHistoriasAccordion({
 
             <aside className="rounded-xl border border-slate-200 bg-white p-4">
               <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[.06em] text-emerald-700"><Activity size={16} />Progreso de sesiones</h3>
-              {contracted > 0 ? <><div className="mt-5 flex items-end gap-1.5"><strong className="text-3xl font-black text-slate-900">{completed}</strong><span className="pb-1 text-base font-bold text-slate-700">de {contracted}</span></div><p className="mt-1 text-xs text-slate-500">sesiones realizadas</p><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${progress}%` }} /></div><div className="mt-3 flex justify-between text-[11px] font-bold"><span className="text-emerald-600">{Math.round(progress)}% completado</span><span className="text-slate-500">{remaining} restantes</span></div><button type="button" disabled={!sessionStory || remaining === 0} onClick={() => setShowSchedule(true)} className="mt-4 flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-3 text-xs font-black text-white shadow-sm hover:bg-teal-700 disabled:bg-emerald-100 disabled:text-emerald-700"><CalendarDays size={16} />{remaining === 0 ? 'Tratamiento completado' : 'Agendar días de sesiones'}</button></> : <p className="mt-5 text-sm text-slate-500">Sin sesiones contratadas.</p>}
+              {contracted > 0 ? <><div className="mt-5 flex items-end gap-1.5"><strong className="text-3xl font-black text-slate-900">{completed}</strong><span className="pb-1 text-base font-bold text-slate-700">de {contracted}</span></div><p className="mt-1 text-xs text-slate-500">sesiones realizadas</p><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${progress}%` }} /></div><div className="mt-3 flex justify-between text-[11px] font-bold"><span className="text-emerald-600">{Math.round(progress)}% completado</span><span className="text-slate-500">{remaining} restantes</span></div><button type="button" disabled={!sessionStory} onClick={() => setShowSchedule(true)} className="mt-4 flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-3 text-xs font-black text-white shadow-sm hover:bg-teal-700 disabled:opacity-50"><CalendarDays size={16} />{remaining === 0 ? 'Ampliar sesiones' : 'Agendar días de sesiones'}</button></> : <p className="mt-5 text-sm text-slate-500">Sin sesiones contratadas.</p>}
             </aside>
           </div>
 
-          <div className={`mt-4 grid gap-2 border-t border-slate-200 pt-4 ${allHistorias.length > 1 ? 'sm:grid-cols-2 xl:grid-cols-6' : 'sm:grid-cols-2 xl:grid-cols-5'}`}>
+          <div className={`mt-4 grid gap-2 border-t border-slate-200 pt-4 ${allHistorias.length > 1 ? 'sm:grid-cols-2 xl:grid-cols-7' : 'sm:grid-cols-2 xl:grid-cols-6'}`}>
             <Action icon={FilePenLine} tone="blue" onClick={() => onView(latest)}>Ver historia</Action>
             <Action icon={FileText} tone="violet" onClick={() => onPreview(latest)}>Vista previa PDF</Action>
             <Action icon={ClipboardList} tone="green" onClick={() => onViewEvolutions(latest)}>Ver evolucións</Action>
+            <Action icon={Paperclip} tone="green" onClick={() => onViewAttachments(latest)}>Adjuntos de la historia ({attachmentCounts[latest.id] || 0})</Action>
             <Action icon={UserRound} onClick={onViewPatient}>Datos del paciente</Action>
             {allHistorias.length > 1 && <Action icon={FolderOpen} onClick={onShowHistory}>Ver historial completo ({allHistorias.length})</Action>}
             <div className="relative"><Action icon={MoreHorizontal} onClick={() => setShowMenu(!showMenu)}>Más acciones</Action>{showMenu && <div className="absolute bottom-full right-0 z-20 mb-1 grid min-w-48 rounded-xl border border-slate-200 bg-white p-1 shadow-xl">{latest.estado !== 'anulada' && <button className="menu-action" onClick={() => runMenuAction(() => onEdit(latest))}><FilePenLine size={15} />Editar historia</button>}<button className="menu-action" onClick={() => runMenuAction(onNew)}><ClipboardPlus size={15} />Nueva evaluación</button>{isAdmin && latest.estado !== 'anulada' && <button className="menu-action text-red-600 hover:bg-red-50" onClick={() => runMenuAction(() => onAnular(latest))}><Ban size={15} />Anular historia</button>}</div>}</div>
@@ -113,6 +114,6 @@ export default function PacienteHistoriasAccordion({
         </div>
       </div>
     </div>
-    <ProgramacionSesionesModal open={showSchedule} onClose={() => setShowSchedule(false)} historia={sessionStory} paciente={paciente} />
+    <ProgramacionSesionesModal open={showSchedule} onClose={() => setShowSchedule(false)} historia={sessionStory} paciente={paciente} onSaved={onScheduleChanged} />
   </article>;
 }

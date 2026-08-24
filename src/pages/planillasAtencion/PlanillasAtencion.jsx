@@ -18,7 +18,7 @@ import { createPlanillaAtencion, deletePlanillaAtencion, getPlanillasAtencion, u
 import { getSesiones } from '../../services/sesionService';
 import { formatDate } from '../../utils/formatDate';
 import { matchesSearch } from '../../utils/search';
-import { cleanPayload, nombrePaciente } from '../../utils/validators';
+import { cleanPayload, formatPatientDocument, nombrePaciente } from '../../utils/validators';
 import PlanillaDocumento from './PlanillaDocumento';
 import { boliviaDate } from '../../utils/boliviaDateTime';
 import { addCanvasToA4Pdf } from '../../utils/pdfPagination';
@@ -337,7 +337,7 @@ function PlanillasAtencion() {
             <Table
               columns={['Paciente', 'Inicio', 'Fin', 'Dx', 'Sesiones', 'Acciones']}
               rows={filteredPlanillas.map((planilla) => [
-                <PatientIdentity paciente={planilla.paciente} secondary={`CI: ${planilla.paciente?.ci || 'Sin dato'}`} />,
+                <PatientIdentity paciente={planilla.paciente} secondary={`Documento: ${formatPatientDocument(planilla.paciente)}`} />,
                 formatDate(planilla.fecha_inicio),
                 formatDate(planilla.fecha_fin),
                 planilla.diagnostico || 'Sin diagnostico',
@@ -368,8 +368,8 @@ function PlanillasAtencion() {
       >
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
           <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[55%_45%] lg:overflow-hidden">
-            <div className="grid content-start gap-3 overflow-y-auto border-r border-slate-200 p-3 lg:p-4">
-              <section className="rounded-lg border border-brand-100 bg-brand-50/30 p-3">
+            <div className="flex min-h-0 flex-col gap-3 overflow-y-auto border-r border-slate-200 p-3 pb-5 lg:p-4 lg:pb-5">
+              <section className="shrink-0 rounded-lg border border-brand-100 bg-brand-50/30 p-3">
                 <h3 className="mb-2 flex items-center gap-2 text-sm font-black text-ink"><ClipboardCheck size={16} className="text-brand-700" />Datos del paciente y planilla</h3>
                 <div className="grid gap-2 md:grid-cols-6">
                   <Input compact className="md:col-span-3" label="Paciente" value={form.paciente_id} onChange={(e) => selectPaciente(e.target.value)} options={[{ value: '', label: 'Seleccionar paciente' }, ...pacientes.map((paciente) => ({ value: paciente.id, label: nombrePaciente(paciente) }))]} />
@@ -389,12 +389,12 @@ function PlanillasAtencion() {
                 </div>
               )}
 
-              <section className="min-h-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <section className="flex min-h-[230px] shrink-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white lg:min-h-[250px] lg:flex-1">
                 <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2">
                   <h4 className="text-sm font-black text-ink">Sesiones</h4>
                   <Button className="min-h-8 px-2 text-xs" variant="ghost" onClick={addSesion}><Plus size={15} />Agregar sesión</Button>
                 </div>
-                <div className="max-h-[225px] overflow-y-auto overflow-x-hidden">
+                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
                   <table className="w-full table-fixed border-collapse text-xs">
                     <thead className="sticky top-0 z-10 bg-slate-100 text-[10px] font-black uppercase text-slate-500">
                       <tr>
@@ -439,7 +439,7 @@ function PlanillasAtencion() {
             </aside>
           </div>
 
-          <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-2.5">
+          <footer className="relative z-20 flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-2.5 shadow-[0_-8px_20px_rgba(15,23,42,0.04)]">
             <Button className="min-h-9" variant="ghost" onClick={() => { setEditing(null); setForm(initialForm); setActivePanel('listado'); }}>Cancelar</Button>
             <Button className="min-h-9" variant="ghost" onClick={() => printPlanilla()}><Printer size={16} />Imprimir</Button>
             <Button className="min-h-9" variant="ghost" onClick={() => downloadPdf()}><Download size={16} />Descargar PDF</Button>

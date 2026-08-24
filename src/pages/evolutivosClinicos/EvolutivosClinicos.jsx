@@ -19,7 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getHistoriasClinicas, updateHistoriaClinica } from '../../services/historiaClinicaService';
 import { getSesiones } from '../../services/sesionService';
 import { formatDate } from '../../utils/formatDate';
-import { nombrePaciente } from '../../utils/validators';
+import { formatPatientDocument, nombrePaciente, patientDocumentSearchText } from '../../utils/validators';
 import { matchesSearch } from '../../utils/search';
 import { boliviaDate } from '../../utils/boliviaDateTime';
 
@@ -170,7 +170,7 @@ function EvolutivoForm({ historias, user, initial, onClose, onSaved }) {
   const control = 'rounded-lg border-[#CBD5E1] bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm focus:border-brand-500 focus:ring-brand-500/20';
   return <form onSubmit={handleSubmit(save)} className="grid gap-4">
     <div className="grid gap-3 sm:grid-cols-2">
-      <div><input type="hidden" {...register('paciente')} /><Input label="Paciente" disabled={Boolean(initial)} value={pacienteSeleccionado} onChange={(event) => setValue('paciente', String(event.target.value), { shouldValidate: true, shouldDirty: true })} options={[{ value: '', label: 'Seleccionar paciente' }, ...pacientes.map(([id, p]) => ({ value: id, label: `${nombrePaciente(p)} · CI ${p?.ci || 'Sin dato'}` }))]} error={errors.paciente?.message} /></div>
+        <div><input type="hidden" {...register('paciente')} /><Input label="Paciente" disabled={Boolean(initial)} value={pacienteSeleccionado} onChange={(event) => setValue('paciente', String(event.target.value), { shouldValidate: true, shouldDirty: true })} options={[{ value: '', label: 'Seleccionar paciente' }, ...pacientes.map(([id, p]) => ({ value: id, label: `${nombrePaciente(p)} · ${formatPatientDocument(p)}` }))]} error={errors.paciente?.message} /></div>
       <Field label="Historia clínica" error={errors.historia}><select className={control} disabled={!pacienteSeleccionado || Boolean(initial)} {...register('historia')}><option value="">Seleccionar historia activa</option>{disponibles.map((h, index) => <option key={h.id} value={h.id}>{historiaNombre(h, index)} · {h.diagnostico_medico || h.motivo_consulta || formatDate(h.fecha_evaluacion)}</option>)}</select></Field>
       <Field label="Fecha" error={errors.fecha}><input type="date" className={control} {...register('fecha')} /></Field>
       <Field label="Número de sesión" error={errors.numero}><input type="number" min="1" className={control} {...register('numero')} /></Field>
@@ -236,7 +236,7 @@ export default function EvolutivosClinicos() {
       const patientId = String(historia.paciente_id || paciente?.id);
       const items = evolutivosReales(historia, filters.estado === 'todos' || filters.estado === 'anulado').filter((e) => {
         const date = fechaEvolutivo(e);
-        const searchable = `${nombrePaciente(paciente)} ${paciente?.ci || ''} ${historia.diagnostico_medico || ''} ${profesionalEvolutivo(e, historia)} ${descripcionEvolutivo(e)}`;
+        const searchable = `${nombrePaciente(paciente)} ${patientDocumentSearchText(paciente)} ${historia.diagnostico_medico || ''} ${profesionalEvolutivo(e, historia)} ${descripcionEvolutivo(e)}`;
         return matchesSearch(searchable, query) && (!filters.from || date >= filters.from) && (!filters.to || date <= filters.to)
           && (!filters.profesional || profesionalEvolutivo(e, historia) === filters.profesional)
           && (!filters.estado || filters.estado === 'todos' || (filters.estado === 'anulado' ? e.estado === 'anulado' : e.estado !== 'anulado'));
@@ -293,7 +293,7 @@ export default function EvolutivosClinicos() {
         const expanded = expandedPatient === group.id; const last = group.latest;
         return <article key={group.id} className={`border transition-all duration-300 ${expanded ? 'border-teal-200 border-l-4 border-l-teal-500 bg-teal-50/50' : 'border-transparent bg-white hover:bg-teal-50/20'}`}>
           <div role="button" tabIndex={0} onClick={() => togglePatient(group.id)} onKeyDown={(e) => ['Enter', ' '].includes(e.key) && togglePatient(group.id)} className="grid cursor-pointer items-center gap-3 px-4 py-3.5 md:grid-cols-[minmax(230px,1.35fr)_100px_90px_155px_minmax(150px,.8fr)_28px]">
-            <span className="flex min-w-0 items-center gap-3"><Avatar src={group.paciente?.foto} name={nombrePaciente(group.paciente)} size="md" /><span className="min-w-0"><strong className={`block truncate text-sm font-bold uppercase ${expanded ? 'text-teal-900' : 'text-slate-900'}`}>{nombrePaciente(group.paciente)}</strong><small className="text-xs text-slate-500">CI: {group.paciente?.ci || 'Sin dato'}</small></span></span>
+            <span className="flex min-w-0 items-center gap-3"><Avatar src={group.paciente?.foto} name={nombrePaciente(group.paciente)} size="md" /><span className="min-w-0"><strong className={`block truncate text-sm font-bold uppercase ${expanded ? 'text-teal-900' : 'text-slate-900'}`}>{nombrePaciente(group.paciente)}</strong><small className="text-xs text-slate-500">{formatPatientDocument(group.paciente)}</small></span></span>
             <span className="flex items-center gap-2"><ClipboardList size={15} className="text-teal-600" /><span><strong className="block text-xs text-slate-800">{group.historias.length}</strong><small className="text-[10px] text-slate-500">{group.historias.length === 1 ? 'historia' : 'historias'}</small></span></span>
             <span className="flex items-center gap-2"><FileText size={15} className="text-teal-600" /><span><strong className="block text-xs text-slate-800">{group.total}</strong><small className="text-[10px] text-slate-500">evoluciones</small></span></span>
             <span className="flex items-start gap-2"><CalendarDays size={15} className="mt-0.5 text-teal-600" /><span><strong className="block text-xs text-slate-800">{formatDate(fechaEvolutivo(last.evolutivo))}</strong><small className="text-[10px] text-slate-500">Sesión {numeroEvolutivo(last.evolutivo)}</small></span></span>
@@ -316,7 +316,7 @@ export default function EvolutivosClinicos() {
         return <div className="grid max-h-[72vh] gap-3 overflow-y-auto pr-1">
           <button type="button" onClick={() => setSelected(null)} className="flex w-fit items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-900"><ArrowLeft size={15} />Volver</button>
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
-            <div className="flex min-w-0 items-center gap-4"><Avatar src={patient?.foto} name={nombrePaciente(patient)} size="lg" /><div className="min-w-0"><h2 className="truncate text-2xl font-black uppercase text-slate-900">{nombrePaciente(patient)}</h2><span className="mt-2 inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">CI: {patient?.ci || 'Sin dato'}</span></div></div>
+            <div className="flex min-w-0 items-center gap-4"><Avatar src={patient?.foto} name={nombrePaciente(patient)} size="lg" /><div className="min-w-0"><h2 className="truncate text-2xl font-black uppercase text-slate-900">{nombrePaciente(patient)}</h2><span className="mt-2 inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">{formatPatientDocument(patient)}</span></div></div>
             <div className="flex flex-wrap gap-2"><span className="detail-chip"><UserRound size={14} />Sesión {numeroEvolutivo(current)}</span><span className="detail-chip"><CalendarDays size={14} />{formatDate(fechaEvolutivo(current))}</span><span className="detail-chip"><Hash size={14} />Sesión {numeroEvolutivo(current)}</span></div>
           </div>
           <div className="grid gap-3 lg:grid-cols-2">

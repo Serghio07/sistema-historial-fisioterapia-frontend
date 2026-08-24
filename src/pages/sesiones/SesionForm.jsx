@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import { historyProgress, isCompletedSession } from './sessionProgress';
+import AmpliarSesionesModal from '../historiasClinicas/AmpliarSesionesModal';
 
 const PROCEDIMIENTOS = [
   'Fisioterapia', 'Kinesiología', 'Atención médica', 'Evaluación fisioterapéutica',
@@ -53,12 +54,14 @@ const emptyFarmaco = () => ({
   via: '',
   via_otro: '',
   cantidad: 1,
+  precio_unitario: '',
   motivo_clinico: '',
   observacion: ''
 });
 
-function SesionForm({ form, setForm, pacientes, historias, sesiones, programaciones = [], editing, onSubmit, onCancel, error, initialTab = 'session', canEditDate = false, canViewFinancial = false }) {
+function SesionForm({ form, setForm, pacientes, historias, sesiones, programaciones = [], editing, onSubmit, onCancel, onPlanExpanded, error, initialTab = 'session', canEditDate = false, canViewFinancial = false }) {
   const [tab, setTab] = useState(initialTab);
+  const [showExpansion, setShowExpansion] = useState(false);
   useEffect(() => setTab(initialTab), [initialTab, editing]);
   const update = (key, value) => setForm({ ...form, [key]: value });
   const historiasActivas = historias
@@ -253,9 +256,11 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
     if (!value && form.farmacos?.length && !window.confirm('Se eliminarán los medicamentos ingresados. ¿Desea continuar?')) return;
     setForm({ ...form, aplica_farmacos: value, farmacos: value ? (form.farmacos?.length ? form.farmacos : [emptyFarmaco()]) : [] });
   };
-  const evolucionCompleta = String(form.descripcion_tratamiento || '').trim()
-    && String(form.evolucion_observada || form.observacion || '').trim()
+  const requisitosFarmacosCompletos = String(form.descripcion_tratamiento || '').trim()
     && form.dolor_despues !== '' && form.dolor_despues != null;
+  const totalFarmacos = (form.farmacos || []).reduce((total, farmaco) => (
+    total + toMoney(farmaco.cantidad) * toMoney(farmaco.precio_unitario)
+  ), 0);
   const selectAsistencia = (value) => {
     if (value !== 'asistio' && form.farmacos?.length && !window.confirm('La asistencia seleccionada no permite administrar fármacos. ¿Desea eliminar los medicamentos ingresados?')) return;
     setForm({
@@ -270,7 +275,18 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
   return (
     <form onSubmit={onSubmit} noValidate className="grid max-h-[72vh] min-w-0 gap-3 overflow-x-hidden overflow-y-auto pr-1">
       {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
-      {planCompleto && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">El paciente ya completó las {contratadas} sesiones contratadas para esta historia clínica. No se pueden registrar más sesiones.</p>}
+      {planCompleto && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800"><span>El paciente ya completó las {contratadas} sesiones contratadas para esta historia clínica.</span><Button type="button" onClick={() => setShowExpansion(true)}><Plus size={16} />Ampliar sesiones</Button></div>}
+      <AmpliarSesionesModal
+        open={showExpansion}
+        onClose={() => setShowExpansion(false)}
+        historia={selectedHistoria}
+        totalActual={contratadas}
+        onExpanded={async (result) => {
+          const nuevoTotal = Number(result?.resumen?.total_planificado || contratadas);
+          setForm((current) => ({ ...current, sesiones_debe: nuevoTotal, numero_sesion: sesionesRealizadasPrevias + 1 }));
+          await onPlanExpanded?.();
+        }}
+      />
 
       <div className="flex items-start gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800">
         <CalendarSync className="mt-0.5 shrink-0" size={18} />
@@ -454,10 +470,10 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
           <p className="mb-3 rounded-lg border border-cyan-100 bg-white/80 px-3 py-2 text-xs text-cyan-800">Los fármacos se administran de acuerdo con la evolución clínica registrada durante la sesión.</p>
           <p className="text-xs font-black text-slate-700">¿Se administraron fármacos según la evolución del paciente?</p>
           <div className="mt-2 flex gap-2">
-            {[false, true].map((value) => <button key={String(value)} type="button" onClick={() => setAdministraFarmacos(value)} disabled={value && !evolucionCompleta} className={`min-h-9 rounded-lg border px-5 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${Boolean(form.aplica_farmacos) === value ? 'border-teal-600 bg-teal-600 text-white' : 'border-teal-200 bg-white text-slate-600 hover:bg-teal-50'}`}>{value ? 'Sí' : 'No'}</button>)}
+            {[false, true].map((value) => <button key={String(value)} type="button" onClick={() => setAdministraFarmacos(value)} disabled={value && !requisitosFarmacosCompletos} className={`min-h-9 rounded-lg border px-5 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${Boolean(form.aplica_farmacos) === value ? 'border-teal-600 bg-teal-600 text-white' : 'border-teal-200 bg-white text-slate-600 hover:bg-teal-50'}`}>{value ? 'Sí' : 'No'}</button>)}
           </div>
-          {!evolucionCompleta && <p className="mt-2 text-xs font-semibold text-amber-700">Primero registre la evolución clínica del paciente antes de administrar fármacos.</p>}
-          {form.aplica_farmacos && evolucionCompleta && <div className="mt-4 grid gap-3">
+          {!requisitosFarmacosCompletos && <p className="mt-2 text-xs font-semibold text-amber-700">Registre el procedimiento realizado y el dolor final antes de administrar fármacos. Las observaciones son opcionales.</p>}
+          {form.aplica_farmacos && requisitosFarmacosCompletos && <div className="mt-4 grid gap-3">
             <div className="rounded-lg border border-teal-100 bg-white px-3 py-2 text-xs text-slate-600">Vinculado a: sesión N.º {form.numero_sesion} · {form.fecha} · Historia clínica activa.</div>
             {(form.farmacos || []).map((farmaco, index) => <article key={farmaco.id || index} className="rounded-lg border border-teal-200 bg-white p-3">
               <div className="mb-3 flex items-center justify-between"><strong className="text-sm text-teal-800">Fármaco {index + 1}</strong><button type="button" onClick={() => setForm({ ...form, farmacos: form.farmacos.filter((_, current) => current !== index) })} className="inline-flex h-8 items-center gap-1 rounded-lg border border-red-200 px-2 text-xs font-bold text-red-600 hover:bg-red-50"><Trash2 size={14} />Eliminar</button></div>
@@ -468,10 +484,13 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
                 <Input compact label="Vía de administración" value={farmaco.via} onChange={(event) => updateFarmaco(index, 'via', event.target.value)} options={[{ value: '', label: 'Seleccionar' }, { value: 'IM – Intramuscular', label: 'IM – Intramuscular' }, { value: 'IV – Intravenosa', label: 'IV – Intravenosa' }, { value: 'VO – Vía oral', label: 'VO – Vía oral' }, { value: 'SC – Subcutánea', label: 'SC – Subcutánea' }, { value: 'Tópica', label: 'Tópica' }, { value: 'Otra', label: 'Otra' }]} required />
                 {farmaco.via === 'Otra' && <Input compact label="Especificar vía" value={farmaco.via_otro} onChange={(event) => updateFarmaco(index, 'via_otro', event.target.value.toLocaleUpperCase('es-BO'))} required />}
                 <Input compact label="Cantidad" type="number" min="1" step="1" value={farmaco.cantidad} onChange={(event) => updateFarmaco(index, 'cantidad', event.target.value)} required />
-                <Input compact label="Motivo clínico" value={farmaco.motivo_clinico} onChange={(event) => updateFarmaco(index, 'motivo_clinico', event.target.value.toLocaleUpperCase('es-BO'))} placeholder="Dolor persistente, inflamación..." required />
+                {canViewFinancial && <Input compact label="Precio unitario (Bs)" type="number" min="0" step="0.01" value={farmaco.precio_unitario ?? ''} onChange={(event) => updateFarmaco(index, 'precio_unitario', event.target.value)} placeholder="0.00" />}
+                {canViewFinancial && <div className="flex min-h-9 items-center justify-between rounded-lg border border-teal-100 bg-teal-50 px-3 text-xs font-bold text-teal-800"><span>Subtotal del fármaco</span><strong>Bs {(toMoney(farmaco.cantidad) * toMoney(farmaco.precio_unitario)).toFixed(2)}</strong></div>}
+                <Input compact label="Motivo clínico (opcional)" value={farmaco.motivo_clinico} onChange={(event) => updateFarmaco(index, 'motivo_clinico', event.target.value.toLocaleUpperCase('es-BO'))} placeholder="Dolor persistente, inflamación..." />
                 <Input compact label="Observación (opcional)" value={farmaco.observacion} onChange={(event) => updateFarmaco(index, 'observacion', event.target.value.toLocaleUpperCase('es-BO'))} />
               </div>
             </article>)}
+            {canViewFinancial && <div className="flex items-center justify-between rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-black text-teal-900"><span>Total de medicamentos</span><strong>Bs {totalFarmacos.toFixed(2)}</strong></div>}
             <button type="button" onClick={() => setForm({ ...form, farmacos: [...(form.farmacos || []), emptyFarmaco()] })} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-dashed border-teal-400 bg-teal-50 px-4 text-xs font-black text-teal-700 hover:bg-teal-100"><Plus size={16} />Agregar fármaco</button>
           </div>}
         </Section>

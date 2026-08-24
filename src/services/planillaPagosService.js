@@ -1,11 +1,21 @@
 import api from './api';
 
 export const getPlanillaPagos = async (params = {}) => (await api.get('/planilla-pagos', { params })).data;
+export const getResumenFinanciero = async (params = {}) => (await api.get('/planilla-pagos/resumen', { params })).data;
+export const getResumenFinancieroPaciente = async (pacienteId, historiaId) => (await api.get(`/planilla-pagos/pacientes/${pacienteId}/resumen-financiero`, { params: historiaId ? { historiaId } : {} })).data;
 export const createConceptoCobro = async (payload) => (await api.post('/planilla-pagos/conceptos', payload)).data;
 export const registerMovimientoPago = async (conceptoId, payload) => (await api.post(`/planilla-pagos/conceptos/${conceptoId}/movimientos`, payload, { successMessage: 'Pago registrado correctamente.' })).data;
+export const previewPagoDeuda = async (historiaId, payload) => (await api.post(`/planilla-pagos/historias/${historiaId}/preview-pago-deuda`, payload)).data;
+export const payHistoriaDebt = async (historiaId, payload) => (await api.post(`/planilla-pagos/historias/${historiaId}/pagar-deuda`, payload, { successMessage: 'El pago fue aplicado correctamente.' })).data;
+export const getOperacionPago = async (id) => (await api.get(`/planilla-pagos/operaciones/${id}`)).data;
+export const annulOperacionPago = async (id, motivo) => (await api.patch(`/planilla-pagos/operaciones/${id}/anular`, { motivo })).data;
 export const updateMovimientoPago = async (id, payload) => (await api.put(`/planilla-pagos/movimientos/${id}`, payload, { successMessage: 'Pago actualizado correctamente.' })).data;
 export const annulMovimientoPago = async (id, motivo) => (await api.patch(`/planilla-pagos/movimientos/${id}/anular`, { motivo }, { successMessage: 'Movimiento anulado correctamente.' })).data;
 export const getMovimientoHistorial = async (id) => (await api.get(`/planilla-pagos/movimientos/${id}/historial`)).data;
 export const getArqueosPago = async () => (await api.get('/planilla-pagos/arqueos')).data;
+export const getArqueoActual = async (fecha) => (await api.get('/planilla-pagos/arqueos/actual', { params: { fecha } })).data;
+export const previewArqueoPago = async (payload) => (await api.post('/planilla-pagos/arqueos/preview', payload)).data;
+export const getArqueoDetalle = async (id) => (await api.get(`/planilla-pagos/arqueos/${id}`)).data;
+export const getArqueosConsolidado = async (params) => (await api.get('/planilla-pagos/arqueos/consolidado', { params })).data;
 export const saveArqueoPago = async (payload) => (await api.post('/planilla-pagos/arqueos', payload)).data;
 export const reopenArqueoPago = async (id, motivo) => (await api.patch(`/planilla-pagos/arqueos/${id}/reabrir`, { motivo })).data;

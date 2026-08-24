@@ -63,7 +63,7 @@ const compressImage = (file) =>
     reader.readAsDataURL(file);
   });
 
-function ProfilePhotoInput({ value, onChange, name, label = 'Foto de perfil' }) {
+function ProfilePhotoInput({ value, onChange, name, label = 'Foto de perfil', compact = false }) {
   const inputRef = useRef(null);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
@@ -93,21 +93,20 @@ function ProfilePhotoInput({ value, onChange, name, label = 'Foto de perfil' }) 
   };
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-center gap-4">
+    <section className={`rounded-xl border border-slate-200 bg-white shadow-sm ${compact ? 'p-4' : 'p-4'}`}>
+      {compact && <h3 className="mb-3 text-xs font-bold text-slate-700">{label}</h3>}
+      <div className={`flex flex-wrap items-center ${compact ? 'gap-4' : 'gap-4'}`}>
         <div className="relative">
-          <Avatar src={value} name={name} size="lg" />
-          <span className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full border-2 border-white bg-brand-600 text-white">
-            <Camera size={14} />
-          </span>
+          {compact ? <button type="button" onClick={() => inputRef.current?.click()} className="grid h-28 w-32 place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-slate-500 transition hover:border-teal-500 hover:bg-teal-50"><span className="grid justify-items-center gap-2"><span className="grid h-12 w-12 place-items-center overflow-hidden rounded-full bg-teal-100 text-teal-700">{value ? <img src={value} alt={`Foto de ${name || 'paciente'}`} className="h-full w-full object-cover" /> : <Camera size={24} />}</span><small className="font-semibold">{value ? 'Cambiar foto' : 'Subir foto'}</small></span></button> : <><Avatar src={value} name={name} size="lg" /><span className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full border-2 border-white bg-brand-600 text-white"><Camera size={14} /></span></>}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-black text-slate-800">{label}</h3>
-          <p className="mt-1 text-xs leading-5 text-slate-500">Se recorta en formato cuadrado y se comprime automáticamente.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          {!compact && <h3 className="text-sm font-black text-slate-800">{label}</h3>}
+          {compact && <p className="text-xs leading-5 text-slate-500">Formatos: JPG, PNG o WebP<br />Máx. 8 MB</p>}
+          {!compact && <p className="mt-1 text-xs leading-5 text-slate-500">Se recorta en formato cuadrado y se comprime automáticamente.</p>}
+          <div className={`${compact ? 'mt-2' : 'mt-3'} flex flex-wrap gap-2`}>
             <button
               type="button"
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-brand-700 disabled:opacity-60"
+              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold transition disabled:opacity-60 ${compact ? 'border border-teal-500 bg-white text-teal-700 hover:bg-teal-50' : 'bg-brand-600 text-white hover:bg-brand-700'}`}
               onClick={() => inputRef.current?.click()}
               disabled={processing}
             >

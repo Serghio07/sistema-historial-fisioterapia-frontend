@@ -10,6 +10,7 @@ import EvaluacionFinalSection from './sections/EvaluacionFinalSection';
 import ExamenKinesicoSection from './sections/ExamenKinesicoSection';
 import IntervencionClinicaSection from './sections/IntervencionClinicaSection';
 import { boliviaDate } from '../../utils/boliviaDateTime';
+import { formatPatientDocument } from '../../utils/validators';
 
 export const initialHistoria = {
   paciente_id: '',
@@ -218,7 +219,7 @@ function HistoriaClinicaForm({ form, setForm, pacientes, user, editing, onSubmit
         {stepIndex > 0 && paciente && (
           <div className="sticky top-0 z-10 mb-3 flex flex-wrap gap-x-4 gap-y-1 rounded-lg border border-brand-100 bg-brand-50/95 px-3 py-2 text-xs font-bold text-slate-700 shadow-sm backdrop-blur">
             <span>PACIENTE: <strong>{`${paciente.nombres} ${paciente.apellidos || ''}`.trim().toUpperCase()}</strong></span>
-            <span>CI: <strong>{paciente.ci || 'SIN DATO'}</strong></span>
+            <span>Documento: <strong>{formatPatientDocument(paciente)}</strong></span>
             <span>EDAD: <strong>{paciente.edad != null ? `${paciente.edad} AÑOS` : 'SIN DATO'}</strong></span>
             <span>SEXO: <strong>{sexLabel}</strong></span>
             <span>FECHA: <strong>{form.fecha_evaluacion || 'SIN FECHA'}</strong></span>

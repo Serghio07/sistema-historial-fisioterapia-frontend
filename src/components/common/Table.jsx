@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Pagination from './Pagination';
 
-function Table({ columns, rows, empty = 'No hay datos para mostrar.', paginate = true }) {
+function Table({ columns, rows, empty = 'No hay datos para mostrar.', paginate = true, overflowVisible = false }) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -9,8 +9,8 @@ function Table({ columns, rows, empty = 'No hay datos para mostrar.', paginate =
 
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="overflow-x-auto">
+    <div className={`${overflowVisible ? 'overflow-visible' : 'overflow-hidden'} rounded-lg border border-slate-200 bg-white`}>
+      <div className={overflowVisible ? 'overflow-visible' : 'overflow-x-auto'}>
       <table className="min-w-full divide-y divide-slate-200">
         <thead className="bg-slate-50">
           <tr>

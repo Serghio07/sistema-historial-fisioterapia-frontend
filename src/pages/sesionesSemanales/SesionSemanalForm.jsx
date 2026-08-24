@@ -1,6 +1,7 @@
 import { CalendarDays, CalendarSync, ClipboardList, Save, UserRound } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
+import { getDisplayPhone } from '../../utils/patientContact';
 
 const dias = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
 const labels = {
@@ -29,7 +30,7 @@ function SesionSemanalForm({ form, setForm, pacientes, editing, onSubmit, onCanc
     setForm({
       ...form,
       paciente_id: pacienteId,
-      telefono: paciente?.telefono || '',
+      telefono: getDisplayPhone(paciente) || '',
       edad: paciente?.edad || '',
       sexo: paciente?.sexo || '',
       diagnostico: paciente?.historias_clinicas?.[0]?.diagnostico_medico || form.diagnostico || ''

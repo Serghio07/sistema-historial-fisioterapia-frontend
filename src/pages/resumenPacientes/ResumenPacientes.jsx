@@ -12,10 +12,11 @@ import { Avatar, PatientIdentity } from '../../components/common/ProfilePhoto';
 import { auditResumenPaciente, getPacientes, getResumenPaciente } from '../../services/pacienteService';
 import { formatDate } from '../../utils/formatDate';
 import { matchesSearch } from '../../utils/search';
-import { nombrePaciente } from '../../utils/validators';
+import { formatPatientDocument, nombrePaciente, patientDocumentSearchText } from '../../utils/validators';
 import { boliviaDate } from '../../utils/boliviaDateTime';
 import { useAuth } from '../../context/AuthContext';
 import { buildAttendanceSummary } from '../../utils/attendanceSummary';
+import { getDisplayPhone, getDisplayPhoneText, getResponsibleSummary } from '../../utils/patientContact';
 
 const allTabs = ['Resumen', 'Sesiones', 'Asistencias', 'Pagos y deudas', 'Historias clínicas', 'Citas', 'Documentos'];
 const money = (value) => `${Number(value || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs`;
@@ -85,7 +86,7 @@ export default function ResumenPacientes() {
     sessionStorage.setItem('resumen-paciente-state', JSON.stringify({ patientId, period, from, to, historyId, tab, recordQuery }));
   }, [patientId, period, from, to, historyId, tab, recordQuery]);
 
-  const suggestions = useMemo(() => query.trim() ? patients.filter((p) => matchesSearch(`${nombrePaciente(p)} ${p.ci || ''} ${p.telefono || ''}`, query)).slice(0, 8) : [], [patients, query]);
+  const suggestions = useMemo(() => query.trim() ? patients.filter((p) => matchesSearch(`${nombrePaciente(p)} ${patientDocumentSearchText(p)} ${getDisplayPhone(p) || ''}`, query)).slice(0, 8) : [], [patients, query]);
   const [dateFrom, dateTo] = rangeFor(period, from, to);
   const inPeriod = (date) => (!dateFrom || date >= dateFrom) && (!dateTo || date <= dateTo);
   const activeHistoryId = (data?.historias || []).find((item) => item.estado === 'activa' && !item.anulada)?.id;
@@ -135,7 +136,7 @@ export default function ResumenPacientes() {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Resumen');
     sheet.addRows([
-      ['RESUMEN DE PACIENTE'], ['Paciente', nombrePaciente(data.paciente)], ['Documento', data.paciente.ci || ''], ['Teléfono', data.paciente.telefono || ''],
+      ['RESUMEN DE PACIENTE'], ['Paciente', nombrePaciente(data.paciente)], ['Documento', formatPatientDocument(data.paciente)], ['Teléfono de contacto', getDisplayPhoneText(data.paciente)], ['Responsable', getResponsibleSummary(data.paciente) || 'No corresponde'],
       ['Periodo', `${dateFrom || 'Inicio'} al ${dateTo || 'Actualidad'}`], ['Visitas', attendedRows.length], ['Faltas', absences.length],
       ...(isAdmin ? [['Total facturado', total], ['Total pagado', paid], ['Saldo pendiente', balance], ['Estado económico', economic]] : [])
     ]);
@@ -156,7 +157,7 @@ export default function ResumenPacientes() {
 
     <div className="panel relative">
       <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm focus-within:border-brand-500"><Search size={19} className="text-slate-400" /><input className="w-full border-0 p-0 text-sm focus:ring-0" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nombre, apellido, documento o teléfono..." /></label>
-      {suggestions.length > 0 && <div className="absolute left-4 right-4 z-30 mt-1 max-h-80 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">{suggestions.map((p) => <button key={p.id} className="flex w-full items-center justify-between gap-3 rounded-lg p-3 text-left hover:bg-teal-50" onClick={() => { setPatientId(String(p.id)); setQuery(''); setHistoryId('active'); setTab('Resumen'); }}><PatientIdentity paciente={p} secondary={`CI: ${p.ci || 'Sin dato'} · Tel: ${p.telefono || 'Sin dato'}`} /><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${p.estado ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{p.estado ? 'ACTIVO' : 'INACTIVO'}</span></button>)}</div>}
+      {suggestions.length > 0 && <div className="absolute left-4 right-4 z-30 mt-1 max-h-80 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">{suggestions.map((p) => <button key={p.id} className="flex w-full items-center justify-between gap-3 rounded-lg p-3 text-left hover:bg-teal-50" onClick={() => { setPatientId(String(p.id)); setQuery(''); setHistoryId('active'); setTab('Resumen'); }}><PatientIdentity paciente={p} secondary={`${formatPatientDocument(p)} · Tel: ${getDisplayPhoneText(p)}`} /><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${p.estado ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{p.estado ? 'ACTIVO' : 'INACTIVO'}</span></button>)}</div>}
     </div>
 
     {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
@@ -164,7 +165,7 @@ export default function ResumenPacientes() {
 
     {data && <>
       <div className="panel grid gap-4 lg:grid-cols-[1fr_auto]">
-        <div className="flex min-w-0 items-center gap-4"><Avatar src={data.paciente.foto} name={nombrePaciente(data.paciente)} size="lg" className="rounded-full" /><div className="min-w-0"><h2 className="truncate text-xl font-black uppercase text-slate-900">{nombrePaciente(data.paciente)}</h2><p className="mt-1 text-sm text-slate-500">CI: {data.paciente.ci || 'Sin dato'} · Tel: {data.paciente.telefono || 'Sin dato'} · {data.paciente.edad ?? '—'} años · {data.paciente.sexo || 'Sin sexo'}</p><div className="mt-2 flex flex-wrap gap-2 text-xs"><span className="detail-chip">Última visita: {formatDate(lastVisit?.fecha)}</span><span className="detail-chip">Próxima cita: {formatDate(nextAppointment?.fecha)}</span><span className="detail-chip">{histories.length} historias clínicas</span><span className={`rounded-full px-3 py-1 font-bold ${economicTone === 'green' ? 'bg-emerald-50 text-emerald-700' : economicTone === 'amber' ? 'bg-amber-50 text-amber-700' : economicTone === 'red' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'}`}>{economic}</span></div></div></div>
+        <div className="flex min-w-0 items-center gap-4"><Avatar src={data.paciente.foto} name={nombrePaciente(data.paciente)} size="lg" className="rounded-full" /><div className="min-w-0"><h2 className="truncate text-xl font-black uppercase text-slate-900">{nombrePaciente(data.paciente)}</h2><p className="mt-1 text-sm text-slate-500">{formatPatientDocument(data.paciente)} · Tel: {getDisplayPhoneText(data.paciente)} · {data.paciente.edad ?? '—'} años · {data.paciente.sexo || 'Sin sexo'}</p>{getResponsibleSummary(data.paciente) && <p className="mt-1 truncate text-xs font-semibold text-teal-700">Responsable: {getResponsibleSummary(data.paciente)}</p>}<div className="mt-2 flex flex-wrap gap-2 text-xs"><span className="detail-chip">Última visita: {formatDate(lastVisit?.fecha)}</span><span className="detail-chip">Próxima cita: {formatDate(nextAppointment?.fecha)}</span><span className="detail-chip">{histories.length} historias clínicas</span><span className={`rounded-full px-3 py-1 font-bold ${economicTone === 'green' ? 'bg-emerald-50 text-emerald-700' : economicTone === 'amber' ? 'bg-amber-50 text-amber-700' : economicTone === 'red' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'}`}>{economic}</span></div></div></div>
         <div className="flex flex-wrap items-center gap-2"><Button variant="secondary" onClick={() => go(`/pacientes/${patientId}`)}><UserRound size={16} />Perfil</Button><Button variant="secondary" onClick={() => go('/sesiones', { pacienteId: patientId })}><Stethoscope size={16} />Sesiones</Button>{isAdmin && <Button onClick={() => go('/control-financiero/planilla-pagos', { pacienteId: patientId })}><WalletCards size={16} />Pagos y deudas</Button>}</div>
       </div>
 

@@ -12,8 +12,9 @@ import { createCita, deleteCita, getCitas, updateCita, updateCitaEstado } from '
 import { getPacientes } from '../../services/pacienteService';
 import { getProfesionalesActivos } from '../../services/usuarioService';
 import { formatDate } from '../../utils/formatDate';
-import { cleanPayload, nombrePaciente } from '../../utils/validators';
+import { cleanPayload, formatPatientDocument, nombrePaciente } from '../../utils/validators';
 import { matchesSearch } from '../../utils/search';
+import { getDisplayPhoneText, getResponsibleSummary } from '../../utils/patientContact';
 import { BOLIVIA_TIME_ZONE, boliviaDate } from '../../utils/boliviaDateTime';
 import ListadoCitasAgrupado from './components/ListadoCitasAgrupado';
 import { agruparCitasPorPacienteEHistoria } from './utils/agruparCitas';
@@ -600,7 +601,7 @@ function Citas() {
               <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-brand-100 bg-gradient-to-r from-brand-50 via-white to-cyan-50 p-4">
                 <PatientIdentity
                   paciente={selected.paciente}
-                  secondary={`CI: ${selected.paciente?.ci || 'Sin CI'} · Tel: ${selected.paciente?.telefono || 'Sin teléfono'}`}
+                  secondary={`${formatPatientDocument(selected.paciente)} · Tel: ${getDisplayPhoneText(selected.paciente)}${getResponsibleSummary(selected.paciente) ? ` · Responsable: ${getResponsibleSummary(selected.paciente)}` : ''}`}
                   className="[&_strong]:text-base [&_small]:mt-1"
                 />
                 <div className="flex flex-wrap items-center justify-end gap-2"><Badge estado={estadoVisible(selected)} /></div>

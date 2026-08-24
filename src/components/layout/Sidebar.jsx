@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, Banknote, Bell, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Images, Inbox, Landmark, Link2, ListChecks, LogOut, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
+import { Activity, ArrowLeftRight, Banknote, Bell, CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, FileBarChart, FileText, FolderOpen, HeartPulse, Images, Inbox, Landmark, Link2, ListChecks, LogOut, Newspaper, Pill, ShieldCheck, Tags, UserCog, Users, WalletCards } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { canAccessModule, getRoleLabel } from '../../config/permissions';
@@ -58,7 +58,10 @@ const groups = [
     icon: Landmark,
     permission: 'finanzas',
     items: [
-      { to: '/control-financiero/planilla-pagos', label: 'Planilla de pagos', icon: WalletCards }
+      { to: '/control-financiero/resumen', label: 'Resumen', icon: Activity },
+      { to: '/control-financiero/planilla', label: 'Planilla de pagos', icon: WalletCards },
+      { to: '/control-financiero/movimientos-caja', label: 'Ingresos y egresos', icon: ArrowLeftRight },
+      { to: '/control-financiero/arqueos', label: 'Arqueos', icon: Landmark }
     ]
   },
   {

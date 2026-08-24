@@ -1,0 +1,15 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import fs from 'node:fs';
+const page=fs.readFileSync(new URL('../src/pages/planillaPagos/PlanillaPagos.jsx',import.meta.url),'utf8');
+const service=fs.readFileSync(new URL('../src/services/planillaPagosService.js',import.meta.url),'utf8');
+test('pago específico limita monto y explica el concepto',()=>{assert.match(page,/max=\{concept\.saldo_pendiente\}/);assert.match(page,/El monto supera el saldo pendiente/);assert.match(page,/Registrar pago de este concepto/)});
+test('pago global usa preview backend y muestra FIFO',()=>{assert.match(service,/preview-pago-deuda/);assert.match(service,/pagar-deuda/);assert.match(page,/Distribución automática FIFO/);assert.match(page,/saldo_restante/)});
+test('recibo nuevo prioriza operación padre y legacy conserva fallback',()=>assert.match(page,/movement\.operacion_pago\?\.numero_recibo \|\| movement\.numero_recibo/));
+test('detalle diferencia pagos activos, anulados y legacy',()=>{assert.match(page,/Solo los movimientos activos se consideran en el total pagado/);assert.match(page,/'Anulado' : 'Activo'/);assert.match(page,/Pago histórico/);assert.match(page,/motivo_anulacion/)});
+test('operaciones nuevas no exponen acciones individuales incompatibles',()=>assert.match(page,/m\.estado !== 'Anulado' && !m\.operacion_pago_id/));
+test('tabla muestra pagado del período y empty state semántico',()=>{assert.match(page,/Pagado en período/);assert.match(page,/ultimo_pago_periodo/);assert.match(page,/No existen conceptos ni cobros que coincidan con los filtros seleccionados/)});
+test('operación padre tiene detalle, comprobante y anulación desde UI',()=>{assert.match(service,/getOperacionPago/);assert.match(service,/annulOperacionPago/);assert.match(page,/Detalle de operación de pago/);assert.match(page,/Anular operación/);assert.match(page,/numero_comprobante/)});
+test('recibos se renderizan por operación y legacy conserva fallback',()=>{assert.match(page,/operationItems/);assert.match(page,/operation\.legacy/);assert.match(page,/operationType\(operation\.tipo\)/);assert.match(page,/Pago histórico/)});
+test('Excel incluye período, operación, recibo, comprobante y receptor',()=>{for(const label of ['Pagado período','Fecha último pago','Tipo operación','Recibo','Comprobante','Recibido por','Estado operación'])assert.match(page,new RegExp(label))});
+test('pago de deuda aparece una sola vez por paciente e historia',()=>{assert.match(page,/debtGroups/);assert.equal((page.match(/>Pagar deuda<\/Button>/g)||[]).length,1)});
+test('navegación evita Arqueos duplicado y conserva módulos de operaciones',()=>{assert.doesNotMatch(page,/key: 'arqueos'/);assert.match(page,/key: 'recibos'/);assert.match(page,/key: 'comprobantes'/)});
+test('mobile muestra fecha del concepto y Excel agrega hoja de operaciones',()=>{assert.match(page,/Fecha concepto:/);assert.match(page,/Operaciones de pago/)});

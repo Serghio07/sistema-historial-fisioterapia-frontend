@@ -6,10 +6,10 @@ import { nombrePaciente } from '../../utils/validators';
 
 const value = (data, fallback = 'Sin dato') => data === undefined || data === null || data === '' ? fallback : data;
 
-function Stat({ icon: Icon, label, children, tone = 'text-brand-700' }) {
+function Stat({ icon: Icon, label, children, tone = 'text-brand-700', wrap = false }) {
   return <div className="flex min-w-0 items-center gap-2.5 px-3 py-2.5">
     <Icon size={20} className={`shrink-0 ${tone}`} strokeWidth={1.8} />
-    <div className="min-w-0"><span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">{label}</span><strong className="mt-0.5 block truncate text-xs text-slate-800">{children}</strong></div>
+    <div className="min-w-0"><span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">{label}</span><strong className={`mt-0.5 block text-xs text-slate-800 ${wrap ? 'whitespace-normal break-words leading-5' : 'truncate'}`}>{children}</strong></div>
   </div>;
 }
 
@@ -81,7 +81,7 @@ export default function HistoriaDetalleProfesional({ historia, onClose, onEvolut
       <section className="rounded-xl border border-slate-200 bg-white p-3">
         <h3 className="mb-2 flex items-center gap-2 text-xs font-black text-emerald-700"><Stethoscope size={17} />Datos clínicos principales</h3>
         <div className="grid overflow-hidden rounded-lg border border-emerald-100 bg-emerald-50/40 sm:grid-cols-3 sm:divide-x sm:divide-emerald-100">
-          <Stat icon={UserRound} label="Zona corporal">{value(condicion.zona_cuerpo)}</Stat>
+          <Stat icon={UserRound} label="Zona corporal" wrap>{value(condicion.zona_cuerpo)}</Stat>
           <Stat icon={Activity} label="Tipo de lesión">{value(condicion.tipo_lesion)}</Stat>
           <Stat icon={Activity} label="Escala de dolor" tone={Number(intervencion.escala_dolor) >= 7 ? 'text-red-500' : 'text-emerald-600'}>{intervencion.escala_dolor === undefined || intervencion.escala_dolor === '' ? 'Sin dato' : `${intervencion.escala_dolor}/10`}</Stat>
         </div>

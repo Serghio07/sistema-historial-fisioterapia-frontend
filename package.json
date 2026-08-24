@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
+    "test": "node --test tests/*.test.js",
     "test:notifications": "node --test tests/notificationUi.test.js",
     "test:monitoring": "node --test tests/whatsappMonitoringUi.test.js",
     "test:attendance": "node --test tests/attendanceSummary.test.js",
     "test:assistant": "node --test tests/assistant*.test.js",
+    "test:contacts": "node --test tests/contactUi.test.js",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

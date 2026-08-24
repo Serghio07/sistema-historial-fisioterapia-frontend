@@ -6,7 +6,8 @@ import { useState } from 'react';
 import { Avatar } from '../../components/common/ProfilePhoto';
 import { useAuth } from '../../context/AuthContext';
 import { formatDate } from '../../utils/formatDate';
-import { nombrePaciente } from '../../utils/validators';
+import { formatPatientDocument, nombrePaciente } from '../../utils/validators';
+import { getDisplayPhoneText, getResponsibleRelationship } from '../../utils/patientContact';
 import { historyProgress } from './sessionProgress';
 
 const attendanceLabel = { asistio: 'Asistió', no_asistio: 'Faltó', pendiente: 'Pendiente', cancelada: 'Cancelada', reprogramada: 'Reprogramada' };
@@ -103,7 +104,7 @@ export default function SesionesPacienteAccordion({ groups, expandedKey, onToggl
           return (
             <article key={group.key} className={expanded ? 'border-l-4 border-l-teal-500 bg-teal-50/45' : 'bg-white'}>
               <button type="button" onClick={() => { onToggle(group.key); if (expanded) chooseHistory(group.key, null); }} aria-expanded={expanded} className="grid w-full items-center gap-4 px-4 py-4 text-left lg:grid-cols-[minmax(260px,1.5fr)_120px_130px_180px_30px]">
-                <span className="flex min-w-0 items-center gap-3"><Avatar src={group.paciente?.foto} name={nombrePaciente(group.paciente)} size="sm" className="rounded-full" /><span className="min-w-0"><strong className="block truncate text-sm font-black uppercase text-slate-900">{nombrePaciente(group.paciente)}</strong><small className="block text-xs text-slate-500">CI: {group.paciente?.ci || 'Sin dato'} · Tel: {group.paciente?.telefono || 'Sin dato'}</small></span></span>
+                <span className="flex min-w-0 items-center gap-3"><Avatar src={group.paciente?.foto} name={nombrePaciente(group.paciente)} size="sm" className="rounded-full" /><span className="min-w-0"><strong className="block truncate text-sm font-black uppercase text-slate-900">{nombrePaciente(group.paciente)}</strong><small className="block truncate text-xs text-slate-500">{formatPatientDocument(group.paciente)} · Tel: {getDisplayPhoneText(group.paciente)}{getResponsibleRelationship(group.paciente) ? ` · ${getResponsibleRelationship(group.paciente)}` : ''}</small></span></span>
                 <span><strong>{group.historias.length}</strong><small className="block text-xs text-slate-500">historias</small></span>
                 <span><strong>{group.sesiones.length}</strong><small className="block text-xs text-slate-500">sesiones</small></span>
                 <span className="text-xs font-bold">{group.ultimaSesion ? formatDate(group.ultimaSesion.fecha) : 'Sin sesiones'}</span>

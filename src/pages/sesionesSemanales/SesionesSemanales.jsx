@@ -34,7 +34,8 @@ import {
 } from '../../services/registroSemanalService';
 import { formatDate } from '../../utils/formatDate';
 import { exportSesionesSemanalesExcel } from '../../utils/exportSesionesSemanalesExcel';
-import { nombrePaciente } from '../../utils/validators';
+import { formatPatientDocument, nombrePaciente, patientDocumentSearchText } from '../../utils/validators';
+import { getDisplayPhone, getDisplayPhoneText, getResponsibleRelationship } from '../../utils/patientContact';
 import { boliviaDate, formatBoliviaDateTime } from '../../utils/boliviaDateTime';
 
 const localDate = (date) => boliviaDate(date);
@@ -86,7 +87,9 @@ const conteos = (registro, range = null) => {
     asistio: sesiones.filter((sesion) => sesion.asistencia === 'asistio').length,
     pendiente: sesiones.filter((sesion) => sesion.asistencia === 'pendiente' || sesion.asistencia === 'reprogramada').length,
     falto: sesiones.filter((sesion) => sesion.asistencia === 'no_asistio').length,
+    canceladas: sesiones.filter((sesion) => sesion.asistencia === 'cancelada').length,
     deuda: sesiones.reduce((sum, sesion) => sum + Number(sesion.saldo_pendiente || 0), 0),
+    pagado: Number(registro.pagado_en_semana || 0),
     farmacos: sesiones.some((sesion) => sesion.aplica_farmacos)
   };
 };
@@ -94,7 +97,7 @@ const conteos = (registro, range = null) => {
 const estadoRegistro = (registro, range = null) => {
   const stats = conteos(registro, range);
   const estadoHistoria = registro.historia_clinica?.estado;
-  if (estadoHistoria === 'anulada') return 'Finalizado';
+  if (estadoHistoria === 'anulada' || estadoHistoria === 'completada') return 'Finalizado';
   if (stats.falto > 0) return 'Con faltas';
   if (stats.pendiente > 0) return 'Pendiente';
   return 'En tratamiento';
@@ -108,18 +111,21 @@ const fechasSesion = (registro, range) => {
 
 const ultimaFechaSesion = (registro, range) => {
   const sesiones = sesionesSincronizadas(registro, range);
-  return sesiones.length ? formatDate(sesiones[0].fecha) : 'Sin registrar';
+  const ultimaAsistida = sesiones.find((sesion) => sesion.asistencia === 'asistio');
+  return sesiones.length ? formatDate((ultimaAsistida || sesiones[0]).fecha) : 'Sin registrar';
 };
 
 const profesionalRegistro = (registro, range) => sesionesSincronizadas(registro, range)
   .find((sesion) => sesion.profesional_responsable)?.profesional_responsable || 'Sin registrar';
 
-const sesionesRestantes = (registro, range) => {
-  const sesiones = sesionesSincronizadas(registro, range);
-  const contratadas = sesiones.reduce((max, sesion) => Math.max(max, Number(sesion.sesiones_debe || 0)), 0);
+const sesionesRestantes = (registro) => {
+  const sesiones = sesionesSincronizadas(registro);
+  const contratadasHistoria = Number(registro.historia_clinica?.evaluacion_final?.sesiones_contratadas || 0);
+  const contratadasSesion = sesiones.reduce((max, sesion) => Math.max(max, Number(sesion.sesiones_debe || 0)), 0);
+  const contratadas = contratadasHistoria || contratadasSesion;
   const realizadas = sesiones.reduce((max, sesion) => Math.max(max, Number(sesion.sesiones_hizo || 0)), 0);
-  const asistidasRango = sesiones.filter((sesion) => sesion.asistencia === 'asistio').length;
-  return Math.max(contratadas - (realizadas || asistidasRango), 0);
+  const asistidas = sesiones.filter((sesion) => sesion.asistencia === 'asistio').length;
+  return Math.max(contratadas - (realizadas || asistidas), 0);
 };
 
 const statusClass = (estado) => ({
@@ -190,19 +196,44 @@ function PatientCell({ registro }) {
       <Avatar src={paciente.foto} name={nombrePaciente(paciente)} size="sm" className="rounded-full" />
       <div>
         <strong className="block text-sm text-ink">{nombrePaciente(paciente)}</strong>
-        <span className="block text-xs text-slate-500">CI: {paciente.ci || 'Sin dato'}</span>
-        <span className="block text-xs text-slate-500">Tel: {paciente.telefono || registro.telefono || 'Sin dato'}</span>
+        <span className="block text-xs text-slate-500">Documento: {formatPatientDocument(paciente)}</span>
+        <span className="block text-xs text-slate-500">Tel: {getDisplayPhone(paciente) || registro.telefono || getDisplayPhoneText(null)}{getResponsibleRelationship(paciente) ? ` · ${getResponsibleRelationship(paciente)}` : ''}</span>
       </div>
     </div>
   );
 }
 
-function HistoriaCell({ registro }) {
+function HistoriaCell({ registro, range }) {
   const historia = registro.historia_clinica;
   return (
     <div className="min-w-[190px]">
       <strong className="block text-sm text-ink">{historia?.motivo_consulta || 'Historia clinica'}</strong>
       <span className="block text-xs text-slate-500">Dx: {registro.diagnostico || historia?.diagnostico_medico || 'Sin diagnostico'}</span>
+      <span className="mt-1 block text-xs font-bold text-brand-700">Última sesión: {ultimaFechaSesion(registro, range)}</span>
+    </div>
+  );
+}
+
+function SesionesCell({ stats }) {
+  return (
+    <div className="grid min-w-[150px] gap-1 text-xs">
+      <strong className="text-sm text-ink">{stats.total} registradas</strong>
+      <div className="flex flex-wrap gap-1">
+        <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700">✓ {stats.asistio}</span>
+        <span className="rounded-full bg-amber-50 px-2 py-0.5 font-bold text-amber-700">○ {stats.pendiente}</span>
+        <span className="rounded-full bg-red-50 px-2 py-0.5 font-bold text-red-700">× {stats.falto}</span>
+        {stats.canceladas > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 font-bold text-slate-600">Canceladas: {stats.canceladas}</span>}
+      </div>
+      <span className={`font-bold ${stats.farmacos ? 'text-violet-700' : 'text-slate-500'}`}><Pill size={13} className="mr-1 inline" />Fármacos: {stats.farmacos ? 'Sí' : 'No'}</span>
+    </div>
+  );
+}
+
+function PagosCell({ stats }) {
+  return (
+    <div className="grid min-w-[145px] gap-1 text-xs">
+      <div className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-700"><span className="block font-semibold">Pagado esta semana</span><strong>{money(stats.pagado)}</strong></div>
+      <div className="rounded-md bg-red-50 px-2 py-1 text-red-700"><span className="block font-semibold">Deuda semanal</span><strong>{money(stats.deuda)}</strong></div>
     </div>
   );
 }
@@ -213,6 +244,7 @@ function CountBadge({ value, tone }) {
 
 function DetailModal({ registro, dateRange, onClose, onHistory, onSession, onWeekChange, canViewFinancial = false }) {
   const stats = conteos(registro, dateRange);
+  const restantes = sesionesRestantes(registro);
   const historia = registro.historia_clinica;
   const estado = historyStatus(historia);
   const paciente = registro.paciente || {};
@@ -254,7 +286,7 @@ function DetailModal({ registro, dateRange, onClose, onHistory, onSession, onWee
                 <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand-100 text-base font-black text-brand-800">{initials(paciente)}</span>
                 <div className="min-w-0">
                   <h3 className="text-lg font-black uppercase text-ink">{nombrePaciente(paciente)}</h3>
-                  <p className="mt-0.5 text-xs font-semibold text-slate-600">CI: {paciente.ci || 'Sin registrar'} · Tel: {paciente.telefono || registro.telefono || 'Sin registrar'}</p>
+                  <p className="mt-0.5 text-xs font-semibold text-slate-600">Documento: {formatPatientDocument(paciente)} · Tel: {getDisplayPhone(paciente) || registro.telefono || getDisplayPhoneText(null)}{getResponsibleRelationship(paciente) ? ` · ${getResponsibleRelationship(paciente)}` : ''}</p>
                   <p className="mt-2 text-sm font-bold text-slate-700">Historia clínica: {historia?.fecha_evaluacion ? formatDate(historia.fecha_evaluacion) : 'Sin registrar'} · {historia?.motivo_consulta || diagnostico}</p>
                   <p className="text-xs text-slate-600">Dx: {diagnostico}</p>
                   <p className="text-xs text-slate-600">Rango: {formatDate(dateRange.inicio)} al {formatDate(dateRange.fin)}</p>
@@ -267,11 +299,13 @@ function DetailModal({ registro, dateRange, onClose, onHistory, onSession, onWee
             </div>
           </section>
 
-          <section className="grid grid-cols-2 gap-2 lg:grid-cols-6">
+          <section className="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:grid-cols-8">
             <StatCard label="Registradas" value={stats.total} icon={CalendarCheck} tone="border-cyan-100 bg-cyan-50 text-cyan-700" />
+            <StatCard label="Sesiones faltantes" value={restantes} icon={CalendarRange} tone="border-sky-100 bg-sky-50 text-sky-700" />
             <StatCard label="Asistió" value={stats.asistio} icon={CheckCircle2} tone="border-emerald-100 bg-emerald-50 text-emerald-700" />
             <StatCard label="Faltó" value={stats.falto} icon={XCircle} tone="border-red-100 bg-red-50 text-red-700" />
             <StatCard label="Pendiente" value={stats.pendiente} icon={Activity} tone="border-amber-100 bg-amber-50 text-amber-700" />
+            {canViewFinancial && <StatCard label="Pagado esta semana" value={money(stats.pagado)} icon={WalletCards} tone="border-emerald-100 bg-emerald-50 text-emerald-700" />}
             {canViewFinancial && <StatCard label="Deuda semanal" value={money(stats.deuda)} icon={WalletCards} tone="border-red-100 bg-red-50 text-red-700" />}
             <StatCard label="Fármacos" value={sesionesConFarmacos.length ? 'Sí' : 'No'} icon={Pill} tone="border-violet-100 bg-violet-50 text-violet-700" />
           </section>
@@ -429,8 +463,8 @@ function SesionesSemanales() {
       const estadoHistoria = registro.historia_clinica?.estado;
       const text = [
         nombrePaciente(registro.paciente),
-        registro.paciente?.ci,
-        registro.paciente?.telefono,
+        patientDocumentSearchText(registro.paciente),
+        getDisplayPhone(registro.paciente),
         registro.telefono,
         registro.diagnostico,
         registro.historia_clinica?.motivo_consulta
@@ -640,23 +674,18 @@ function SesionesSemanales() {
         <div className="hidden xl:block">
           <Table
             columns={[
-              'Paciente', 'Historia clínica', 'Última sesión', 'Sesiones registradas', 'Asistió', 'Pendiente', 'Faltó',
-              ...(isAdmin ? ['Deuda semanal'] : []),
-              'Fármacos', 'Estado', 'Profesional', 'Acciones'
+              'Paciente', 'Historia', 'Sesiones',
+              ...(isAdmin ? ['Pagos'] : []),
+              'Estado', 'Profesional', 'Acciones'
             ]}
             rows={filteredRegistros.map((registro) => {
               const stats = conteos(registro, dateRange);
               const estado = estadoRegistro(registro, dateRange);
               return [
                 <PatientCell registro={registro} />,
-                <HistoriaCell registro={registro} />,
-                <span className="max-w-[170px] text-sm font-semibold text-slate-700">{ultimaFechaSesion(registro, dateRange)}</span>,
-                <span className="font-semibold text-slate-700">{stats.total}</span>,
-                <CountBadge value={stats.asistio} tone="bg-emerald-50 text-emerald-700" />,
-                <CountBadge value={stats.pendiente} tone="bg-amber-50 text-amber-700" />,
-                <CountBadge value={stats.falto} tone="bg-red-50 text-red-700" />,
-                ...(isAdmin ? [<span className={`font-black ${stats.deuda > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{money(stats.deuda)}<br /><small>{stats.deuda > 0 ? 'deuda' : 'sin deuda'}</small></span>] : []),
-                <span className={`rounded-full px-2.5 py-1 text-xs font-black ${stats.farmacos ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>{stats.farmacos ? 'Si' : 'No'}</span>,
+                <HistoriaCell registro={registro} range={dateRange} />,
+                <SesionesCell stats={stats} />,
+                ...(isAdmin ? [<PagosCell stats={stats} />] : []),
                 <span className={`rounded-full px-2.5 py-1 text-xs font-black ${statusClass(estado)}`}>{estado}</span>,
                 <span className="max-w-[170px] text-xs font-semibold text-slate-600">{profesionalRegistro(registro, dateRange)}</span>,
                 <div className="flex gap-2">
@@ -680,8 +709,8 @@ function SesionesSemanales() {
                   <span className={`rounded-full px-2.5 py-1 text-xs font-black ${statusClass(estado)}`}>{estado}</span>
                 </div>
                 <div className="mt-3 border-t border-slate-100 pt-3">
-                  <HistoriaCell registro={registro} />
-                  <p className="mt-2 text-xs font-bold text-slate-500">Fecha sesion: {fechasSesion(registro, dateRange)}</p>
+                  <HistoriaCell registro={registro} range={dateRange} />
+                  <p className="mt-2 text-xs font-bold text-slate-500">Fechas: {fechasSesion(registro, dateRange)}</p>
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-lg bg-cyan-50 p-2"><span className="block text-[11px] font-bold text-cyan-600">Sesiones</span><strong>{stats.total}</strong></div>
@@ -689,7 +718,9 @@ function SesionesSemanales() {
                   <div className="rounded-lg bg-emerald-50 p-2"><span className="block text-[11px] font-bold text-emerald-600">Asistio</span><strong>{stats.asistio}</strong></div>
                   <div className="rounded-lg bg-amber-50 p-2"><span className="block text-[11px] font-bold text-amber-600">Pendiente</span><strong>{stats.pendiente}</strong></div>
                   <div className="rounded-lg bg-red-50 p-2"><span className="block text-[11px] font-bold text-red-600">Falto</span><strong>{stats.falto}</strong></div>
-                  {isAdmin && <div className="rounded-lg bg-red-50 p-2"><span className="block text-[11px] font-bold text-red-600">Deuda</span><strong>{money(stats.deuda)}</strong></div>}
+                  {stats.canceladas > 0 && <div className="rounded-lg bg-slate-100 p-2"><span className="block text-[11px] font-bold text-slate-600">Canceladas</span><strong>{stats.canceladas}</strong></div>}
+                  {isAdmin && <div className="rounded-lg bg-emerald-50 p-2"><span className="block text-[11px] font-bold text-emerald-700">Pagado semana</span><strong>{money(stats.pagado)}</strong></div>}
+                  {isAdmin && <div className="rounded-lg bg-red-50 p-2"><span className="block text-[11px] font-bold text-red-600">Deuda semanal</span><strong>{money(stats.deuda)}</strong></div>}
                   <div className="rounded-lg bg-violet-50 p-2"><span className="block text-[11px] font-bold text-violet-600">Farmacos</span><strong>{stats.farmacos ? 'Si' : 'No'}</strong></div>
                 </div>
                 <div className="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-3">

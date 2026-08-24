@@ -21,6 +21,9 @@ import PlanillaPersonal from '../pages/personal/PlanillaPersonal';
 import DocumentosClinicos from '../pages/documentos/DocumentosClinicos';
 import EvolutivosClinicos from '../pages/evolutivosClinicos/EvolutivosClinicos';
 import PlanillaPagos from '../pages/planillaPagos/PlanillaPagos';
+import Arqueos from '../pages/planillaPagos/Arqueos';
+import ResumenFinanciero from '../pages/planillaPagos/ResumenFinanciero';
+import MovimientosCaja from '../pages/movimientosCaja/MovimientosCaja';
 import ResumenDiario from '../pages/resumenDiario/ResumenDiarioPorRol';
 import ResumenPacientes from '../pages/resumenPacientes/ResumenPacientes';
 import BlogPosts from '../pages/blog/BlogPosts';
@@ -70,13 +73,17 @@ function AppRoutes() {
         </Route>
         <Route element={<PrivateRoute permission="finanzas" />}>
           <Route element={<Layout />}>
-            <Route path="control-financiero/planilla-pagos" element={<PlanillaPagos />} />
-            <Route path="control-financiero/deudores" element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
-            <Route path="control-financiero/arqueos" element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
-            <Route path="control-financiero/recibos" element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
-            <Route path="control-financiero/comprobantes" element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
-            {['pagos', 'planilla-pagos', 'deudas', 'deudores', 'arqueos', 'recibos', 'comprobantes'].map((path) => (
-              <Route key={path} path={path} element={<Navigate to="/control-financiero/planilla-pagos" replace />} />
+            <Route path="control-financiero" element={<Navigate to="/control-financiero/resumen" replace />} />
+            <Route path="control-financiero/resumen" element={<ResumenFinanciero />} />
+            <Route path="control-financiero/planilla" element={<PlanillaPagos section="planilla" />} />
+            <Route path="control-financiero/movimientos-caja" element={<MovimientosCaja />} />
+            <Route path="control-financiero/arqueos" element={<Arqueos />} />
+            <Route path="control-financiero/planilla-pagos" element={<PlanillaPagos section="planilla" />} />
+            <Route path="control-financiero/deudores" element={<Navigate to="/control-financiero/planilla" replace />} />
+            <Route path="control-financiero/recibos" element={<Navigate to="/control-financiero/planilla" replace />} />
+            <Route path="control-financiero/comprobantes" element={<Navigate to="/control-financiero/planilla" replace />} />
+            {['pagos', 'deudas', 'deudores', 'recibos', 'comprobantes'].map((path) => (
+              <Route key={path} path={path} element={<Navigate to="/control-financiero/planilla" replace />} />
             ))}
           </Route>
         </Route>
