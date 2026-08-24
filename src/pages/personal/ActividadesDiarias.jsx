@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, CalendarClock, CalendarDays, CheckCircle2, Eye, FilePenLine, ListTodo, Plus, Search, Trash2, UserRound } from 'lucide-react';
+import { Activity, CalendarClock, CalendarDays, CheckCircle2, Eye, FilePenLine, ListTodo, Search, Trash2, UserRound } from 'lucide-react';
 import ActionButton from '../../components/common/ActionButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -295,7 +295,6 @@ function ActividadesDiarias() {
     return counts;
   }, { tarea: 0, cambio: 0, sesion: 0, cita: 0 }), [actividades]);
 
-  const openNew = () => { setEditing(null); setForm({ ...initialTask, fecha }); setShowForm(true); };
   const openEdit = (task) => { setEditing(task.id); setForm({ ...initialTask, ...task, hora: task.hora?.slice(0, 5) || '' }); setShowForm(true); };
   const submit = async (event) => {
     event.preventDefault();
@@ -363,7 +362,6 @@ function ActividadesDiarias() {
                 <input className="w-full border-0 bg-transparent p-0 text-sm focus:ring-0" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Paciente, profesional o detalle de la actividad" />
               </span>
             </label>
-            <div className="flex items-end"><Button onClick={openNew} className="w-full lg:w-auto"><Plus size={17} />Nueva tarea extra</Button></div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             {[

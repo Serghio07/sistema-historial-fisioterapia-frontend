@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { clearSession, getStoredUser, loginRequest, saveSession } from '../services/authService';
 import { getProfesionalesActivos } from '../services/usuarioService';
+import { getMyPermissions } from '../services/rolePermissionService';
 
 const AuthContext = createContext(null);
 
@@ -28,8 +29,8 @@ export function AuthProvider({ children }) {
     let active = true;
     setCheckingSession(true);
 
-    getProfesionalesActivos()
-      .then((profesionales) => {
+    Promise.all([getProfesionalesActivos(), getMyPermissions()])
+      .then(([profesionales, access]) => {
         if (!active) return;
         const actualizado = profesionales.find((item) => String(item.id) === String(user.id));
         if (!actualizado) {
@@ -37,7 +38,7 @@ export function AuthProvider({ children }) {
           setUser(null);
           return;
         }
-        const perfil = { ...user, ...actualizado };
+        const perfil = { ...user, ...actualizado, permissions: access.permissions };
         saveSession({ usuario: perfil });
         setUser(perfil);
       })
@@ -59,6 +60,8 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const session = await loginRequest(credentials);
+      const access = await getMyPermissions();
+      session.usuario = { ...session.usuario, permissions: access.permissions };
       saveSession(session);
       setUser(session.usuario);
       setCheckingSession(false);

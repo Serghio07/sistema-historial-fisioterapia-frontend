@@ -48,25 +48,19 @@ function AppRoutes() {
           <Route element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="mi-perfil" element={<MiPerfil />} />
-            <Route path="pacientes" element={<Pacientes />} />
-            <Route path="resumen-pacientes" element={<ResumenPacientes />} />
-            <Route path="pacientes/:id" element={<PacienteDetalle />} />
-            <Route path="historias-clinicas" element={<HistoriasClinicas />} />
-            <Route path="historias-clinicas/:id" element={<HistoriaClinicaDetalle />} />
-            <Route path="evolutivos-clinicos" element={<EvolutivosClinicos />} />
-            <Route path="sesiones" element={<Sesiones />} />
-            <Route path="citas" element={<Citas />} />
+            <Route element={<PrivateRoute permission="pacientes" />}><Route path="pacientes" element={<Pacientes />} /><Route path="resumen-pacientes" element={<ResumenPacientes />} /><Route path="pacientes/:id" element={<PacienteDetalle />} /></Route>
+            <Route element={<PrivateRoute permission="historias" />}><Route path="historias-clinicas" element={<HistoriasClinicas />} /><Route path="historias-clinicas/:id" element={<HistoriaClinicaDetalle />} /></Route>
+            <Route element={<PrivateRoute permission="evolutivos" />}><Route path="evolutivos-clinicos" element={<EvolutivosClinicos />} /></Route>
+            <Route element={<PrivateRoute permission="sesiones" />}><Route path="sesiones" element={<Sesiones />} /></Route>
+            <Route element={<PrivateRoute permission="agenda" />}><Route path="citas" element={<Citas />} /></Route>
             <Route path="notificaciones" element={<Notificaciones />} />
-            <Route path="whatsapp/recepcion" element={<WhatsappReception />} />
-            <Route path="sesiones-semanales" element={<SesionesSemanales />} />
-            <Route path="planillas-atencion" element={<PlanillasAtencion />} />
-            <Route path="informes-medicos" element={<Reportes />} />
-            <Route path="reportes" element={<Reportes />} />
-            <Route path="documentos/consentimiento-informado" element={<DocumentosClinicos tipo="consentimiento" />} />
-            <Route path="documentos/signos-vitales" element={<DocumentosClinicos tipo="signos_vitales" />} />
-            <Route path="documentos/administracion-farmacos" element={<DocumentosClinicos tipo="farmacos" />} />
-            <Route path="personal/actividades" element={<ActividadesDiarias />} />
-            <Route path="control-diario/resumen" element={<ResumenDiario />} />
+            <Route element={<PrivateRoute permission="recepcionWhatsapp" />}><Route path="whatsapp/recepcion" element={<WhatsappReception />} /></Route>
+            <Route element={<PrivateRoute permission="sesionesSemanales" />}><Route path="sesiones-semanales" element={<SesionesSemanales />} /></Route>
+            <Route element={<PrivateRoute permission="planillasAtencion" />}><Route path="planillas-atencion" element={<PlanillasAtencion />} /></Route>
+            <Route element={<PrivateRoute permission="informes" />}><Route path="informes-medicos" element={<Reportes />} /><Route path="reportes" element={<Reportes />} /></Route>
+            <Route element={<PrivateRoute permission="documentosClinicos" />}><Route path="documentos/consentimiento-informado" element={<DocumentosClinicos tipo="consentimiento" />} /><Route path="documentos/signos-vitales" element={<DocumentosClinicos tipo="signos_vitales" />} /><Route path="documentos/administracion-farmacos" element={<DocumentosClinicos tipo="farmacos" />} /></Route>
+            <Route element={<PrivateRoute permission="actividadesPropias" />}><Route path="personal/actividades" element={<ActividadesDiarias />} /></Route>
+            <Route element={<PrivateRoute permission="resumenDiarioClinico" />}><Route path="control-diario/resumen" element={<ResumenDiario />} /></Route>
             <Route path="control-diario/tareas" element={<Navigate to="/control-diario/resumen" replace />} />
             <Route path="control-diario/incidencias" element={<Navigate to="/control-diario/resumen" replace />} />
           </Route>

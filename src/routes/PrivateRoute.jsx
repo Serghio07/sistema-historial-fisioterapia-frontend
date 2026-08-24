@@ -9,7 +9,7 @@ function PrivateRoute({ adminOnly = false, permission }) {
 
   if (checkingSession) return <Loader />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if ((adminOnly && !isAdmin) || (permission && !canAccessModule(user?.rol, permission))) {
+  if ((adminOnly && !isAdmin) || (permission && !canAccessModule(user?.rol, permission, user?.permissions))) {
     return <Forbidden />;
   }
 

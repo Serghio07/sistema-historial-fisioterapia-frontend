@@ -30,9 +30,12 @@ export const MODULE_PERMISSIONS = Object.freeze({
   configuracion: ['admin']
 });
 
-export const canAccessModule = (role, permission) => (
-  Boolean(role && MODULE_PERMISSIONS[permission]?.includes(role))
-);
+export const canAccessModule = (role, permission, effectivePermissions) => {
+  if (effectivePermissions && Object.prototype.hasOwnProperty.call(effectivePermissions, permission)) {
+    return effectivePermissions[permission].includes('view');
+  }
+  return Boolean(role && MODULE_PERMISSIONS[permission]?.includes(role));
+};
 
 export const getRoleLabel = (role) => ROLE_LABELS[role] || role || 'Sin rol';
 
@@ -141,8 +144,10 @@ export const ROLE_ACTION_PERMISSIONS = Object.freeze({
   }
 });
 
-export const canPerformAction = (role, permission, action) => (
-  Boolean(canAccessModule(role, permission) && ROLE_ACTION_PERMISSIONS[permission]?.[role]?.includes(action))
+export const canPerformAction = (role, permission, action, effectivePermissions) => (
+  effectivePermissions && Object.prototype.hasOwnProperty.call(effectivePermissions, permission)
+    ? effectivePermissions[permission].includes(action)
+    : Boolean(canAccessModule(role, permission) && ROLE_ACTION_PERMISSIONS[permission]?.[role]?.includes(action))
 );
 
 export const ROLE_PERMISSION_MATRIX = Object.freeze([

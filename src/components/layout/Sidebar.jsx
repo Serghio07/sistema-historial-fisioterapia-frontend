@@ -12,11 +12,11 @@ const groups = [
     label: 'Gestion de Pacientes',
     icon: Users,
     items: [
-      { to: '/pacientes', label: 'Pacientes', icon: Users },
-      { to: '/resumen-pacientes', label: 'Resumen de Pacientes', icon: FileText },
-      { to: '/historias-clinicas', label: 'Historias Clinicas', icon: ClipboardList },
-      { to: '/evolutivos-clinicos', label: 'Evoluciones clínicas', icon: Activity },
-      { to: '/informes-medicos', label: 'Informes Medicos', icon: FileBarChart }
+      { to: '/pacientes', label: 'Pacientes', icon: Users, permission: 'pacientes' },
+      { to: '/resumen-pacientes', label: 'Resumen de Pacientes', icon: FileText, permission: 'pacientes' },
+      { to: '/historias-clinicas', label: 'Historias Clinicas', icon: ClipboardList, permission: 'historias' },
+      { to: '/evolutivos-clinicos', label: 'Evoluciones clínicas', icon: Activity, permission: 'evolutivos' },
+      { to: '/informes-medicos', label: 'Informes Medicos', icon: FileBarChart, permission: 'informes' }
     ]
   },
   {
@@ -24,12 +24,12 @@ const groups = [
     label: 'Atencion y Agenda',
     icon: CalendarClock,
     items: [
-      { to: '/citas', label: 'Citas / Agenda', icon: CalendarClock },
+      { to: '/citas', label: 'Citas / Agenda', icon: CalendarClock, permission: 'agenda' },
       { to: '/notificaciones', label: 'Notificaciones', icon: Bell },
       { to: '/whatsapp/recepcion', label: 'Solicitudes de recepción', icon: Inbox, permission: 'recepcionWhatsapp', badge: 'reception' },
       { to: '/whatsapp/monitoring', label: 'Estado de WhatsApp', icon: Activity, adminOnly: true },
-      { to: '/sesiones', label: 'Sesiones Diarias', icon: CalendarDays },
-      { to: '/sesiones-semanales', label: 'Sesiones Semanales', icon: CalendarRange }
+      { to: '/sesiones', label: 'Sesiones Diarias', icon: CalendarDays, permission: 'sesiones' },
+      { to: '/sesiones-semanales', label: 'Sesiones Semanales', icon: CalendarRange, permission: 'sesionesSemanales' }
     ]
   },
   {
@@ -37,9 +37,9 @@ const groups = [
     label: 'Documentos Clinicos',
     icon: FolderOpen,
     items: [
-      { to: '/documentos/consentimiento-informado', label: 'Consentimiento Informado', icon: FileText },
-      { to: '/documentos/signos-vitales', label: 'Signos Vitales', icon: HeartPulse },
-      { to: '/documentos/administracion-farmacos', label: 'Administracion de Farmacos', icon: Pill }
+      { to: '/documentos/consentimiento-informado', label: 'Consentimiento Informado', icon: FileText, permission: 'documentosClinicos' },
+      { to: '/documentos/signos-vitales', label: 'Signos Vitales', icon: HeartPulse, permission: 'documentosClinicos' },
+      { to: '/documentos/administracion-farmacos', label: 'Administracion de Farmacos', icon: Pill, permission: 'documentosClinicos' }
     ]
   },
   {
@@ -47,8 +47,8 @@ const groups = [
     label: 'Planillas y Control',
     icon: ClipboardCheck,
     items: [
-      { to: '/planillas-atencion', label: 'Planillas', icon: ClipboardCheck },
-      { to: '/personal/actividades', label: 'Actividades Diarias', icon: ListChecks },
+      { to: '/planillas-atencion', label: 'Planillas', icon: ClipboardCheck, permission: 'planillasAtencion' },
+      { to: '/personal/actividades', label: 'Actividades Diarias', icon: ListChecks, permission: 'actividadesPropias' },
       { to: '/personal/planilla', label: 'Planillas de sueldos', icon: Banknote, adminOnly: true }
     ]
   },
@@ -69,7 +69,7 @@ const groups = [
     label: 'Control diario',
     icon: CalendarDays,
     items: [
-      { to: '/control-diario/resumen', label: 'Resumen diario', icon: Activity }
+      { to: '/control-diario/resumen', label: 'Resumen diario', icon: Activity, permission: 'resumenDiarioClinico' }
     ]
   },
   {
@@ -141,12 +141,12 @@ function Sidebar({ collapsed = false, mobileOpen = false, onNavigate, onToggle }
         </NavLink>
 
         {groups
-          .filter((group) => (!group.adminOnly || isAdmin) && (!group.permission || canAccessModule(user?.rol, group.permission)))
+          .filter((group) => (!group.adminOnly || isAdmin) && (!group.permission || canAccessModule(user?.rol, group.permission, user?.permissions)))
           .map((group) => {
             const Icon = group.icon;
             const active = isGroupActive(location.pathname, group);
             const visibleItems = group.items.filter((item) => (
-              (!item.adminOnly || isAdmin) && (!item.permission || canAccessModule(user?.rol, item.permission))
+              (!item.adminOnly || isAdmin) && (!item.permission || canAccessModule(user?.rol, item.permission, user?.permissions))
             ));
             if (!visibleItems.length) return null;
 
