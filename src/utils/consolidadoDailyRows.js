@@ -27,5 +27,9 @@ export const buildDailyCollectionRows = (data = {}) => {
       displayState: 'No cancelado'
     }));
 
-  return [...paidRows, ...unpaidRows];
+  return [...paidRows, ...unpaidRows].sort((left, right) => {
+    const leftDateTime = `${left.fecha || ''} ${left.hora && left.hora !== '—' ? left.hora : '23:59:59'}`;
+    const rightDateTime = `${right.fecha || ''} ${right.hora && right.hora !== '—' ? right.hora : '23:59:59'}`;
+    return leftDateTime.localeCompare(rightDateTime) || String(left.rowKey).localeCompare(String(right.rowKey));
+  });
 };
