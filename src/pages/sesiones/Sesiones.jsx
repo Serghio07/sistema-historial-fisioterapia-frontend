@@ -36,7 +36,7 @@ import { getCitas } from '../../services/citaService';
 import { formatDate } from '../../utils/formatDate';
 import { cleanPayload, formatPatientDocument, nombrePaciente, patientDocumentSearchText } from '../../utils/validators';
 import { getDisplayPhone, getDisplayPhoneText } from '../../utils/patientContact';
-import { boliviaDate } from '../../utils/boliviaDateTime';
+import { boliviaDate, boliviaTime } from '../../utils/boliviaDateTime';
 import SesionForm from './SesionForm';
 import SesionesPacienteAccordion, { sessionEvolution } from './SesionesPacienteAccordion';
 import { nextIncompleteHistory } from './sessionProgress';
@@ -212,6 +212,7 @@ function Sesiones() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const today = boliviaDate();
+  const currentTime = boliviaTime();
 
   const load = async () => {
     setLoading(true);
@@ -287,8 +288,10 @@ function Sesiones() {
   );
 
   const programacionesHoy = useMemo(() => programaciones
-    .filter((cita) => String(cita.fecha) === today && !cita.sesion_id)
-    .sort((a, b) => String(a.hora_inicio || '').localeCompare(String(b.hora_inicio || ''))), [programaciones, today]);
+    .filter((cita) => String(cita.fecha) === today
+      && !cita.sesion_id
+      && String(cita.hora_fin || cita.hora_inicio || '').slice(0, 5) > currentTime)
+    .sort((a, b) => String(a.hora_inicio || '').localeCompare(String(b.hora_inicio || ''))), [currentTime, programaciones, today]);
 
   const atencionesHoy = useMemo(() => {
     const groups = new Map();
@@ -1044,7 +1047,7 @@ function Sesiones() {
         onClose={closeFormModal}
         size="sessions"
       >
-        <SesionForm form={form} setForm={setForm} pacientes={pacientes} historias={historias} sesiones={sesiones} programaciones={programaciones} editing={editing} initialTab={formTab} onSubmit={submit} onCancel={closeFormModal} onPlanExpanded={load} error={error} canEditDate={form.cita_id ? false : isAdmin} canViewFinancial={isAdmin} />
+        <SesionForm form={form} setForm={setForm} pacientes={pacientes} historias={historias} sesiones={sesiones} programaciones={programaciones} editing={editing} initialTab={formTab} onSubmit={submit} onCancel={closeFormModal} onPlanExpanded={load} error={error} canEditDate={form.cita_id ? false : isAdmin} canViewFinancial />
       </Modal>
 
       <Modal open={Boolean(evolutionTarget)} title={evolutionTarget?.evolution ? 'Editar evolución' : 'Registrar evolución'} subtitle={evolutionTarget ? `${nombrePaciente(evolutionTarget.group.paciente)} · Sesión N.º ${evolutionTarget.session.numero_sesion} · ${formatDate(evolutionTarget.session.fecha)}` : ''} onClose={() => setEvolutionTarget(null)} size="sessions">

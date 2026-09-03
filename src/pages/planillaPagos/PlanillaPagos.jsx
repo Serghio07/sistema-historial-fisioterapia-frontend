@@ -284,7 +284,12 @@ function PaymentForm({ concept, movement, professionals, onClose, onSaved }) {
         <b>
           {concept?.paciente?.nombres} {concept?.paciente?.apellidos}
         </b>
-        <span className="block text-slate-600">{concept?.detalle}</span>
+        <div className="mt-2 rounded-lg border border-teal-200 bg-white/70 p-2">
+          <span className="text-[10px] font-black uppercase tracking-wide text-teal-700">Debe por</span>
+          <b className="block text-sm text-slate-800">{concept?.detalle || 'Concepto sin detalle'}</b>
+          {concept?.historia_clinica?.diagnostico_medico && concept.historia_clinica.diagnostico_medico !== concept.detalle && <small className="block text-slate-600">Diagnóstico: {concept.historia_clinica.diagnostico_medico}</small>}
+          <small className="block text-slate-500">Fecha del concepto: {date(concept?.fecha_origen)}</small>
+        </div>
         <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
           <span>
             Total: <b>{money(concept?.monto_esperado)}</b>
@@ -335,7 +340,8 @@ function DebtPaymentForm({ concept, onClose, onSaved }) {
   const [preview,setPreview]=useState(null); const [saving,setSaving]=useState(false);
   useEffect(()=>{if(!(Number(form.monto)>0)){setPreview(null);return undefined}const timer=setTimeout(async()=>{try{setPreview(await previewPagoDeuda(concept.historia_clinica_id,form))}catch{setPreview(null)}},250);return()=>clearTimeout(timer)},[concept.historia_clinica_id,form]);
   const submit=async(e)=>{e.preventDefault();if(!preview)return Swal.fire({icon:'warning',title:'El monto supera la deuda total o no es válido.'});setSaving(true);try{const result=await payHistoriaDebt(concept.historia_clinica_id,form);const notice=await Swal.fire({icon:'success',title:'El pago fue aplicado correctamente.',text:`Recibo ${result.operacion.numero_recibo}`,showCancelButton:true,confirmButtonText:'Descargar recibo',cancelButtonText:'Cerrar'});if(notice.isConfirmed)await downloadOperationReceipt(concept,result.operacion,preview.distribucion);await onSaved();onClose()}catch(error){Swal.fire({icon:'error',title:'No se pudo aplicar el pago',text:error.message})}finally{setSaving(false)}};
-  return <form onSubmit={submit} className="grid gap-4"><div className="rounded-xl bg-teal-50 p-3 text-sm"><b>{concept.paciente?.nombres} {concept.paciente?.apellidos}</b><span className="block">Historia {concept.historia_clinica_id}</span>{preview&&<b className="mt-2 block">Deuda total: {money(preview.deuda_total)}</b>}</div>
+  return <form onSubmit={submit} className="grid gap-4"><div className="rounded-xl bg-teal-50 p-3 text-sm"><b>{concept.paciente?.nombres} {concept.paciente?.apellidos}</b><span className="block">Historia {concept.historia_clinica_id}</span><b className="mt-2 block">Deuda total: {money(preview?.deuda_total ?? concept.deuda_total)}</b></div>
+    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3"><b className="text-sm text-slate-800">Detalle de lo adeudado</b><div className="mt-2 grid gap-2">{(concept.conceptos||[concept]).map(item=><div key={item.id} className="flex items-start justify-between gap-3 rounded-lg bg-white p-2 text-sm"><span><b className="block">{item.detalle||'Concepto sin detalle'}</b>{item.historia_clinica?.diagnostico_medico&&item.historia_clinica.diagnostico_medico!==item.detalle&&<small className="block text-slate-600">Diagnóstico: {item.historia_clinica.diagnostico_medico}</small>}<small className="block text-slate-500">{date(item.fecha_origen)}</small></span><b className="shrink-0 text-red-700">{money(item.saldo_pendiente)}</b></div>)}</div></div>
     <div className="grid grid-cols-2 gap-3"><Input label="Monto recibido *" type="number" min="0.01" step="0.01" required value={form.monto} onChange={e=>setForm({...form,monto:e.target.value})}/><Input label="Método *" options={['Efectivo','QR','Transferencia','Tarjeta','Otro'].map(value=>({value,label:value}))} value={form.metodo} onChange={e=>setForm({...form,metodo:e.target.value})}/><Input label="Fecha *" type="date" required value={form.fecha} onChange={e=>setForm({...form,fecha:e.target.value})}/><Input label="Hora" type="time" value={form.hora} onChange={e=>setForm({...form,hora:e.target.value})}/></div>
     <Input label="Número de comprobante" value={form.numero_comprobante} onChange={e=>setForm({...form,numero_comprobante:e.target.value})}/><Input label="Observación" multiline value={form.observacion} onChange={e=>setForm({...form,observacion:e.target.value})}/>
     {preview&&<div className="rounded-xl border p-3"><b>Distribución automática FIFO</b>{preview.distribucion.map(item=><div key={item.concepto_id} className="mt-2 flex justify-between text-sm"><span>{item.sesion?`Sesión ${item.sesion}`:item.detalle}</span><b>{money(item.aplicado)}</b></div>)}<div className="mt-3 border-t pt-2 font-bold">{preview.saldo_restante===0?'Con este pago la deuda quedará cancelada.':`Después del pago quedará una deuda de ${money(preview.saldo_restante)}.`}</div></div>}
@@ -356,7 +362,7 @@ function OperationDetail({ operation, onClose, onAnnul }) {
     {operation.archivo_comprobante&&<a className="mt-3 inline-flex text-sm font-bold text-teal-700 underline" href={operation.archivo_comprobante} target="_blank" rel="noreferrer">Ver comprobante</a>}
     <h3 className="mt-5 font-black">Aplicaciones de la operación</h3><div className="mt-2 grid gap-2">{applications.map(item=><div key={item.id} className="flex flex-wrap justify-between gap-2 rounded-xl border p-3"><span><b>{item.concepto?.sesion?.numero_sesion?`Sesión ${item.concepto.sesion.numero_sesion}`:item.concepto?.detalle||`Concepto ${item.concepto_cobro_id}`}</b><small className="block text-slate-500">{item.concepto?.detalle} · {item.estado}{item.arqueo?` · Arqueo ${item.arqueo.numero_arqueo||item.arqueo.id} (${item.arqueo.estado})`:''}</small></span><b>{money(item.monto)}</b></div>)}</div>
     <div className={`mt-3 rounded-xl border p-3 text-sm ${mismatch?'border-amber-300 bg-amber-50 text-amber-800':'border-emerald-200 bg-emerald-50 text-emerald-800'}`}><b>Suma de aplicaciones: {money(applied)}</b>{mismatch&&<span className="block">Advertencia: no coincide con el monto de la operación.</span>}</div>
-  </div><div className="flex shrink-0 justify-end gap-2 border-t p-3">{!operation.legacy&&operation.estado==='ACTIVA'&&<Button variant="danger" onClick={()=>onAnnul(operation)}>Anular operación</Button>}<Button variant="secondary" onClick={onClose}>Cerrar</Button></div></div>;
+  </div><div className="flex shrink-0 justify-end gap-2 border-t p-3">{onAnnul&&!operation.legacy&&operation.estado==='ACTIVA'&&<Button variant="danger" onClick={()=>onAnnul(operation)}>Anular operación</Button>}<Button variant="secondary" onClick={onClose}>Cerrar</Button></div></div>;
 }
 
 function Detail({ concept, onClose, onEdit, onAnnul, onHistory, onOperation }) {
@@ -442,7 +448,7 @@ function Detail({ concept, onClose, onEdit, onAnnul, onHistory, onOperation }) {
                   <button title="Ver historial" className="rounded-lg border p-2 text-slate-600" onClick={() => onHistory(m)}>
                     <History size={16} />
                   </button>
-                  {m.estado !== 'Anulado' && !m.operacion_pago_id && (
+                  {onAnnul && m.estado !== 'Anulado' && !m.operacion_pago_id && (
                     <button title="Anular" className="rounded-lg border border-red-100 p-2 text-red-600" onClick={() => onAnnul(m)}>
                       <XCircle size={16} />
                     </button>
@@ -564,6 +570,17 @@ function PlanillaPagos({ section = 'planilla' }) {
     return () => window.clearTimeout(timeoutId);
   }, [filters.buscar]); // el buscador responde al escribir; los demás filtros se aplican con el botón
   useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [load]);
+  useEffect(() => {
     const linkedId = location.state?.conceptoCobroId;
     if (!linkedId || !data.items.length) return;
     const linked = data.items.find((item) => String(item.id) === String(linkedId));
@@ -604,7 +621,7 @@ function PlanillaPagos({ section = 'planilla' }) {
   const operationMode = mainView === 'recibos' || mainView === 'comprobantes' || (mainView === 'planilla' && tab === 'Anulados');
   const debtGroups = useMemo(() => {
     const groups=new Map();
-    for(const concept of data.items||[]){if(Number(concept.saldo_pendiente)<=0||!concept.historia_clinica_id)continue;const key=`${concept.paciente_id}:${concept.historia_clinica_id}`;const current=groups.get(key)||{concept,deuda:0};current.deuda+=Number(concept.saldo_pendiente);groups.set(key,current)}
+    for(const concept of data.items||[]){if(Number(concept.saldo_pendiente)<=0||!concept.historia_clinica_id)continue;const key=`${concept.paciente_id}:${concept.historia_clinica_id}`;const current=groups.get(key)||{concept,deuda:0,conceptos:[]};current.deuda+=Number(concept.saldo_pendiente);current.conceptos.push(concept);groups.set(key,current)}
     return [...groups.values()];
   },[data.items]);
   const openOperation = async (operationOrId) => {
@@ -855,7 +872,7 @@ function PlanillaPagos({ section = 'planilla' }) {
             </Button>
           </div>
         </div>
-        {!operationMode&&debtGroups.length>0&&<div className="grid gap-2 md:grid-cols-2">{debtGroups.map(({concept,deuda})=><div key={`${concept.paciente_id}:${concept.historia_clinica_id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3"><span><b>{concept.paciente?.nombres} {concept.paciente?.apellidos}</b><small className="block text-slate-600">Historia {concept.historia_clinica_id} · Deuda total: {money(deuda)}</small></span><Button variant="secondary" onClick={()=>setDebtPayment(concept)}>Pagar deuda</Button></div>)}</div>}
+        {!operationMode&&debtGroups.length>0&&<div className="grid gap-2 md:grid-cols-2">{debtGroups.map(({concept,deuda,conceptos})=><div key={`${concept.paciente_id}:${concept.historia_clinica_id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3"><span><b>{concept.paciente?.nombres} {concept.paciente?.apellidos}</b><small className="block text-slate-600">Historia {concept.historia_clinica_id} · Deuda total: {money(deuda)}</small></span><Button variant="secondary" onClick={()=>setDebtPayment({...concept,deuda_total:deuda,conceptos})}>Pagar deuda</Button></div>)}</div>}
         {loading ? (
           <div className="py-12 text-center text-slate-500">Cargando datos financieros reales...</div>
         ) : operationMode ? (
@@ -988,14 +1005,14 @@ function PlanillaPagos({ section = 'planilla' }) {
               setPayment({ concept: detail, movement: m });
               setDetail(null);
             }}
-            onAnnul={annul}
+            onAnnul={isAdmin ? annul : null}
             onHistory={showHistory}
             onOperation={openOperation}
           />
         )}
       </Modal>
       <Modal open={Boolean(operationDetail)} title="Detalle de operación de pago" subtitle="Recibo único, comprobante y aplicaciones contables." onClose={()=>setOperationDetail(null)} size="lg">
-        {operationDetail&&<OperationDetail operation={operationDetail} onClose={()=>setOperationDetail(null)} onAnnul={annulOperation}/>} 
+        {operationDetail&&<OperationDetail operation={operationDetail} onClose={()=>setOperationDetail(null)} onAnnul={isAdmin ? annulOperation : null}/>} 
       </Modal>
       <Modal open={Boolean(history)} title="Historial del pago" subtitle="Registro de auditoría inalterable." onClose={() => setHistory(null)} size="compact">
         <div className="grid gap-3">

@@ -397,6 +397,7 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
         <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           <Input
             compact
+            allowFinancial
             label="Metodo de pago"
             value={form.metodo_pago}
             onChange={(event) => updatePago({ metodo_pago: event.target.value })}
@@ -412,6 +413,7 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
           />
           <Input
             compact
+            allowFinancial
             label="Estado de pago"
             value={form.estado_pago}
             onChange={(event) => updatePago({ estado_pago: event.target.value })}
@@ -422,11 +424,11 @@ function SesionForm({ form, setForm, pacientes, historias, sesiones, programacio
               { value: 'Sin costo', label: 'Sin costo' }
             ]}
           />
-          <Input compact label="Monto de la sesion" type="number" min="0" step="0.01" value={form.estado_pago === 'Sin costo' ? 0 : form.monto_sesion} onChange={(event) => updatePago({ monto_sesion: event.target.value })} disabled={form.estado_pago === 'Sin costo'} />
-          <Input compact label="Monto pagado" type="number" min="0" step="0.01" value={montoPagado} onChange={(event) => updatePago({ monto_pagado: event.target.value })} disabled={form.estado_pago === 'Sin costo'} placeholder="0" />
-          <Input compact label="Saldo pendiente" type="number" min="0" step="0.01" value={saldoPendiente} readOnly />
-          <Input compact label="Observación del pago (opcional)" value={form.observacion_pago} onChange={(event) => update('observacion_pago', event.target.value.toLocaleUpperCase('es-BO'))} />
-          {form.estado_pago === 'Sin costo' && <Input compact label="Motivo de la sesión sin costo" value={form.motivo_sin_costo} onChange={(event) => update('motivo_sin_costo', event.target.value.toLocaleUpperCase('es-BO'))} placeholder="Cortesía, reposición, promoción u otro" required />}
+          <Input compact allowFinancial label="Monto de la sesion" type="number" min="0" step="0.01" value={form.estado_pago === 'Sin costo' ? 0 : form.monto_sesion} onChange={(event) => updatePago({ monto_sesion: event.target.value })} disabled={form.estado_pago === 'Sin costo'} />
+          <Input compact allowFinancial label="Monto pagado" type="number" min="0" step="0.01" value={montoPagado} onChange={(event) => updatePago({ monto_pagado: event.target.value })} disabled={form.estado_pago === 'Sin costo'} placeholder="0" />
+          <Input compact allowFinancial label="Saldo pendiente" type="number" min="0" step="0.01" value={saldoPendiente} readOnly />
+          <Input compact allowFinancial label="Observación del pago (opcional)" value={form.observacion_pago} onChange={(event) => update('observacion_pago', event.target.value.toLocaleUpperCase('es-BO'))} />
+          {form.estado_pago === 'Sin costo' && <Input compact allowFinancial label="Motivo de la sesión sin costo" value={form.motivo_sin_costo} onChange={(event) => update('motivo_sin_costo', event.target.value.toLocaleUpperCase('es-BO'))} placeholder="Cortesía, reposición, promoción u otro" required />}
         </div>
       </Section>}
 

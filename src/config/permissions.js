@@ -18,7 +18,7 @@ export const MODULE_PERMISSIONS = Object.freeze({
   informes: ['admin', 'personal'],
   actividadesPropias: ['admin', 'personal'],
   resumenDiarioClinico: ['admin', 'personal'],
-  finanzas: ['admin'],
+  finanzas: ['admin', 'personal'],
   usuarios: ['admin'],
   personalAdministracion: ['admin'],
   rolesPermisos: ['admin'],
@@ -108,7 +108,7 @@ export const ROLE_ACTION_PERMISSIONS = Object.freeze({
   },
   finanzas: {
     admin: allActions,
-    personal: []
+    personal: ['view', 'create', 'edit', 'print', 'export']
   },
   usuarios: {
     admin: allActions,
@@ -157,14 +157,14 @@ export const ROLE_PERMISSION_MATRIX = Object.freeze([
   { module: 'Evolutivos clínicos', permission: 'evolutivos', description: 'Consulta y trabajo clínico activo.' },
   { module: 'Citas y agenda', permission: 'agenda', description: 'Operación de agenda; eliminación histórica y configuración protegidas.' },
   { module: 'Solicitudes de recepción', permission: 'recepcionWhatsapp', description: 'Bandeja administrativa derivada desde WhatsApp.' },
-  { module: 'Sesiones diarias', permission: 'sesiones', description: 'Personal registra únicamente información clínica.' },
+  { module: 'Sesiones diarias', permission: 'sesiones', description: 'Personal registra información clínica y los pagos recibidos.' },
   { module: 'Sesiones semanales', permission: 'sesionesSemanales', description: 'Personal no recibe ni exporta montos, pagos o deudas.' },
   { module: 'Documentos clínicos', permission: 'documentosClinicos', description: 'Personal no recibe ni modifica datos financieros de fármacos.' },
   { module: 'Planillas de atención', permission: 'planillasAtencion', description: 'Trabajo clínico; anulación exclusiva del Administrador.' },
   { module: 'Informes médicos', permission: 'informes', description: 'Trabajo clínico; anulación exclusiva del Administrador.' },
   { module: 'Mis actividades', permission: 'actividadesPropias', description: 'Personal accede solo a su operación asignada.' },
   { module: 'Resumen diario', permission: 'resumenDiarioClinico', description: 'Personal recibe únicamente el resumen clínico y operativo.' },
-  { module: 'Control financiero', permission: 'finanzas', description: 'Pagos, deudas, recibos, comprobantes, arqueos y exportaciones.' },
+  { module: 'Control financiero', permission: 'finanzas', description: 'Administrador y Personal consultan y registran pagos; anulación y administración permanecen protegidas.' },
   { module: 'Usuarios y personal', permission: 'usuarios', description: 'Administración de cuentas, solicitudes y fichas laborales.' },
   { module: 'Roles y permisos', permission: 'rolesPermisos', description: 'Matriz informativa de la política aplicada en código.' },
   { module: 'Planillas de sueldos', permission: 'sueldos', description: 'Información laboral y salarial.' },

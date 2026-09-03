@@ -55,12 +55,12 @@ function SearchableSelect({ options, value, onChange, className, disabled, place
   </div>;
 }
 
-function Input({ label, multiline = false, options, searchable, compact = false, className = '', error = '', ...props }) {
+function Input({ label, multiline = false, options, searchable, compact = false, className = '', error = '', allowFinancial = false, ...props }) {
   const { isAdmin } = useAuth();
   const normalizedLabel = String(label || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const isFinancialField = /monto|saldo|pago|costo|precio|recibo|comprobante|^metodo$/.test(normalizedLabel);
   const isNameSelector = searchable ?? /paciente|profesional|doctor|responsable|personal/.test(normalizedLabel);
-  if (!isAdmin && isFinancialField) return null;
+  if (!isAdmin && isFinancialField && !allowFinancial) return null;
 
   const controlClass = `w-full rounded-lg bg-white px-3 text-sm text-[#334155] shadow-sm transition placeholder:text-[#94A3B8] ${
     error
