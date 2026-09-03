@@ -7,7 +7,7 @@ test('mantiene los cobros y agrega solamente las obligaciones no canceladas', ()
     detalle_cobros: [{ id: 7, paciente: 'PAGADO', monto: 100, deuda_actual: 0, metodo: 'QR', numero_recibo: 'REC-7', estado_deuda: 'Sin deuda' }],
     detalle_obligaciones: [
       { conceptoId: 7, paciente: 'PAGADO', montoPagado: 100, saldoPendiente: 0, estadoReporte: 'CANCELADO' },
-      { conceptoId: 8, paciente: 'SIN PAGO', montoPagado: 0, saldoPendiente: 70, metodosPago: [], recibos: [], estadoReporte: 'NO CANCELADO' },
+      { conceptoId: 8, paciente: 'SIN PAGO', hora: '16:25:00', montoPagado: 0, saldoPendiente: 70, metodosPago: [], recibos: [], estadoReporte: 'NO CANCELADO' },
       { conceptoId: 9, paciente: 'PARCIAL', montoPagado: 50, saldoPendiente: 50, estadoReporte: 'PENDIENTE' }
     ]
   });
@@ -19,6 +19,7 @@ test('mantiene los cobros y agrega solamente las obligaciones no canceladas', ()
   assert.equal(rows[1].displayMethod, '—');
   assert.equal(rows[1].displayReceipt, '—');
   assert.equal(rows[1].displayState, 'No cancelado');
+  assert.equal(rows[1].hora, '16:25:00');
 });
 
 test('tolera respuestas sin detalles', () => {

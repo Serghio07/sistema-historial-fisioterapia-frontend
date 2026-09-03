@@ -19,7 +19,7 @@ export const buildDailyCollectionRows = (data = {}) => {
     .map((row) => ({
       ...row,
       rowKey: `obligation-${row.conceptoId ?? row.concepto_id}`,
-      hora: '—',
+      hora: row.hora || '—',
       displayAmount: row.montoPagado ?? row.monto_pagado ?? 0,
       displayBalance: row.saldoPendiente ?? row.saldo_pendiente ?? 0,
       displayMethod: summarize(row.metodosPago ?? row.metodos_pago),
