@@ -64,3 +64,26 @@ test('totales financieros se leen del snapshot y no se reducen en frontend', () 
   assert.match(pdfSource, /snap\.diferencia_total/);
   assert.doesNotMatch(pdfSource, /movimientosSnapshot[^\n]*reduce/);
 });
+
+test('PDF agrega resumen autoritativo de cobros de pacientes antes de conciliación', () => {
+  const opening = pdfSource.indexOf("section('APERTURA Y SERVICIOS')");
+  const collections = pdfSource.indexOf("section('RESUMEN DE COBROS DE PACIENTES')");
+  const reconciliation = pdfSource.indexOf("section('CONCILIACIÓN')");
+  assert.ok(opening >= 0 && opening < collections && collections < reconciliation);
+  for (const label of ['Total Efectivo', 'Total QR', 'Total Transferencia', 'Total Tarjeta', 'Total Otros', 'TOTAL COBRADO']) {
+    assert.match(pdfSource, new RegExp(label));
+  }
+  assert.match(pdfSource, /arqueo\.resumenCobros\|\|\{\}/);
+  assert.match(pdfSource, /collections\.efectivo\?\?0/);
+  assert.match(pdfSource, /collections\.totalCobrado\?\?0/);
+  assert.doesNotMatch(pdfSource, /movimientosSnapshot[^\n]*reduce/);
+});
+
+test('bloque de cobros reserva espacio y conserva secciones históricas existentes', () => {
+  assert.match(pdfSource, /ensureSpace\(68\);\s*section\('RESUMEN DE COBROS DE PACIENTES'\)/);
+  assert.match(pdfSource, /section\('CONCILIACIÓN'\)/);
+  assert.match(pdfSource, /section\('RESUMEN DEL CIERRE'\)/);
+  assert.match(pdfSource, /Observación/);
+  assert.match(pdfSource, /Resultado/);
+  assert.match(pdfSource, /pdf\.addPage\(\)/);
+});

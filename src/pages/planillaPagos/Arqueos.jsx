@@ -41,6 +41,10 @@ const downloadPdf = async (arqueo) => {
   headerFields.forEach(([label,value],index)=>{const col=index%3,row=Math.floor(index/3),x=margin+col*60,top=y+row*13;pdf.setFontSize(6.5);pdf.setFont('helvetica','bold');pdf.setTextColor(100);pdf.text(label.toUpperCase(),x,top);pdf.setFontSize(8.5);pdf.setTextColor(30,41,59);pdf.text(pdf.splitTextToSize(String(value),55),x,top+4);});y+=29;
   section('APERTURA Y SERVICIOS');
   table(['Saldo inicial','Total esperado','Total cobrado','Total pendiente','Pacientes con deuda'],[[formatBs(snap.saldo_inicial_efectivo??arqueo.saldo_inicial_efectivo),formatBs(snap.total_esperado??arqueo.total_esperado),formatBs(snap.total_cobrado??arqueo.total_cobrado),formatBs(snap.total_pendiente??arqueo.total_pendiente),snap.pacientes_deuda??arqueo.pacientes_deuda??0]],[36,36,36,36,36],['center','center','center','center','center']);
+  ensureSpace(68);
+  section('RESUMEN DE COBROS DE PACIENTES');
+  const collections=arqueo.resumenCobros||{};
+  table(['Concepto','Importe'],[['Total Efectivo',formatBs(collections.efectivo??0)],['Total QR',formatBs(collections.qr??0)],['Total Transferencia',formatBs(collections.transferencia??0)],['Total Tarjeta',formatBs(collections.tarjeta??0)],['Total Otros',formatBs(collections.otro??0)],['TOTAL COBRADO',formatBs(collections.totalCobrado??0)]],[130,50],['left','right']);
   section('CONCILIACIÓN');
   const reconciliation=METHODS.map(method=>[method,formatBs(snap.sistemas?.[method]),formatBs(snap.confirmados?.[method]),formatBs(snap.diferencias?.[diffKeys[method]])]);reconciliation.push(['TOTAL',formatBs(snap.total_sistema),formatBs(snap.total_confirmado),formatBs(snap.diferencia_total)]);table(['Método','Sistema','Confirmado','Diferencia'],reconciliation,[54,42,42,42],['left','right','right','right']);
   section('EFECTIVO DETALLADO');
